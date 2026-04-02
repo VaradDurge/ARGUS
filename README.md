@@ -15,7 +15,7 @@ ARGUS catches this at the boundary between nodes, before it cascades.
 ## Installation
 
 ```bash
-pip install argus-langgraph
+pip install argus-agents
 ```
 
 From source:
