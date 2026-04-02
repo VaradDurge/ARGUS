@@ -48,3 +48,4 @@ __MACOSX/
 
 # Claude Code local settings
 .claude/
+CLAUDE.md
