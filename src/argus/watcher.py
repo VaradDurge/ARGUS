@@ -113,7 +113,8 @@ class RunSession:
         # determine status
         if exc is not None:
             status = "crashed"
-            exc_str = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+            tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            exc_str = f"{type(exc).__name__}: {exc}\n{tb}"
         else:
             status = "pass"
             exc_str = None
@@ -173,7 +174,7 @@ class RunSession:
         with self._lock:
             if self._completed:
                 return
-            self._completed = True
+            self._completed = True  # tentatively mark; reset on save failure below
 
         completed_at = datetime.now(timezone.utc).isoformat()
 
@@ -222,7 +223,13 @@ class RunSession:
             steps=list(self._events),
         )
 
-        save_run(record)
+        try:
+            save_run(record)
+        except Exception:
+            # Reset so force_finalize() can retry without re-raising here
+            # (re-raising would suppress the original pipeline exception in the patcher)
+            with self._lock:
+                self._completed = False
 
     def force_finalize(self) -> None:
         """Force finalization — call after app.invoke() returns if auto-finalize missed."""

@@ -31,9 +31,15 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
         return
 
     if app_module_str is None:
-        console.print(
-            f"\n  argus replay {run_id} {from_step} --app your_module:build_graph\n"
-        )
+        console.print()
+        hint = Text()
+        hint.append("  argus replay ", style="dim")
+        hint.append(run_id, style="italic dim")
+        hint.append(f" {from_step}", style="bold")
+        hint.append(" --app ", style="dim")
+        hint.append("module:factory_fn", style="italic dim")
+        console.print(hint)
+        console.print()
         return
 
     factory = _import_factory(app_module_str)
@@ -73,7 +79,7 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
     name_col   = max(len(s.node_name) for s in new_record.steps) + 2
 
     for step in new_record.steps:
-        number = f"Node {step.step_index + 1}"
+        number = str(step.step_index + 1)
         pad    = " " * (name_col - len(step.node_name))
         dur    = f"[italic dim]{step.duration_ms:.0f} ms[/italic dim]"
 
@@ -90,23 +96,26 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
             icon   = "[bold red]✗[/bold red]"
             label  = "[bold red]crashed[/bold red]"
 
-        console.print(f"  [dim]{number}[/dim]  {name}{pad}{dur}   {icon}  {label}")
-        console.print()
+        console.print(f"  [dim]{number:>2}[/dim]  {name}{pad}  {dur}   {icon}  {label}")
 
     console.print()
     console.print(Rule(style="dim"))
+    console.print()
 
     if new_record.overall_status == "clean":
         result = Text()
-        result.append("  ✓  clean  ", style="bold green")
-        result.append(new_run_id, style="italic dim")
+        result.append("  [bold green]●[/bold green]", end="")
+        result = Text.from_markup("  [bold green]●[/bold green]  ")
+        result.append("clean", style="bold green")
+        result.append(f"    {new_run_id}", style="dim")
     else:
-        result = Text()
-        result.append(f"  ✗  {new_record.overall_status}  ", style="bold red")
-        result.append(new_run_id, style="italic dim")
+        result = Text.from_markup("  [bold red]●[/bold red]  ")
+        result.append(new_record.overall_status, style="bold red")
+        result.append(f"    {new_run_id}", style="dim")
 
     console.print(result)
-    console.print(f"  [italic dim]run  argus show last  for full details[/italic dim]")
+    console.print()
+    console.print("  [dim]argus show last  for full details[/dim]")
     console.print()
 
 
@@ -152,17 +161,34 @@ def inspect_step(run_id: str, step_name: str) -> None:
         )
         return
 
-    console.print(
-        f"\n  [bold]{step_name}[/bold]  "
-        f"[italic dim]#{event.step_index}  {event.status}[/italic dim]\n"
-    )
-    console.print("  [dim]── input ──[/dim]")
+    status_style = {"pass": "green", "fail": "yellow", "crashed": "red"}.get(event.status, "dim")
+    console.print()
+    hdr = Text()
+    hdr.append(f"  {step_name}", style="bold")
+    hdr.append(f"  #{event.step_index + 1}", style="dim")
+    hdr.append(f"  ·  ", style="dim")
+    hdr.append(event.status, style=f"bold {status_style}")
+    console.print(hdr)
+    console.print()
+    console.print(Rule(style="dim"))
+    console.print()
+    console.print("  [dim]input[/dim]")
+    console.print()
     console.print_json(json.dumps(event.input_state, default=str, indent=2))
-    console.print("\n  [dim]── output ──[/dim]")
+    console.print()
+    console.print(Rule(style="dim"))
+    console.print()
+    console.print("  [dim]output[/dim]")
+    console.print()
     if event.output_dict is not None:
         console.print_json(json.dumps(event.output_dict, default=str, indent=2))
     else:
-        console.print("  [italic dim](no output — node crashed)[/italic dim]")
+        console.print("  [dim]no output — node crashed[/dim]")
     if event.inspection and event.inspection.severity != "ok":
-        console.print(f"\n  [dim]── inspection ──[/dim]")
-        console.print(f"  [italic]{event.inspection.message}[/italic]")
+        console.print()
+        console.print(Rule(style="dim"))
+        console.print()
+        console.print("  [dim]inspection[/dim]")
+        console.print()
+        console.print(f"  [italic dim]{event.inspection.message}[/italic dim]")
+    console.print()

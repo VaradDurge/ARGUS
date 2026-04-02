@@ -76,28 +76,30 @@ def test_all_required_fields_present_is_ok() -> None:
     assert result.missing_fields == []
 
 
-def test_empty_field_is_warning() -> None:
-    # grade is present but empty → warning
+def test_empty_required_field_is_silent_failure() -> None:
+    # grade is required and empty — treated as missing, not just a warning
     result = inspect_transition(
         current_node="grade_docs",
         output_dict={"documents": ["d1"], "grade": ""},
         merged_state={"documents": ["d1"], "grade": ""},
         successor_fns=[_successor_fn],
     )
-    assert not result.is_silent_failure  # empty is a warning, not critical
-    assert result.severity == "warning"
-    assert "grade" in result.empty_fields
+    assert result.is_silent_failure
+    assert result.severity == "critical"
+    assert "grade" in result.missing_fields
 
 
-def test_empty_list_is_warning() -> None:
+def test_empty_required_list_is_silent_failure() -> None:
+    # documents is required; empty list means nothing was produced
     result = inspect_transition(
         current_node="retrieve",
         output_dict={"documents": [], "grade": "ok"},
         merged_state={"documents": [], "grade": "ok"},
         successor_fns=[_successor_fn],
     )
-    assert result.severity == "warning"
-    assert "documents" in result.empty_fields
+    assert result.is_silent_failure
+    assert result.severity == "critical"
+    assert "documents" in result.missing_fields
 
 
 def test_type_mismatch_str_field_is_warning() -> None:

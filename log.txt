@@ -1,0 +1,372 @@
+================================================================================
+  ARGUS — Development Log
+  Agentic Realtime Guard and Unified Scope
+================================================================================
+
+--------------------------------------------------------------------------------
+  WHAT IS ARGUS
+--------------------------------------------------------------------------------
+
+ARGUS is a silent watcher for LangGraph multi-agent pipelines.
+It requires zero changes inside your agent functions — just 2 lines of setup.
+
+It detects:
+  - Silent failures   : a node runs without crashing but drops a required field,
+                        causing the next node to receive broken state silently.
+  - Crashes           : a node raises an unhandled exception mid-pipeline.
+  - Type mismatches   : a node returns a field with the wrong primitive type.
+  - Empty fields      : a node returns a field that is None, "", [], or {}.
+
+It also supports:
+  - Full state capture : every node's input and output is snapshotted to JSON.
+  - Step-level replay  : re-run from any saved step using a fixed graph factory.
+  - Local-first storage: everything saved under .argus/runs/ as JSON, no cloud.
+
+Integration:
+
+    from argus import ArgusWatcher
+
+    watcher = ArgusWatcher()
+    watcher.watch(graph)          # call before graph.compile()
+    app = graph.compile()
+    result = app.invoke(state)    # run normally, ARGUS captures everything
+
+
+--------------------------------------------------------------------------------
+  PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+
+ARGUS/
+├── src/argus/
+│   ├── __init__.py               exports ArgusWatcher
+│   ├── watcher.py                ArgusWatcher + RunSession (orchestration)
+│   ├── patcher.py                wraps every node with monitoring (sync + async)
+│   ├── inspector.py              silent failure detection via type introspection
+│   ├── replay.py                 ReplayEngine — loads saved state, re-runs
+│   ├── storage.py                save / load / list runs (.argus/runs/)
+│   ├── models.py                 RunRecord, NodeEvent, InspectionResult, FieldMismatch
+│   ├── cli/
+│   │   ├── main.py               Typer CLI entry point (argus command)
+│   │   ├── cmd_show.py           argus show last / argus list
+│   │   └── cmd_replay.py         argus replay / argus inspect
+│   └── utils/
+│       ├── ids.py                run ID generator (timestamp + hex)
+│       ├── serializer.py         safe_serialize / safe_deserialize
+│       └── type_introspection.py extract_fields, get_node_state_type
+│
+├── test_workflow/                4-agent demo pipeline for testing ARGUS
+│   ├── state.py                  PipelineState + per-node input TypedDicts
+│   ├── agents.py                 agent functions (buggy + fixed variants)
+│   ├── graph.py                  build_graph() / build_graph_fixed() factories
+│   └── run_silent_failure.py     run script (minimal pass/fail output)
+│
+├── tests/                        pytest test suite
+├── pyproject.toml                package config, deps, tool settings
+├── .gitignore
+├── CLAUDE.md
+└── README.md
+
+
+--------------------------------------------------------------------------------
+  HOW SILENT FAILURE DETECTION WORKS
+--------------------------------------------------------------------------------
+
+ARGUS reads the first-parameter type annotation of each node function.
+After a node runs it checks whether every required field of the SUCCESSOR's
+annotation is present in the merged state (input + output of the current node).
+
+Example:
+
+    def analysis_agent(state: AnalysisInput) -> dict:
+        return {
+            "analysis": "...",
+            "confidence_score": 0.87,
+            # "key_insights" missing — bug
+        }
+
+    class ValidationInput(TypedDict):
+        topic: str
+        analysis: str
+        key_insights: list[str]   # required
+        confidence_score: float
+
+After analysis_agent runs, ARGUS checks ValidationInput.
+"key_insights" is not in the merged state → silent_failure detected.
+
+Supported state types: TypedDict, Pydantic v1/v2, dataclasses.
+
+Note: LangGraph filters each node's input to its annotation fields via
+@functools.wraps copying __annotations__. This means per-node TypedDicts
+must include any passthrough fields (e.g. "topic") that downstream nodes
+need, even if the current node does not use them directly.
+
+
+--------------------------------------------------------------------------------
+  TEST WORKFLOW — 4-AGENT PIPELINE
+--------------------------------------------------------------------------------
+
+Pipeline:
+
+    research_agent → analysis_agent → validation_agent → report_agent
+
+  research_agent   : collects findings for a topic (research_results, metadata)
+  analysis_agent   : synthesises findings (analysis, key_insights, confidence_score)
+  validation_agent : checks completeness (validated, issues)
+  report_agent     : writes final report (final_report)
+
+Variants in agents.py:
+  analysis_agent_buggy  : drops "key_insights" — triggers silent failure
+  analysis_agent_fixed  : returns all required fields
+
+Variants in graph.py:
+  build_graph()          : uses analysis_agent_buggy  (the broken pipeline)
+  build_graph_fixed()    : uses analysis_agent_fixed  (the fixed pipeline)
+
+
+--------------------------------------------------------------------------------
+  SETUP
+--------------------------------------------------------------------------------
+
+# From the ARGUS repo root:
+
+python3 -m venv .venv
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate           # Windows
+
+pip install -e ".[dev]"
+
+
+--------------------------------------------------------------------------------
+  COMMANDS & SAMPLE OUTPUT
+--------------------------------------------------------------------------------
+
+────────────────────────────────────────────────────────────────────────────────
+  1. Run the buggy pipeline
+────────────────────────────────────────────────────────────────────────────────
+
+$ python -m test_workflow.run_silent_failure
+
+  research_agent        ✓  PASSED
+  analysis_agent        ✗  FAILED
+  validation_agent      ✗  FAILED
+  report_agent          ✓  PASSED
+
+  status   silent_failure
+  run  argus show last  for full details
+
+
+────────────────────────────────────────────────────────────────────────────────
+  2. Inspect the last run in detail
+────────────────────────────────────────────────────────────────────────────────
+
+$ argus show last
+
+  argus  20260402-040801-f36747  ·  2026-04-02  04:08  ·  2 ms
+  status   silent_failure
+
+────────────────────────────────────────────────────────────────────────────────
+
+  Node 1  research_agent    0 ms   ✓  pass
+
+  Node 2  analysis_agent    0 ms   ⚠  silent failure
+          └─  Field "key_insights" is missing
+          └─  validation_agent received bad state
+
+  Node 3  validation_agent  0 ms   ⚠  silent failure
+          └─  Field "key_insights" is missing
+          └─  report_agent received bad state
+          └─  Root cause: analysis_agent
+
+  Node 4  report_agent      0 ms   ✓  pass
+
+────────────────────────────────────────────────────────────────────────────────
+  root cause  analysis_agent  →  validation_agent
+
+
+────────────────────────────────────────────────────────────────────────────────
+  3. List all saved runs
+────────────────────────────────────────────────────────────────────────────────
+
+$ argus list
+
+  run id                      started              status            duration  steps
+ ─────────────────────────────────────────────────────────────────────────────────
+  20260402-040801-f36747      2026-04-02  04:08    silent_failure       2 ms      4
+  20260402-032027-8bd018      2026-04-02  03:20    silent_failure       3 ms      4
+  20260402-032023-b75cf4      2026-04-02  03:20    clean                2 ms      4
+
+
+────────────────────────────────────────────────────────────────────────────────
+  4. Inspect input/output state of a specific node
+────────────────────────────────────────────────────────────────────────────────
+
+$ argus inspect 20260402-040801-f36747 --step analysis_agent
+
+  analysis_agent  #1  fail
+
+  ── input ──
+  {
+    "topic": "quantum computing",
+    "research_results": [
+      "[Finding 1] quantum computing has shown significant momentum...",
+      "[Finding 2] Key technical challenges in quantum computing...",
+      "[Finding 3] Recent peer-reviewed breakthroughs...",
+      "[Finding 4] Cross-industry investment..."
+    ],
+    "metadata": {
+      "source_count": 4,
+      "search_depth": "comprehensive",
+      "topic": "quantum computing"
+    }
+  }
+
+  ── output ──
+  {
+    "analysis": "Across 4 research findings on 'quantum computing'...",
+    "confidence_score": 0.87
+  }
+
+  ── inspection ──
+  Missing required fields: key_insights
+
+
+────────────────────────────────────────────────────────────────────────────────
+  5. Fix the bug
+────────────────────────────────────────────────────────────────────────────────
+
+In test_workflow/agents.py, analysis_agent_buggy returns:
+
+    return {
+        "analysis": "...",
+        "confidence_score": 0.87,
+        # "key_insights" missing — this is the bug
+    }
+
+The fix — add the missing field:
+
+    return {
+        "analysis": "...",
+        "key_insights": ["insight one", "insight two", ...],
+        "confidence_score": 0.87,
+    }
+
+Or swap the agent in test_workflow/graph.py:
+
+    # change:
+    return _assemble(analysis_agent_buggy)
+    # to:
+    return _assemble(analysis_agent_fixed)
+
+
+────────────────────────────────────────────────────────────────────────────────
+  6. Replay from the failed node using the fixed graph
+────────────────────────────────────────────────────────────────────────────────
+
+$ argus replay 20260402-040801-f36747 analysis_agent --app test_workflow.graph:build_graph_fixed
+
+  argus replay  20260402-040801-f36747  ↺  from  analysis_agent
+
+────────────────────────────────────────────────────────────────────────────────
+
+  Node 1  research_agent    0 ms   ✓  pass
+
+  Node 2  analysis_agent    0 ms   ✓  pass
+
+  Node 3  validation_agent  0 ms   ✓  pass
+
+  Node 4  report_agent      0 ms   ✓  pass
+
+────────────────────────────────────────────────────────────────────────────────
+  ✓  clean  20260402-041256-6bc3ff
+  run  argus show last  for full details
+
+The replay:
+  1. Loads the saved input state of analysis_agent from the original run.
+  2. Calls build_graph_fixed() to get a fresh graph with the fixed agent.
+  3. Attaches a new ArgusWatcher and invokes app with the saved state.
+  4. Saves the replay run as a new entry in .argus/runs/.
+  5. The original run is preserved — both are stored for comparison.
+
+
+────────────────────────────────────────────────────────────────────────────────
+  7. Show the replay run
+────────────────────────────────────────────────────────────────────────────────
+
+$ argus show last
+
+  argus  20260402-041256-6bc3ff  ·  2026-04-02  04:12  ·  3 ms
+  status   clean
+  replay of  20260402-040801-f36747  from  analysis_agent
+
+────────────────────────────────────────────────────────────────────────────────
+
+  Node 1  research_agent    0 ms   ✓  pass
+
+  Node 2  analysis_agent    0 ms   ✓  pass
+
+  Node 3  validation_agent  0 ms   ✓  pass
+
+  Node 4  report_agent      0 ms   ✓  pass
+
+
+--------------------------------------------------------------------------------
+  DEPENDENCIES
+--------------------------------------------------------------------------------
+
+Runtime:
+  langgraph >= 0.2.0    LangGraph pipeline framework
+  typer     >= 0.12.0   CLI framework
+  rich      >= 13.0.0   Terminal formatting
+
+Dev:
+  pytest        >= 8.0.0
+  pytest-cov    >= 5.0.0
+  ruff          >= 0.4.0
+  mypy          >= 1.10.0
+
+
+--------------------------------------------------------------------------------
+  STORAGE FORMAT
+--------------------------------------------------------------------------------
+
+Every run is saved as .argus/runs/<run-id>.json with the structure:
+
+  {
+    "run_id":             "20260402-040801-f36747",
+    "argus_version":      "0.1.0",
+    "started_at":         "2026-04-02T04:08:01.123Z",
+    "completed_at":       "2026-04-02T04:08:01.125Z",
+    "duration_ms":        2.1,
+    "overall_status":     "silent_failure",   // clean | silent_failure | crashed
+    "first_failure_step": "analysis_agent",
+    "root_cause_chain":   ["analysis_agent", "validation_agent"],
+    "graph_node_names":   ["research_agent", "analysis_agent", ...],
+    "graph_edge_map":     {"research_agent": ["analysis_agent"], ...},
+    "initial_state":      { ... },
+    "parent_run_id":      null,               // set on replay runs
+    "replay_from_step":   null,               // set on replay runs
+    "steps": [
+      {
+        "step_index":    1,
+        "node_name":     "analysis_agent",
+        "status":        "fail",              // pass | fail | crashed
+        "input_state":   { ... },
+        "output_dict":   { ... },
+        "duration_ms":   0.3,
+        "timestamp_utc": "2026-04-02T04:08:01.124Z",
+        "exception":     null,
+        "inspection": {
+          "is_silent_failure": true,
+          "missing_fields":    ["key_insights"],
+          "empty_fields":      [],
+          "type_mismatches":   [],
+          "severity":          "critical",
+          "message":           "Missing required fields: key_insights"
+        }
+      },
+      ...
+    ]
+  }
+
+
+================================================================================

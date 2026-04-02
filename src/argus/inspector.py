@@ -106,9 +106,12 @@ def _check_fields(
 
         value = actual_state[field_name]
 
-        # emptiness check
+        # emptiness check — required empty == missing; optional empty == warning
         if _is_empty(value):
-            empty.append(field_name)
+            if required:
+                missing.append(field_name)
+            else:
+                empty.append(field_name)
             continue
 
         # lightweight type coherence check (primitives only)

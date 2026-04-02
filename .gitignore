@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *.pyd
 
+
 # Distribution / packaging
 dist/
 build/
@@ -33,6 +34,10 @@ coverage.xml
 # ARGUS runtime data (saved pipeline runs)
 .argus/
 
+# Local demo / exercise pipelines (not part of src/argus)
+test_workflow/
+real_world_demo/
+
 # macOS
 .DS_Store
 .localized
@@ -49,3 +54,4 @@ __MACOSX/
 # Claude Code local settings
 .claude/
 CLAUDE.md
+
