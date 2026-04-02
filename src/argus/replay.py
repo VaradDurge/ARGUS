@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from argus.storage import load_run, save_run
-from argus.utils.ids import generate_run_id
+from argus.storage import load_run
 from argus.utils.serializer import safe_deserialize
 from argus.watcher import ArgusWatcher
 

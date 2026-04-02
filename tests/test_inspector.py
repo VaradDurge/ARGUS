@@ -6,7 +6,6 @@ from typing import TypedDict
 from argus.inspector import build_root_cause_chain, inspect_transition
 from argus.models import InspectionResult, NodeEvent
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 class _GradeState(TypedDict):

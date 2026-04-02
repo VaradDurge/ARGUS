@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from argus.models import InspectionResult, FieldMismatch, NodeEvent, RunRecord
+from argus.models import FieldMismatch, InspectionResult, NodeEvent, RunRecord
 
 _ARGUS_DIR = ".argus"
 _RUNS_DIR = "runs"
@@ -85,7 +85,8 @@ def _resolve_run_path(run_id: str, runs_dir: Path) -> Path:
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
-        raise ValueError(f"Ambiguous run-id prefix '{run_id}' matches: {[f.stem for f in matches]}")
+        names = [f.stem for f in matches]
+        raise ValueError(f"Ambiguous run-id prefix '{run_id}' matches: {names}")
     raise FileNotFoundError(f"No run found for id '{run_id}' in {runs_dir}")
 
 

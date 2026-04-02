@@ -62,7 +62,6 @@ def _make_sync_wrapper(node_name: str, original_fn: Any, session: RunSession) ->
         input_snap = session.capture_state(state)
         session.on_node_start(node_name, input_snap)
         t0 = time.perf_counter()
-        exc_info = None
         try:
             output = original_fn(state)
             duration = (time.perf_counter() - t0) * 1000

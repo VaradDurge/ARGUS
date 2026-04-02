@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from argus.patcher import extract_edge_map, patch_graph
-
 
 # ── fake graph helpers ────────────────────────────────────────────────────────
 

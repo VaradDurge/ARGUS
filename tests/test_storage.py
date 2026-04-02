@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -11,7 +10,9 @@ from argus.models import InspectionResult, NodeEvent, RunRecord
 from argus.storage import last_run_id, list_runs, load_run, save_run
 
 
-def _make_record(run_id: str = "20260401-000000-aaa111", overall_status: str = "clean") -> RunRecord:
+def _make_record(
+    run_id: str = "20260401-000000-aaa111", overall_status: str = "clean",
+) -> RunRecord:
     event = NodeEvent(
         step_index=0,
         node_name="node_a",

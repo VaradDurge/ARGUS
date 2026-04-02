@@ -152,7 +152,10 @@ def _build_message(
     if empty:
         parts.append(f"Empty fields: {', '.join(empty)}")
     if mismatches:
-        mismatch_strs = [f"'{m.field_name}' (expected {m.expected_type}, got {m.actual_type})" for m in mismatches]
+        mismatch_strs = [
+            f"'{m.field_name}' (expected {m.expected_type}, got {m.actual_type})"
+            for m in mismatches
+        ]
         parts.append(f"Type mismatches: {', '.join(mismatch_strs)}")
     if not parts:
         return "All checks passed"
