@@ -14,6 +14,8 @@ ARGUS catches this at the boundary between nodes, before it cascades.
 
 ## Installation
 
+![ARGUS Interface](https://github.com/VaradDurge/ARGUS/blob/master/assets/ARGUS_ui.png)
+
 ```bash
 pip install argus-agents
 ```
