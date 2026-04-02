@@ -1,16 +1,14 @@
 # ARGUS
 
-**Agentic Realtime Guard and Unified Scope**
-
-A non-invasive monitoring library for LangGraph pipelines. Drop it in with two lines of code — ARGUS captures every node's input/output, detects silent failures before they propagate, and lets you replay any failed run from the exact step it broke.
+A monitoring library for LangGraph pipelines. Two lines to integrate — ARGUS captures node inputs/outputs, catches silent failures before they propagate, and lets you replay any run from the step it broke.
 
 ---
 
-## The Problem
+## The problem
 
-LangGraph pipelines fail silently. A node runs, returns an incomplete dict, and the next node crashes on a missing key — or worse, produces garbage output with no error. By the time you notice, the state has been overwritten and the original failure is gone.
+LangGraph pipelines fail silently. A node runs, returns an incomplete dict, and the next node either crashes on a missing key or produces garbage with no error. By the time you notice, the state has been overwritten and the original failure is gone.
 
-ARGUS catches this class of bug at the boundary between nodes, before it cascades.
+ARGUS catches this at the boundary between nodes, before it cascades.
 
 ---
 
@@ -20,7 +18,7 @@ ARGUS catches this class of bug at the boundary between nodes, before it cascade
 pip install argus-langgraph
 ```
 
-Or from source:
+From source:
 
 ```bash
 git clone https://github.com/VaradDurge/ARGUS.git
@@ -28,11 +26,11 @@ cd ARGUS
 pip install -e ".[dev]"
 ```
 
-**Requirements:** Python 3.9+, LangGraph 0.2+
+Requires Python 3.9+ and LangGraph 0.2+.
 
 ---
 
-## Integration (2 lines)
+## Usage
 
 ```python
 from argus import ArgusWatcher
@@ -43,37 +41,33 @@ graph.add_node("fetch", fetch_node)
 graph.add_node("analyze", analyze_node)
 graph.add_edge("fetch", "analyze")
 
-# --- add these two lines ---
 watcher = ArgusWatcher()
-watcher.watch(graph)           # call before compile()
-# ---------------------------
+watcher.watch(graph)  # before compile()
 
 app = graph.compile()
-result = app.invoke(initial_state)   # runs normally; ARGUS captures everything
+result = app.invoke(initial_state)
 ```
 
-That's it. No decorators, no middleware, no changes to your node functions.
+No decorators, no changes to your node functions.
 
 ---
 
-## How It Works
+## How it works
 
-ARGUS wraps each node function at the graph level (not the function level), so your code stays untouched. After every node:
+ARGUS patches node functions at the graph level before `compile()`. After each node executes, it:
 
-1. **Captures** the full input and output state as a JSON snapshot
-2. **Inspects** the output against what the next node's type annotation expects
-3. **Flags** missing required fields (`silent_failure`), empty fields, and primitive type mismatches
-4. **Writes** a run record to `.argus/runs/<run-id>.json`
+- Captures the full input and output state as a JSON snapshot
+- Checks the output against what the next node's type annotation expects
+- Flags missing required fields, empty fields, and primitive type mismatches
+- Writes the run record to `.argus/runs/<run-id>.json`
 
-Detection is driven by the type annotations on successor node functions — TypedDict and Pydantic models both work out of the box. No extra configuration needed.
+Detection is driven by the successor node's type annotations. TypedDict and Pydantic both work.
 
 ---
 
 ## Features
 
-### Silent Failure Detection
-
-If a node forgets to populate a field that the next node requires, ARGUS flags it immediately after that node runs — before the next node ever executes.
+**Silent failure detection** — if a node forgets to populate a field that the next node requires, ARGUS flags it right after that node runs:
 
 ```
 overall_status: silent_failure
@@ -81,62 +75,35 @@ first_failure_step: fetch_agent
 root_cause_chain: ['fetch_agent', 'analyze_agent']
 ```
 
-### Per-Node State Snapshots
+**Per-node snapshots** — every run records input state, output dict, duration, timestamp, and full traceback on crash.
 
-Every run records:
-- Input state entering each node
-- Output dict returned by each node
-- Execution duration in milliseconds
-- UTC timestamp
-- Full exception traceback (if crashed)
-- Inspection result: missing fields, empty fields, type mismatches
+**Root cause chaining** — when multiple nodes fail in sequence, ARGUS walks the event chain back to where it started.
 
-### Crash Capture
-
-Unhandled exceptions inside nodes are caught, recorded with a full traceback, and the run is finalized — so you can inspect what the state looked like right before the crash.
-
-### Root Cause Chaining
-
-When multiple nodes fail in sequence, ARGUS walks backward through the event chain to identify where the failure originated.
-
-### Step-Level Replay
-
-Re-run a pipeline from any saved step using the exact input state that was captured at that point:
+**Step-level replay** — re-run from any saved step with the exact input state that was captured:
 
 ```bash
 argus replay <run-id> analyze_agent --app my_module:build_graph
 ```
 
-`build_graph` should be a zero-argument function that returns an uncompiled `StateGraph`. ARGUS re-instruments it automatically and saves the replay as a new run.
+`build_graph` is a zero-argument function that returns an uncompiled `StateGraph`. ARGUS re-instruments it and saves the replay as a new run.
 
-### Local-First Storage
-
-Runs are stored as plain JSON under `.argus/runs/`. No database, no cloud, no external dependencies beyond LangGraph itself.
+**Local storage** — runs are plain JSON under `.argus/runs/`. No database, no cloud.
 
 ---
 
 ## CLI
 
 ```bash
-# List all recorded runs (reverse chronological)
-argus list
-
-# Show the most recent run
-argus show last
-
-# Show a specific run by full or 8-char prefix ID
-argus show run a1b2c3d4
-
-# Dump full input/output snapshot for a specific node
-argus inspect a1b2c3d4 --step analyze_agent
-
-# Replay a run from a specific node
+argus list                                            # all runs, newest first
+argus show last                                       # most recent run
+argus show run a1b2c3d4                               # by full or 8-char prefix ID
+argus inspect a1b2c3d4 --step analyze_agent           # full snapshot for a node
 argus replay a1b2c3d4 analyze_agent --app my_module:build_graph
 ```
 
 ---
 
-## Example Output
+## Example output
 
 ```
 Run ID:  a1b2c3d4e5f6...
@@ -151,21 +118,6 @@ Started: 2026-04-02T10:23:11Z   Duration: 842ms
 
 Root cause chain: research_agent → analysis_agent
 ```
-
----
-
-## What ARGUS Does Not Do
-
-- Does not modify your node functions
-- Does not require changes to your state schema
-- Does not send data outside your local machine
-- Does not add latency beyond snapshot serialization (~microseconds per node)
-
----
-
-## Next Release — `argus diff`
-
-The next release introduces **argus diff**: compare a node's output across two runs side-by-side. See exactly which fields changed, what values shifted, and whether a fix introduced any regressions — useful when iterating on prompts or agent logic where output is non-deterministic.
 
 ---
 
