@@ -4,7 +4,7 @@ A monitoring library for LangGraph pipelines. Two lines to integrate — ARGUS c
 
 ---
 
-## The problem
+## 📕The problem
 
 LangGraph pipelines fail silently. A node runs, returns an incomplete dict, and the next node either crashes on a missing key or produces garbage with no error. By the time you notice, the state has been overwritten and the original failure is gone.
 
@@ -67,7 +67,7 @@ Detection is driven by the successor node's type annotations. TypedDict and Pyda
 
 ## Features
 
-**Silent failure detection** — if a node forgets to populate a field that the next node requires, ARGUS flags it right after that node runs:
+**Silent failure detection👀** — if a node forgets to populate a field that the next node requires, ARGUS flags it right after that node runs:
 
 ```
 overall_status: silent_failure
@@ -75,11 +75,11 @@ first_failure_step: fetch_agent
 root_cause_chain: ['fetch_agent', 'analyze_agent']
 ```
 
-**Per-node snapshots** — every run records input state, output dict, duration, timestamp, and full traceback on crash.
+**Per-node snapshots📸** — every run records input state, output dict, duration, timestamp, and full traceback on crash.
 
-**Root cause chaining** — when multiple nodes fail in sequence, ARGUS walks the event chain back to where it started.
+**Root cause chaining⛓️** — when multiple nodes fail in sequence, ARGUS walks the event chain back to where it started.
 
-**Step-level replay** — re-run from any saved step with the exact input state that was captured:
+**Step-level replay▶️** — re-run from any saved step with the exact input state that was captured:
 
 ```bash
 argus replay <run-id> analyze_agent --app my_module:build_graph
