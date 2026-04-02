@@ -58,6 +58,7 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+ignore = ["UP045"]  # str | None syntax requires Python 3.10+; we support 3.9
 
 [tool.mypy]
 strict = true

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
@@ -121,7 +121,7 @@ def cmd_replay(
     run_id: Annotated[str, typer.Argument(help="Run ID or 8-char prefix to replay.")],
     from_step: Annotated[str, typer.Argument(help="Node name to replay from.")],
     app: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(
             help="'module.path:factory_fn' — zero-arg callable returning a StateGraph.",
         ),
