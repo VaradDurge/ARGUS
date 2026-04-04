@@ -52,8 +52,51 @@ class _FakeSession:
         output_snap: dict | None,
         duration_ms: float,
         exc: Exception | None,
+        is_interrupt: bool = False,
     ) -> None:
         self.ended.append(node_name)
+
+    def wrap(self, node_name: str, fn: Any) -> Any:
+        """Minimal wrap: delegates to the same wrapper logic as before."""
+        import functools, time
+
+        session = self
+
+        @functools.wraps(fn)
+        def _wrapped(state: Any) -> Any:
+            input_snap = session.capture_state(state)
+            session.on_node_start(node_name, input_snap)
+            t0 = time.perf_counter()
+            try:
+                output = fn(state)
+                duration = (time.perf_counter() - t0) * 1000
+                output_snap = session.capture_output(output)
+                session.on_node_end(node_name, input_snap, output_snap, duration, exc=None)
+                return output
+            except Exception as exc:
+                duration = (time.perf_counter() - t0) * 1000
+                session.on_node_end(node_name, input_snap, None, duration, exc=exc)
+                raise
+
+        import asyncio as _asyncio
+        if _asyncio.iscoroutinefunction(fn):
+            @functools.wraps(fn)
+            async def _async_wrapped(state: Any) -> Any:
+                input_snap = session.capture_state(state)
+                session.on_node_start(node_name, input_snap)
+                t0 = time.perf_counter()
+                try:
+                    output = await fn(state)
+                    duration = (time.perf_counter() - t0) * 1000
+                    output_snap = session.capture_output(output)
+                    session.on_node_end(node_name, input_snap, output_snap, duration, exc=None)
+                    return output
+                except Exception as exc:
+                    duration = (time.perf_counter() - t0) * 1000
+                    session.on_node_end(node_name, input_snap, None, duration, exc=exc)
+                    raise
+            return _async_wrapped
+        return _wrapped
 
 
 # ── patch_graph tests ─────────────────────────────────────────────────────────

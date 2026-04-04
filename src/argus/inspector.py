@@ -163,8 +163,14 @@ def _build_message(
 
 
 def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
-    """Walk backward through NodeEvents to find where a failure first originated."""
-    chain = []
+    """Walk backward through NodeEvents to find where a failure first originated.
+
+    Each node name appears at most once in the result (deduplicated), preserving
+    chronological order of first occurrence. This handles cyclic graphs where the
+    same node may run multiple times across iterations.
+    """
+    chain: list[str] = []
+    seen_nodes: set[str] = set()
     seen_bad_fields: set[str] = set()
 
     for event in reversed(steps_so_far):
@@ -175,7 +181,9 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
             continue
         bad_fields = set(insp.missing_fields + insp.empty_fields)
         if bad_fields or seen_bad_fields.intersection(bad_fields) or insp.is_silent_failure:
-            chain.append(event.node_name)
+            if event.node_name not in seen_nodes:
+                chain.append(event.node_name)
+                seen_nodes.add(event.node_name)
             seen_bad_fields.update(bad_fields)
 
     chain.reverse()

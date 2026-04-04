@@ -55,6 +55,11 @@ class ReplayEngine:
         if hasattr(graph, "nodes") and not hasattr(graph, "invoke"):
             watcher = ArgusWatcher(max_field_size=self._max_field_size)
             watcher.watch(graph)
+            # link this replay run back to the original
+            if watcher._session is not None:
+                watcher._session.parent_run_id = run_id
+                watcher._session.replay_from_step = from_node
+            new_run_id = watcher._session.run_id if watcher._session else None
             app = graph.compile()
         elif hasattr(graph, "invoke"):
             # factory returned an already-compiled app — wrap with a new watcher
@@ -64,11 +69,17 @@ class ReplayEngine:
                 "For better replay accuracy, return a StateGraph (before compile)."
             )
             app = graph
+            watcher = None
+            new_run_id = None
         else:
             raise ValueError(
                 "app_factory must return a LangGraph StateGraph or compiled CompiledGraph."
             )
 
-        result = app.invoke(state)
+        app.invoke(state)
 
-        return result
+        # finalize — handles both linear and cyclic graphs
+        if watcher is not None:
+            watcher.finalize()
+
+        return new_run_id

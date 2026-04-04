@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from argus.models import FieldMismatch, InspectionResult, NodeEvent, RunRecord
+from argus.models import FieldMismatch, InspectionResult, NodeEvent, RunRecord, ValidatorResult
 
 _ARGUS_DIR = ".argus"
 _RUNS_DIR = "runs"
@@ -107,6 +107,10 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         steps=steps,
         parent_run_id=data.get("parent_run_id"),
         replay_from_step=data.get("replay_from_step"),
+        is_cyclic=data.get("is_cyclic", False),
+        subgraph_run_ids=data.get("subgraph_run_ids", []),
+        interrupted=data.get("interrupted", False),
+        interrupt_node=data.get("interrupt_node"),
     )
 
 
@@ -125,6 +129,9 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
             severity=insp_data.get("severity", "ok"),
             message=insp_data.get("message", ""),
         )
+    validator_results = [
+        ValidatorResult(**v) for v in data.get("validator_results", [])
+    ]
     return NodeEvent(
         step_index=data.get("step_index", 0),
         node_name=data.get("node_name", ""),
@@ -135,4 +142,8 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
         timestamp_utc=data.get("timestamp_utc", ""),
         exception=data.get("exception"),
         inspection=inspection,
+        attempt_index=data.get("attempt_index", 0),
+        validator_results=validator_results,
+        is_subgraph_entry=data.get("is_subgraph_entry", False),
+        subgraph_run_id=data.get("subgraph_run_id"),
     )

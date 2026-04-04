@@ -17,6 +17,8 @@ _STATUS_STYLE = {
     "clean":          "bold green",
     "silent_failure": "bold yellow",
     "crashed":        "bold red",
+    "semantic_fail":  "bold magenta",
+    "interrupted":    "bold yellow",
 }
 
 
@@ -41,6 +43,8 @@ _STATUS_DOT = {
     "clean":          "[bold green]●[/bold green]",
     "silent_failure": "[bold yellow]●[/bold yellow]",
     "crashed":        "[bold red]●[/bold red]",
+    "semantic_fail":  "[bold magenta]●[/bold magenta]",
+    "interrupted":    "[bold yellow]⏸[/bold yellow]",
 }
 
 
@@ -150,6 +154,12 @@ def _print_node(event: NodeEvent, name_col: int, record: RunRecord) -> None:
     elif event.status == "fail":
         icon   = "[bold yellow]⚠[/bold yellow]"
         label  = "[bold yellow]silent failure[/bold yellow]"
+    elif event.status == "semantic_fail":
+        icon   = "[bold magenta]⊗[/bold magenta]"
+        label  = "[bold magenta]semantic fail[/bold magenta]"
+    elif event.status == "interrupted":
+        icon   = "[bold yellow]⏸[/bold yellow]"
+        label  = "[bold yellow]interrupted[/bold yellow]"
     else:
         icon   = "[bold red]✗[/bold red]"
         label  = "[bold red]crashed[/bold red]"
@@ -162,7 +172,35 @@ def _print_node(event: NodeEvent, name_col: int, record: RunRecord) -> None:
     console.print(f"  [dim]{number:>2}[/dim]  {name}{pad}  {dur}   {icon}  {label}")
 
     # ── Detail lines ───────────────────────────────────────────────────────
+    if event.status == "interrupted":
+        console.print(
+            f"  {indent}[dim]└─[/dim]  "
+            "[italic dim]execution paused — awaiting human approval[/italic dim]"
+        )
+        console.print()
+        return
+
+    if event.status == "semantic_fail":
+        for vr in event.validator_results:
+            if not vr.is_valid:
+                console.print(
+                    f"  {indent}[dim]└─[/dim]  "
+                    f"[bold magenta]{vr.validator_name}[/bold magenta]"
+                    f"[italic]  {vr.message}[/italic]"
+                )
+        console.print()
+        return
+
     if event.status == "pass" and not has_warnings:
+        # Still show validator results if any (informational)
+        passing = [vr for vr in event.validator_results if vr.is_valid]
+        if passing and event.validator_results:
+            for vr in passing:
+                console.print(
+                    f"  {indent}[dim]└─[/dim]  "
+                    f"[dim green]✓ {vr.validator_name}[/dim green]"
+                )
+            console.print()
         return
 
     if event.status == "pass" and has_warnings:
