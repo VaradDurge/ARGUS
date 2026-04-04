@@ -41,6 +41,7 @@ coverage.xml
 # Local demo / exercise pipelines (not part of src/argus)
 test_workflow/
 real_world_demo/
+ultimatum/
 
 # macOS
 .DS_Store
