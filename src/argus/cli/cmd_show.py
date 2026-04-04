@@ -369,7 +369,9 @@ def _print_cycle_group(
     console.print()
 
 
-def _print_node(event: NodeEvent, name_col: int, record: RunRecord, display_index: int | None = None) -> None:
+def _print_node(
+    event: NodeEvent, name_col: int, record: RunRecord, display_index: int | None = None
+) -> None:
     insp   = event.inspection
     number = str((display_index if display_index is not None else event.step_index) + 1)
     # indent for └─ lines aligns under the node name
