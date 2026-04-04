@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
@@ -84,6 +86,44 @@ def show_list() -> None:
     console.print()
 
 
+def _segment_events(
+    events: list[NodeEvent],
+) -> list[tuple[str, object]]:
+    """Split events into normal segments and cycle groups.
+
+    Returns a list of:
+        ("normal", [NodeEvent, ...])
+        ("cycle",  [[iter0_events], [iter1_events], ...])
+    """
+    counts = Counter(e.node_name for e in events)
+    cyclic_names = {name for name, c in counts.items() if c > 1}
+
+    if not cyclic_names:
+        return [("normal", events)]
+
+    # Find the contiguous index range that contains all cyclic events
+    cycle_indices = [i for i, e in enumerate(events) if e.node_name in cyclic_names]
+    cycle_start = cycle_indices[0]
+    cycle_end = cycle_indices[-1] + 1
+
+    segments: list[tuple[str, object]] = []
+    if cycle_start > 0:
+        segments.append(("normal", events[:cycle_start]))
+
+    # Group cyclic block into iterations by attempt_index
+    cycle_block = events[cycle_start:cycle_end]
+    iterations: dict[int, list[NodeEvent]] = {}
+    for e in cycle_block:
+        iterations.setdefault(e.attempt_index, []).append(e)
+    sorted_iters = [iterations[k] for k in sorted(iterations.keys())]
+    segments.append(("cycle", sorted_iters))
+
+    if cycle_end < len(events):
+        segments.append(("normal", events[cycle_end:]))
+
+    return segments
+
+
 def _print_run(record: RunRecord) -> None:
     dur     = f"{record.duration_ms:.0f} ms" if record.duration_ms is not None else "—"
     started = (record.started_at or "")[:16].replace("T", "  ")
@@ -113,12 +153,16 @@ def _print_run(record: RunRecord) -> None:
     console.print(Rule(style="dim"))
     console.print()
 
-    # ── Node list ──────────────────────────────────────────────────────────
-    # Pre-compute name column width for alignment
+    # ── Node list (with cycle grouping) ────────────────────────────────────
     name_col = max(len(e.node_name) for e in record.steps) + 2
+    segments = _segment_events(record.steps)
 
-    for event in record.steps:
-        _print_node(event, name_col, record)
+    for seg_type, seg_data in segments:
+        if seg_type == "normal":
+            for event in seg_data:  # type: ignore[union-attr]
+                _print_node(event, name_col, record)
+        else:
+            _print_cycle_group(seg_data, name_col, record)  # type: ignore[arg-type]
 
     # ── Root cause ─────────────────────────────────────────────────────────
     if record.root_cause_chain:
@@ -130,6 +174,87 @@ def _print_run(record: RunRecord) -> None:
         rc.append(chain, style="bold red")
         console.print(rc)
 
+    console.print()
+
+
+def _print_cycle_group(
+    iterations: list[list[NodeEvent]],
+    name_col: int,
+    record: RunRecord,
+) -> None:
+    """Render a cycle group as a labelled box with per-iteration sections."""
+    n_iters = len(iterations)
+    # Node names in the cycle (from first iteration, in order)
+    cycle_node_names = " → ".join(e.node_name for e in iterations[0])
+
+    # Build inner content as a single string for Panel
+    inner_lines: list[str] = []
+    for idx, iter_events in enumerate(iterations):
+        # Iteration header
+        iter_label = f"[dim cyan]iteration {idx + 1}[/dim cyan]"
+        if idx > 0:
+            inner_lines.append(f"  [dim]{'─' * 48}[/dim]")
+        inner_lines.append(f"  {iter_label}")
+        inner_lines.append("")
+
+        for event in iter_events:
+            # Build the same compact line as _print_node but without outer indent
+            status = event.status
+            has_warnings = (
+                status == "pass"
+                and event.inspection is not None
+                and (event.inspection.empty_fields or event.inspection.type_mismatches)
+            )
+            if status == "pass" and has_warnings:
+                icon  = "[bold yellow]~[/bold yellow]"
+                label = "[bold green]pass[/bold green] [dim yellow](warnings)[/dim yellow]"
+            elif status == "pass":
+                icon  = "[bold green]✓[/bold green]"
+                label = "[bold green]pass[/bold green]"
+            elif status == "fail":
+                icon  = "[bold yellow]⚠[/bold yellow]"
+                label = "[bold yellow]silent failure[/bold yellow]"
+            elif status == "semantic_fail":
+                icon  = "[bold magenta]⊗[/bold magenta]"
+                label = "[bold magenta]semantic fail[/bold magenta]"
+            elif status == "interrupted":
+                icon  = "[bold yellow]⏸[/bold yellow]"
+                label = "[bold yellow]interrupted[/bold yellow]"
+            else:
+                icon  = "[bold red]✗[/bold red]"
+                label = "[bold red]crashed[/bold red]"
+
+            pad = " " * (name_col - len(event.node_name))
+            dur = f"[italic dim]{event.duration_ms:.0f} ms[/italic dim]"
+            inner_lines.append(
+                f"     [bold]{event.node_name}[/bold]{pad}  {dur}   {icon}  {label}"
+            )
+            # Validator results
+            for vr in event.validator_results:
+                vicon = (
+                    "[dim green]✓[/dim green]"
+                    if vr.is_valid
+                    else "[bold magenta]⊗[/bold magenta]"
+                )
+                inner_lines.append(
+                    f"       [dim]└─[/dim]  {vicon} [dim]{vr.validator_name}[/dim]"
+                )
+        inner_lines.append("")
+
+    inner_text = "\n".join(inner_lines)
+    title = (
+        f"[bold cyan]↩ cycle[/bold cyan]  "
+        f"[dim]{cycle_node_names}[/dim]  "
+        f"[bold cyan]×{n_iters}[/bold cyan]"
+    )
+    panel = Panel(
+        inner_text,
+        title=title,
+        title_align="left",
+        border_style="cyan dim",
+        padding=(0, 1),
+    )
+    console.print(panel)
     console.print()
 
 
