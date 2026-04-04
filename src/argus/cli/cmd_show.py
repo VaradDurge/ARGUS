@@ -13,6 +13,21 @@ from rich.text import Text
 from argus.models import NodeEvent, RunRecord
 from argus.storage import last_run_id, list_runs, load_run
 
+
+def _load_chain(leaf: RunRecord) -> list[RunRecord]:
+    """Walk parent_run_id links from leaf up to root; return [root, ..., leaf]."""
+    chain = [leaf]
+    current = leaf
+    while current.parent_run_id:
+        try:
+            parent = load_run(current.parent_run_id)
+            chain.append(parent)
+            current = parent
+        except (FileNotFoundError, ValueError):
+            break
+    chain.reverse()
+    return chain
+
 console = Console()
 
 _STATUS_STYLE = {
@@ -38,7 +53,11 @@ def show_run(run_id: str) -> None:
     except FileNotFoundError as e:
         console.print(f"[red]Error:[/red] {e}")
         return
-    _print_run(record)
+    if record.parent_run_id:
+        chain = _load_chain(record)
+        _print_chain(chain)
+    else:
+        _print_run(record)
 
 
 _STATUS_DOT = {
@@ -122,6 +141,98 @@ def _segment_events(
         segments.append(("normal", events[cycle_end:]))
 
     return segments
+
+
+def _print_chain(chain: list[RunRecord]) -> None:
+    """Print a unified view of a multi-run interrupt chain."""
+    root = chain[0]
+    leaf = chain[-1]
+    n_interrupts = len(chain) - 1
+
+    started = (root.started_at or "")[:16].replace("T", "  ")
+    status_style = _STATUS_STYLE.get(leaf.overall_status, "dim")
+
+    console.print()
+    header = Text()
+    header.append("argus", style="bold italic")
+    header.append(f"  {root.run_id}  ·  {started}", style="italic dim")
+    console.print(f"  {header}")
+
+    dot = _STATUS_DOT.get(leaf.overall_status, "[dim]●[/dim]")
+    status_line = Text()
+    status_line.append("  status  ", style="dim")
+    status_line.append_text(Text.from_markup(f"  {dot}  "))
+    status_line.append(leaf.overall_status, style=status_style)
+    console.print(status_line)
+
+    interrupt_label = f"{n_interrupts} human interrupt{'s' if n_interrupts > 1 else ''}"
+    console.print(f"  [bold yellow]⏸[/bold yellow]  [italic dim]{interrupt_label}[/italic dim]")
+
+    console.print()
+    console.print(Rule(style="dim"))
+    console.print()
+
+    all_steps = [e for r in chain for e in r.steps]
+    if not all_steps:
+        return
+    name_col = max(len(e.node_name) for e in all_steps) + 2
+
+    # Merge edge maps from all runs so _successor_name works across segment boundaries
+    combined_edge_map: dict[str, list[str]] = {}
+    for r in chain:
+        combined_edge_map.update(r.graph_edge_map)
+
+    global_idx = 0
+    for i, run in enumerate(chain):
+        # Build a minimal record with the combined edge map for context lookups
+        ctx = RunRecord(
+            run_id=run.run_id,
+            argus_version=run.argus_version,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            duration_ms=run.duration_ms,
+            overall_status=run.overall_status,
+            first_failure_step=run.first_failure_step,
+            root_cause_chain=run.root_cause_chain,
+            graph_node_names=run.graph_node_names,
+            graph_edge_map=combined_edge_map,
+            initial_state=run.initial_state,
+            steps=run.steps,
+        )
+
+        segments = _segment_events(run.steps)
+        for seg_type, seg_data in segments:
+            if seg_type == "normal":
+                for event in seg_data:  # type: ignore[union-attr]
+                    _print_node(event, name_col, ctx, display_index=global_idx)
+                    global_idx += 1
+            else:
+                _print_cycle_group(seg_data, name_col, ctx)  # type: ignore[arg-type]
+                for iter_events in seg_data:
+                    global_idx += len(iter_events)
+
+        # Interrupt separator between segments
+        if i < len(chain) - 1:
+            next_run = chain[i + 1]
+            console.print(
+                Rule(
+                    f"[bold yellow]⏸  human interrupt[/bold yellow]"
+                    f"  [dim]resumed  {next_run.run_id}[/dim]",
+                    style="yellow dim",
+                )
+            )
+            console.print()
+
+    if leaf.root_cause_chain:
+        console.print()
+        console.print(Rule(style="dim"))
+        chain_str = "  →  ".join(leaf.root_cause_chain)
+        rc = Text()
+        rc.append("  root cause  ", style="italic dim")
+        rc.append(chain_str, style="bold red")
+        console.print(rc)
+
+    console.print()
 
 
 def _print_run(record: RunRecord) -> None:
@@ -258,9 +369,9 @@ def _print_cycle_group(
     console.print()
 
 
-def _print_node(event: NodeEvent, name_col: int, record: RunRecord) -> None:
+def _print_node(event: NodeEvent, name_col: int, record: RunRecord, display_index: int | None = None) -> None:
     insp   = event.inspection
-    number = str(event.step_index + 1)
+    number = str((display_index if display_index is not None else event.step_index) + 1)
     # indent for └─ lines aligns under the node name
     indent = " " * (len(number) + 2)
 

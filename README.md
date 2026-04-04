@@ -94,12 +94,13 @@ argus list                                              # all runs, newest first
 argus show last                                         # most recent run
 argus show run <id>                                     # by full or 8-char prefix ID
 argus replay <id> <node> --app my_module:build_graph    # re-run from a specific node
+argus inspect <id> --step <node>                        # dump raw input/output for a node
 ```
 
-Example `argus show` output:
+Example `argus show` output — silent failure:
 
 ```
-argus  argus-20240405-abc12345  ·  2024-04-05 12:30  ·  1243 ms
+argus  20240405-abc12345  ·  2024-04-05 12:30  ·  1243 ms
 status  ●  silent_failure
 
 ────────────────────────────────────────────────────────────────────
@@ -116,6 +117,43 @@ status  ●  silent_failure
 ────────────────────────────────────────────────────────────────────
 root cause   validate
 ```
+
+Cyclic graphs — the repeating nodes are grouped into a labelled box:
+
+```
+╭─ ↩ cycle  validator → corrector × 3 ─────────────────────────────╮
+│   iteration 1                                                      │
+│                                                                    │
+│      validator   0 ms   ✓  pass                                    │
+│      corrector   0 ms   ✓  pass                                    │
+│                                                                    │
+│   ────────────────────────────────────────────────────────────     │
+│   iteration 2                                                      │
+│   ...                                                              │
+╰────────────────────────────────────────────────────────────────────╯
+```
+
+Human interrupt chains — `argus show last` on a resumed run stitches the full trace:
+
+```
+argus  20240405-abc12345  ·  2024-04-05 12:30
+status    ●  clean
+⏸  1 human interrupt
+
+────────────────────────────────────────────────────────────────────
+
+   1  brief_generator    0 ms   ✓  pass
+   2  content_writer     0 ms   ✓  pass
+   3  human_reviewer     0 ms   ⏸  interrupted
+      └─  execution paused — awaiting human approval
+
+──────── ⏸  human interrupt  resumed  20240405-xyz99999 ────────────
+
+   4  content_reviser    0 ms   ✓  pass
+   5  publisher          0 ms   ✓  pass
+```
+
+Works for any depth of interrupts — each additional interrupt adds another separator.
 
 ---
 
@@ -333,6 +371,8 @@ should_finalize = (
 
 `attempt_index` on `NodeEvent` tracks how many times a given node has run — in a cyclic graph you see `fetch[0]`, `fetch[1]`, `fetch[2]` as the loop iterates.
 
+**CLI display:** cyclic nodes are grouped into a labeled box (`↩ cycle  node_a → node_b × N`) with each iteration shown as a named subsection inside. Non-cyclic nodes before and after the loop render normally.
+
 ---
 
 ## Feature 7: Human Interrupt Handling
@@ -375,6 +415,12 @@ watcher.resume(checkpoint_run_id, app, resume_input)
 Marks the checkpoint as resumed (sets `resumed=True` and `resumed_at` timestamp), re-invokes the app, finalizes. The `RunRecord` gets `interrupted=True` and `interrupt_node` set so you can query which runs are paused.
 
 CLI shows interrupted nodes with `⏸` and "execution paused — awaiting human approval".
+
+**Interrupt chain stitching in `argus show`:**
+
+When you run `argus show last` (or `argus show run <id>`) on a run that has a `parent_run_id`, ARGUS walks the full parent chain back to the root and renders all segments in one view. Segments are separated by a labeled rule that includes the resume run ID.
+
+For multiple interrupts (Run A → Run B → Run C), `argus show run <C-id>` shows the complete sequence: all of A's nodes, interrupt separator, all of B's nodes, interrupt separator, all of C's nodes. Step numbers are continuous across the chain.
 
 ---
 
