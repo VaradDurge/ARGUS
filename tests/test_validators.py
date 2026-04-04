@@ -1,8 +1,6 @@
 """Tests for semantic validators in ArgusSession / ArgusWatcher."""
 from __future__ import annotations
 
-import pytest
-
 from argus.session import ArgusSession
 from argus.storage import load_run
 

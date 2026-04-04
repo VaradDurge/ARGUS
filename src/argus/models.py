@@ -41,7 +41,7 @@ class NodeEvent:
     exception: str | None = None
     inspection: InspectionResult | None = None
     attempt_index: int = 0  # how many times this node has run before this event (0-indexed)
-    validator_results: list["ValidatorResult"] = field(default_factory=list)
+    validator_results: list[ValidatorResult] = field(default_factory=list)
     is_subgraph_entry: bool = False   # True if this node is a compiled subgraph
     subgraph_run_id: str | None = None  # run_id of the child session for subgraph nodes
 

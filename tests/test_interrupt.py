@@ -58,7 +58,10 @@ def test_interrupt_re_raises_exception(tmp_path, monkeypatch):
         session = ArgusSession()
         session.set_node_names(["gate"])
 
-        wrapped = session.wrap("gate", lambda s: (_ for _ in ()).throw(_FakeGraphInterrupt("pause")))
+        def _raise_interrupt(s):
+            raise _FakeGraphInterrupt("pause")
+
+        wrapped = session.wrap("gate", _raise_interrupt)
 
         with pytest.raises(_FakeGraphInterrupt):
             wrapped({})

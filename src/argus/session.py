@@ -173,7 +173,9 @@ class ArgusSession:
                 duration = (time.perf_counter() - t0) * 1000
                 # Detect GraphInterrupt before treating as crash
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
-                    self.on_node_end(node_name, input_snap, None, duration, exc=None, is_interrupt=True)
+                    self.on_node_end(
+                        node_name, input_snap, None, duration, exc=None, is_interrupt=True
+                    )
                     raise
                 self.on_node_end(node_name, input_snap, None, duration, exc=exc)
                 raise
@@ -195,7 +197,9 @@ class ArgusSession:
             except Exception as exc:
                 duration = (time.perf_counter() - t0) * 1000
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
-                    self.on_node_end(node_name, input_snap, None, duration, exc=None, is_interrupt=True)
+                    self.on_node_end(
+                        node_name, input_snap, None, duration, exc=None, is_interrupt=True
+                    )
                     raise
                 self.on_node_end(node_name, input_snap, None, duration, exc=exc)
                 raise
@@ -308,7 +312,9 @@ class ArgusSession:
                 is_valid, message = fn(output_snap)
             except Exception as ve:
                 is_valid, message = False, f"Validator raised: {ve}"
-            results.append(ValidatorResult(validator_name=vname, is_valid=is_valid, message=message))
+            results.append(
+                ValidatorResult(validator_name=vname, is_valid=is_valid, message=message)
+            )
         return results
 
     def _get_successor_fns(self, node_name: str) -> list[Any]:
@@ -351,8 +357,9 @@ class ArgusSession:
         else:
             overall_status = "clean"
 
+        _fail_statuses = ("fail", "crashed", "semantic_fail")
         first_failure = next(
-            (e.node_name for e in self._events if e.status in ("fail", "crashed", "semantic_fail")),
+            (e.node_name for e in self._events if e.status in _fail_statuses),
             None,
         )
 

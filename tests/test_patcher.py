@@ -58,7 +58,8 @@ class _FakeSession:
 
     def wrap(self, node_name: str, fn: Any) -> Any:
         """Minimal wrap: delegates to the same wrapper logic as before."""
-        import functools, time
+        import functools
+        import time
 
         session = self
 

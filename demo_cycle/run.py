@@ -24,7 +24,6 @@ from langgraph.graph import END, StateGraph
 
 from argus import ArgusWatcher
 
-
 # ── State ─────────────────────────────────────────────────────────────────────
 
 class PipelineState(TypedDict):
