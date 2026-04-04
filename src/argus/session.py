@@ -133,6 +133,9 @@ class ArgusSession:
             self.set_edges(edges)
         # register node order from insertion order (Python 3.7+)
         self.set_node_names(list(agents.keys()))
+        # populate node_fn_registry with original functions so that
+        # inspect_transition can read successor type annotations
+        self.node_fn_registry.update(agents)
         return {name: self.wrap(name, fn) for name, fn in agents.items()}
 
     def node(self, node_name: str) -> Callable:
