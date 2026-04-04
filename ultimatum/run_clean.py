@@ -28,7 +28,7 @@ def main() -> None:
     final_state = run_linear(session, agents, INITIAL_STATE)
 
     console.print(f"\n[bold]Run ID:[/bold] [cyan]{session.run_id}[/cyan]")
-    console.print(f"[bold]Published report preview:[/bold]")
+    console.print("[bold]Published report preview:[/bold]")
     preview = final_state.get("published_report", "")[:300]
     console.print(f"[dim]{preview}...[/dim]")
     console.print(

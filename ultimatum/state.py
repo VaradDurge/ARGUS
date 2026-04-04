@@ -10,9 +10,7 @@ Optional fields  → ARGUS raises a warning if absent (won't block)
 """
 from __future__ import annotations
 
-from typing import Any, Optional
-from typing import TypedDict
-
+from typing import Any, Optional, TypedDict
 
 # ── Phase 1: Ingestion ────────────────────────────────────────────────────────
 

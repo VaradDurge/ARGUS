@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import random
 import textwrap
-import time
 from typing import Any
 
 from ultimatum.state import (
@@ -100,7 +99,8 @@ _MOCK_INSIGHTS = [
     "Safety positioning (Anthropic) and distribution moats (Google) are emerging as "
     "primary competitive differentiators vs OpenAI's first-mover advantage",
     "Pricing pressure will compress AI margins by an estimated 30-40% through 2026",
-    "Domain-specific fine-tuned models are carving defensible niches general models cannot easily enter",
+    "Domain-specific fine-tuned models are carving defensible niches general models"
+    " cannot easily enter",
 ]
 
 
@@ -217,7 +217,9 @@ def content_cleaner(state: ContentCleanerState) -> dict[str, Any]:
         body = article.get("body", "")
         # Normalize whitespace, strip trailing periods, lowercase sentences
         body_clean = " ".join(body.split())
-        cleaned.append({**article, "cleaned_body": body_clean, "word_count": len(body_clean.split())})
+        cleaned.append(
+            {**article, "cleaned_body": body_clean, "word_count": len(body_clean.split())}
+        )
     return {"articles": cleaned, "cleaned_count": len(cleaned)}
 
 
@@ -318,7 +320,6 @@ def entity_extractor(state: EntityExtractorState) -> dict[str, Any]:
 def insight_generator(state: InsightGeneratorState) -> dict[str, Any]:
     """Generate strategic insights by combining entities and article sentiments."""
     entities = state["entities"]
-    articles = state["articles"]
 
     # Select insights based on what entities were found
     relevant = []

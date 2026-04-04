@@ -25,7 +25,6 @@ import sys
 
 from rich.console import Console
 
-from argus.replay import ReplayEngine
 from ultimatum.agents import web_searcher_broken
 from ultimatum.pipeline import LINEAR_NODE_ORDER, build_pipeline
 from ultimatum.state import INITIAL_STATE

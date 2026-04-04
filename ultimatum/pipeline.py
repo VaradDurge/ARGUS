@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from argus import ArgusSession
-
 from ultimatum.validators import VALIDATORS
 
 # ── Edge topology ─────────────────────────────────────────────────────────────
@@ -86,8 +85,8 @@ def build_pipeline(
         input_validator,
         insight_generator,
         language_screener,
-        query_expander,
         quality_assessor,
+        query_expander,
         relevance_scorer,
         report_drafter,
         report_publisher,

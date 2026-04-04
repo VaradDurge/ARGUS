@@ -23,7 +23,7 @@ from __future__ import annotations
 from rich.console import Console
 
 from ultimatum.agents import web_searcher_broken
-from ultimatum.pipeline import build_pipeline, run_linear
+from ultimatum.pipeline import build_pipeline
 from ultimatum.state import INITIAL_STATE
 
 console = Console()
