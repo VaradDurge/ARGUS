@@ -46,16 +46,23 @@ def inspect_transition(
     all_missing: list[str] = []
     all_empty: list[str] = []
     all_mismatches: list[FieldMismatch] = []
+    unannotated: list[str] = []
+    suspicious_empty: list[str] = []
     worst_severity = "ok"
+    annotated_count = 0
 
     for fn in successor_fns:
+        fn_name = _get_fn_name(fn)
         state_type = get_node_state_type(fn)
         if state_type is None:
+            unannotated.append(fn_name)
             continue
         fields = extract_fields(state_type)
         if not fields:
+            unannotated.append(fn_name)
             continue
 
+        annotated_count += 1
         missing, empty, mismatches = _check_fields(fields, merged_state)
 
         for f in missing:
@@ -68,14 +75,29 @@ def inspect_transition(
             if m not in all_mismatches:
                 all_mismatches.append(m)
 
+    # Fallback heuristic: when ALL successors lack annotations, check if the
+    # current node's output contains None/empty values — these are suspicious
+    # because a downstream node may silently receive degraded state.
+    if unannotated and annotated_count == 0 and output_dict:
+        for key, value in output_dict.items():
+            if _is_empty(value) and key not in suspicious_empty:
+                suspicious_empty.append(key)
+
     is_silent_failure = bool(all_missing)
 
     if all_missing:
         worst_severity = "critical"
     elif all_empty or all_mismatches:
         worst_severity = "warning"
+    elif unannotated and suspicious_empty:
+        worst_severity = "warning"
+    elif unannotated:
+        worst_severity = "info"
 
-    message = _build_message(current_node, all_missing, all_empty, all_mismatches)
+    message = _build_message(
+        current_node, all_missing, all_empty, all_mismatches,
+        unannotated, suspicious_empty,
+    )
 
     return InspectionResult(
         is_silent_failure=is_silent_failure,
@@ -84,6 +106,8 @@ def inspect_transition(
         type_mismatches=all_mismatches,
         severity=worst_severity,
         message=message,
+        unannotated_successors=unannotated,
+        suspicious_empty_keys=suspicious_empty,
     )
 
 
@@ -140,11 +164,24 @@ def _is_empty(value: Any) -> bool:
     return False
 
 
+def _get_fn_name(fn: Any) -> str:
+    """Best-effort human-readable name for a function."""
+    name = getattr(fn, "__name__", None)
+    if name:
+        return name
+    name = getattr(fn, "__qualname__", None)
+    if name:
+        return name
+    return repr(fn)
+
+
 def _build_message(
     node: str,
     missing: list[str],
     empty: list[str],
     mismatches: list[FieldMismatch],
+    unannotated: list[str] | None = None,
+    suspicious_empty: list[str] | None = None,
 ) -> str:
     parts = []
     if missing:
@@ -157,6 +194,16 @@ def _build_message(
             for m in mismatches
         ]
         parts.append(f"Type mismatches: {', '.join(mismatch_strs)}")
+    if unannotated:
+        names = ", ".join(unannotated)
+        parts.append(
+            f"Unannotated successors (silent-failure detection skipped): {names}"
+        )
+    if suspicious_empty:
+        parts.append(
+            f"Suspicious empty output keys (may degrade downstream): "
+            f"{', '.join(suspicious_empty)}"
+        )
     if not parts:
         return "All checks passed"
     return "; ".join(parts)

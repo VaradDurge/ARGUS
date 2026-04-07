@@ -48,11 +48,36 @@ def load_run(run_id: str) -> RunRecord:
     return _deserialize_run(data)
 
 
+def _run_json_files_newest_first(runs_dir: Path) -> list[Path]:
+    """Sort run JSON paths by real time order, not lexicographic run_id.
+
+    run_id ends with random hex; two runs in the same second can order wrong
+    if sorted by filename (e.g. crash run appearing \"newer\" than the next).
+    """
+    files = list(runs_dir.glob("*.json"))
+    if not files:
+        return []
+
+    def sort_key(path: Path) -> tuple[str, float]:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            started = data.get("started_at") or ""
+        except Exception:
+            started = ""
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        return (started, mtime)
+
+    return sorted(files, key=sort_key, reverse=True)
+
+
 def list_runs() -> list[dict[str, Any]]:
     """Return summary metadata for all runs, newest first."""
     runs_dir = _runs_path()
     summaries = []
-    for f in sorted(runs_dir.glob("*.json"), reverse=True):
+    for f in _run_json_files_newest_first(runs_dir):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
             summaries.append({
@@ -69,7 +94,7 @@ def list_runs() -> list[dict[str, Any]]:
 
 def last_run_id() -> str | None:
     runs_dir = _runs_path()
-    files = sorted(runs_dir.glob("*.json"), reverse=True)
+    files = _run_json_files_newest_first(runs_dir)
     if not files:
         return None
     data = json.loads(files[0].read_text(encoding="utf-8"))
@@ -128,6 +153,8 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
             type_mismatches=mismatches,
             severity=insp_data.get("severity", "ok"),
             message=insp_data.get("message", ""),
+            unannotated_successors=insp_data.get("unannotated_successors", []),
+            suspicious_empty_keys=insp_data.get("suspicious_empty_keys", []),
         )
     validator_results = [
         ValidatorResult(**v) for v in data.get("validator_results", [])

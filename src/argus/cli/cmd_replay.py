@@ -103,8 +103,6 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
     console.print()
 
     if new_record.overall_status == "clean":
-        result = Text()
-        result.append("  [bold green]●[/bold green]", end="")
         result = Text.from_markup("  [bold green]●[/bold green]  ")
         result.append("clean", style="bold green")
         result.append(f"    {new_run_id}", style="dim")

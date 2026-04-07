@@ -27,6 +27,8 @@ class InspectionResult:
     type_mismatches: list[FieldMismatch]
     severity: str  # "critical" | "warning" | "info" | "ok"
     message: str
+    unannotated_successors: list[str] = field(default_factory=list)
+    suspicious_empty_keys: list[str] = field(default_factory=list)
 
 
 @dataclass

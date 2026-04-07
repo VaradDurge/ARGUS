@@ -42,6 +42,7 @@ coverage.xml
 test_workflow/
 real_world_demo/
 ultimatum/
+TESTER/
 
 # macOS
 .DS_Store

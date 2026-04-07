@@ -381,7 +381,12 @@ def _print_node(
     has_warnings = (
         event.status == "pass"
         and insp is not None
-        and (insp.empty_fields or insp.type_mismatches)
+        and (
+            insp.empty_fields
+            or insp.type_mismatches
+            or insp.unannotated_successors
+            or insp.suspicious_empty_keys
+        )
     )
     if event.status == "pass" and has_warnings:
         icon   = "[bold yellow]~[/bold yellow]"
@@ -459,6 +464,20 @@ def _print_node(
                     f"  {indent}[dim]└─[/dim]  "
                     f'[dim yellow]Field [bold]"{m.field_name}"[/bold] '
                     f"expected {m.expected_type}, got {m.actual_type}[/dim yellow]"
+                )
+        if insp.unannotated_successors:
+            names = ", ".join(insp.unannotated_successors)
+            console.print(
+                f"  {indent}[dim]└─[/dim]  "
+                f"[dim cyan]silent-failure detection skipped — "
+                f"add type hints to: {names}[/dim cyan]"
+            )
+        if insp.suspicious_empty_keys:
+            for key in insp.suspicious_empty_keys:
+                console.print(
+                    f"  {indent}[dim]└─[/dim]  "
+                    f'[dim yellow]Output key [bold]"{key}"[/bold] is '
+                    f"empty (may degrade downstream)[/dim yellow]"
                 )
         console.print()
         return
