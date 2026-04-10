@@ -57,6 +57,10 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
     console.print()
     console.print(Rule(style="dim"))
     console.print()
+    console.print(
+        f"  [dim]Replaying with frozen LLM responses from [bold]{run_id}[/bold][/dim]"
+    )
+    console.print()
 
     # ── Run replay ────────────────────────────────────────────────────────
     from argus.storage import list_runs

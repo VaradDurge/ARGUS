@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any, Callable
 
 from argus.storage import load_run
@@ -33,6 +34,12 @@ class ReplayEngine:
         """
         record = load_run(run_id)
 
+        # build frozen outputs map: node_name → FIFO list of saved output dicts
+        frozen_map: dict[str, list[Any]] = defaultdict(list)
+        for s in record.steps:
+            if s.output_dict is not None:
+                frozen_map[s.node_name].append(s.output_dict)
+
         # find the step for from_node
         step = next((e for e in record.steps if e.node_name == from_node), None)
         if step is None:
@@ -59,6 +66,7 @@ class ReplayEngine:
             if watcher._session is not None:
                 watcher._session.parent_run_id = run_id
                 watcher._session.replay_from_step = from_node
+                watcher._session.frozen_outputs = dict(frozen_map)
             new_run_id = watcher._session.run_id if watcher._session else None
             app = graph.compile()
         elif hasattr(graph, "invoke"):

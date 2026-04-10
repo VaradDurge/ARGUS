@@ -82,6 +82,9 @@ class ArgusSession:
         self.parent_run_id: str | None = parent_run_id
         self.replay_from_step: str | None = None
 
+        # frozen outputs for replay — maps node_name → list of saved output dicts (FIFO)
+        self.frozen_outputs: dict[str, list[Any]] | None = None
+
     # ── Public configuration ─────────────────────────────────────────────────
 
     def set_edges(self, edge_map: dict[str, list[str]]) -> None:
@@ -167,7 +170,11 @@ class ArgusSession:
             self.on_node_start(node_name, input_snap)
             t0 = time.perf_counter()
             try:
-                output = original_fn(state)
+                frozen = self.frozen_outputs
+                if frozen and node_name in frozen and frozen[node_name]:
+                    output = frozen[node_name].pop(0)
+                else:
+                    output = original_fn(state)
                 duration = (time.perf_counter() - t0) * 1000
                 output_snap = self.capture_output(output)
                 self.on_node_end(node_name, input_snap, output_snap, duration, exc=None)
@@ -192,7 +199,11 @@ class ArgusSession:
             self.on_node_start(node_name, input_snap)
             t0 = time.perf_counter()
             try:
-                output = await original_fn(state)
+                frozen = self.frozen_outputs
+                if frozen and node_name in frozen and frozen[node_name]:
+                    output = frozen[node_name].pop(0)
+                else:
+                    output = await original_fn(state)
                 duration = (time.perf_counter() - t0) * 1000
                 output_snap = self.capture_output(output)
                 self.on_node_end(node_name, input_snap, output_snap, duration, exc=None)
