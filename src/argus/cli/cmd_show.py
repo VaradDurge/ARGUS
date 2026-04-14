@@ -314,7 +314,11 @@ def _print_cycle_group(
             has_warnings = (
                 status == "pass"
                 and event.inspection is not None
-                and (event.inspection.empty_fields or event.inspection.type_mismatches)
+                and (
+                    event.inspection.empty_fields
+                    or event.inspection.type_mismatches
+                    or (event.inspection.tool_failures and not event.inspection.has_tool_failure)
+                )
             )
             if status == "pass" and has_warnings:
                 icon  = "[bold yellow]~[/bold yellow]"
@@ -386,6 +390,7 @@ def _print_node(
             or insp.type_mismatches
             or insp.unannotated_successors
             or insp.suspicious_empty_keys
+            or (insp.tool_failures and not insp.has_tool_failure)
         )
     )
     if event.status == "pass" and has_warnings:
@@ -413,6 +418,15 @@ def _print_node(
     name = f"[bold]{event.node_name}[/bold]"
 
     console.print(f"  [dim]{number:>2}[/dim]  {name}{pad}  {dur}   {icon}  {label}")
+
+    # ── Failure type tag — aligned to label column, one per row ────────────
+    if event.status == "fail" and insp:
+        dur_len = len(f"{event.duration_ms:.0f} ms")
+        label_col = 14 + name_col + dur_len
+        if insp.is_silent_failure:
+            console.print(" " * label_col + "[yellow underline]context error[/yellow underline]")
+        if insp.has_tool_failure:
+            console.print(" " * label_col + "[yellow underline]tool failure[/yellow underline]")
 
     # ── Detail lines ───────────────────────────────────────────────────────
     if event.status == "interrupted":
@@ -452,7 +466,7 @@ def _print_node(
             for field in insp.empty_fields:
                 console.print(
                     f"  {indent}[dim]└─[/dim]  "
-                    f'[dim yellow]Field [bold]"{field}"[/bold] is empty[/dim yellow]'
+                    f'[dim]Field [bold]"{field}"[/bold] is empty[/dim]'
                 )
             console.print(
                 f"  {indent}[dim]└─[/dim]  "
@@ -462,22 +476,34 @@ def _print_node(
             for m in insp.type_mismatches:
                 console.print(
                     f"  {indent}[dim]└─[/dim]  "
-                    f'[dim yellow]Field [bold]"{m.field_name}"[/bold] '
-                    f"expected {m.expected_type}, got {m.actual_type}[/dim yellow]"
+                    f'[dim]Field [bold]"{m.field_name}"[/bold] '
+                    f"expected {m.expected_type}, got {m.actual_type}[/dim]"
                 )
         if insp.unannotated_successors:
             names = ", ".join(insp.unannotated_successors)
             console.print(
                 f"  {indent}[dim]└─[/dim]  "
-                f"[dim cyan]silent-failure detection skipped — "
-                f"add type hints to: {names}[/dim cyan]"
+                f"[dim]silent-failure detection skipped — "
+                f"add type hints to: {names}[/dim]"
             )
         if insp.suspicious_empty_keys:
             for key in insp.suspicious_empty_keys:
                 console.print(
                     f"  {indent}[dim]└─[/dim]  "
-                    f'[dim yellow]Output key [bold]"{key}"[/bold] is '
-                    f"empty (may degrade downstream)[/dim yellow]"
+                    f'[dim]Output key [bold]"{key}"[/bold] is '
+                    f"empty (may degrade downstream)[/dim]"
+                )
+        if insp.tool_failures:
+            for tf in insp.tool_failures:
+                tf_icon = (
+                    "[bold red]⚠[/bold red]"
+                    if tf.severity == "critical"
+                    else "[bold yellow]~[/bold yellow]"
+                )
+                console.print(
+                    f"  {indent}[dim]└─[/dim]  "
+                    f'{tf_icon} [dim]Tool {tf.failure_type}: '
+                    f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
                 )
         console.print()
         return
@@ -532,6 +558,18 @@ def _print_node(
                     f"  {indent}[dim]└─[/dim]  "
                     f'[italic]Field [bold]"{m.field_name}"[/bold] '
                     f"expected {m.expected_type}, got {m.actual_type}[/italic]"
+                )
+        if insp.tool_failures:
+            for tf in insp.tool_failures:
+                tf_icon = (
+                    "[bold red]⚠[/bold red]"
+                    if tf.severity == "critical"
+                    else "[bold yellow]~[/bold yellow]"
+                )
+                console.print(
+                    f"  {indent}[dim]└─[/dim]  "
+                    f'{tf_icon} [dim]Tool {tf.failure_type}: '
+                    f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
                 )
 
     if is_downstream and record.first_failure_step:

@@ -278,7 +278,7 @@ class ArgusSession:
                 merged_state=merged,
                 successor_fns=successor_fns,
             )
-            if inspection.is_silent_failure:
+            if inspection.is_silent_failure or inspection.has_tool_failure:
                 status = "fail"
 
         # semantic validation (skip on crash/interrupt)
@@ -358,7 +358,8 @@ class ArgusSession:
         has_crash = any(e.status == "crashed" for e in self._events)
         has_interrupt = any(e.status == "interrupted" for e in self._events)
         has_silent_failure = any(
-            e.inspection and e.inspection.is_silent_failure for e in self._events
+            e.inspection and (e.inspection.is_silent_failure or e.inspection.has_tool_failure)
+            for e in self._events
         )
         has_semantic_fail = any(e.status == "semantic_fail" for e in self._events)
 

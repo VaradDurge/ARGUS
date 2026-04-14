@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from argus.models import FieldMismatch, InspectionResult, NodeEvent, RunRecord, ValidatorResult
+from argus.models import FieldMismatch, InspectionResult, NodeEvent, RunRecord, ToolFailure, ValidatorResult
 
 _ARGUS_DIR = ".argus"
 _RUNS_DIR = "runs"
@@ -146,6 +146,9 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
         mismatches = [
             FieldMismatch(**m) for m in insp_data.get("type_mismatches", [])
         ]
+        tool_failures = [
+            ToolFailure(**tf) for tf in insp_data.get("tool_failures", [])
+        ]
         inspection = InspectionResult(
             is_silent_failure=insp_data.get("is_silent_failure", False),
             missing_fields=insp_data.get("missing_fields", []),
@@ -155,6 +158,8 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
             message=insp_data.get("message", ""),
             unannotated_successors=insp_data.get("unannotated_successors", []),
             suspicious_empty_keys=insp_data.get("suspicious_empty_keys", []),
+            tool_failures=tool_failures,
+            has_tool_failure=insp_data.get("has_tool_failure", False),
         )
     validator_results = [
         ValidatorResult(**v) for v in data.get("validator_results", [])

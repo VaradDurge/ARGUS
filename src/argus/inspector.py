@@ -1,12 +1,125 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from argus.models import FieldMismatch, InspectionResult
+from argus.models import FieldMismatch, InspectionResult, ToolFailure
 from argus.utils.type_introspection import extract_fields, get_node_state_type
 
 _EMPTY_VALUES = (None, "", [], {})
 _PRIMITIVE_TYPES = (str, int, float, bool)
+
+# ── Tool output detection patterns ───────────────────────────────────────────
+
+_ERROR_KEYS = {"error", "error_message", "err", "errors", "exception"}
+_STATUS_KEYS = {"status_code", "status", "http_status", "code", "response_code"}
+_RESULT_NAME_RE = re.compile(
+    r"(results?|items?|documents?|records?|rows?|hits?|entries?|matches?|findings?)$",
+    re.IGNORECASE,
+)
+_RATE_LIMIT_RE = re.compile(
+    r"rate.?limit|quota.?exceed|too.?many.?requests?|429",
+    re.IGNORECASE,
+)
+_ERROR_STR_RE = re.compile(
+    r"^(error|failed?|exception|timeout|unauthorized|forbidden"
+    r"|not[ _]found|service[ _]unavailable)",
+    re.IGNORECASE,
+)
+
+_SEVERITY_RANK = {"critical": 2, "warning": 1}
+
+
+def inspect_tool_outputs(output_dict: dict[str, Any]) -> list[ToolFailure]:
+    """Scan a node's output dict for tool call failure patterns.
+
+    Detects: error keys, HTTP error codes, empty result fields, error strings
+    in data fields, and partial failures inside lists.
+    Returns a deduplicated list of ToolFailure — one per field, highest severity wins.
+    """
+    # field_name → best ToolFailure so far (highest severity)
+    by_field: dict[str, ToolFailure] = {}
+
+    def _add(tf: ToolFailure) -> None:
+        existing = by_field.get(tf.field_name)
+        if existing is None or _SEVERITY_RANK[tf.severity] > _SEVERITY_RANK[existing.severity]:
+            by_field[tf.field_name] = tf
+
+    for key, value in output_dict.items():
+        # Rule 1 — error key with truthy value
+        if key in _ERROR_KEYS:
+            if value:  # truthy: non-None, non-empty string, non-empty list, etc.
+                as_str = str(value)
+                if _RATE_LIMIT_RE.search(as_str):
+                    _add(ToolFailure(
+                        failure_type="rate_limit",
+                        field_name=key,
+                        severity="warning",
+                        evidence=f"rate limit detected: {as_str[:120]!r}",
+                    ))
+                else:
+                    _add(ToolFailure(
+                        failure_type="error_response",
+                        field_name=key,
+                        severity="critical",
+                        evidence=f"error field set: {as_str[:120]!r}",
+                    ))
+            continue  # don't apply other rules to known error keys
+
+        # Rule 2 — HTTP status code in a status field
+        if key in _STATUS_KEYS and isinstance(value, int) and 400 <= value <= 599:
+            if value == 429:
+                _add(ToolFailure(
+                    failure_type="rate_limit",
+                    field_name=key,
+                    severity="warning",
+                    evidence="HTTP 429 rate limit",
+                ))
+            else:
+                _add(ToolFailure(
+                    failure_type="error_response",
+                    field_name=key,
+                    severity="critical",
+                    evidence=f"HTTP {value} error response",
+                ))
+            continue
+
+        # Rule 3 — empty result field with results-like name
+        if _RESULT_NAME_RE.search(key):
+            if value is None or value == [] or value == {}:
+                _add(ToolFailure(
+                    failure_type="empty_result",
+                    field_name=key,
+                    severity="warning",
+                    evidence="tool returned no results",
+                ))
+                continue  # don't also flag as error_in_data
+
+        # Rule 4 — error string in a non-error field
+        if isinstance(value, str) and _ERROR_STR_RE.match(value):
+            _add(ToolFailure(
+                failure_type="error_in_data",
+                field_name=key,
+                severity="warning",
+                evidence=f"field contains error-like string: {value[:80]!r}",
+            ))
+            continue
+
+        # Rule 5 — partial failure inside a list
+        if isinstance(value, list) and value:
+            error_count = sum(
+                1 for item in value
+                if isinstance(item, dict) and item.get("error")
+            )
+            if error_count > 0:
+                _add(ToolFailure(
+                    failure_type="partial_failure",
+                    field_name=key,
+                    severity="warning",
+                    evidence=f"{error_count} of {len(value)} items contain errors",
+                ))
+
+    return list(by_field.values())
 
 
 def inspect_transition(
@@ -17,12 +130,19 @@ def inspect_transition(
 ) -> InspectionResult:
     """Check if the output of current_node will cause a silent failure in any successor.
 
+    Also scans the output dict for tool call failure patterns (empty results,
+    error responses, rate limits, etc.) independent of successor analysis.
+
     Args:
         current_node: name of the node that just ran
         output_dict: the dict returned by the node (may be None on crash)
         merged_state: the full state after merging the output (what successor sees)
         successor_fns: list of callable node functions that may run next
     """
+    # Tool output inspection runs regardless of successors
+    tool_failures = inspect_tool_outputs(output_dict) if output_dict else []
+    has_tool_failure = any(tf.severity == "critical" for tf in tool_failures)
+
     if output_dict is None:
         return InspectionResult(
             is_silent_failure=False,
@@ -31,16 +151,25 @@ def inspect_transition(
             type_mismatches=[],
             severity="ok",
             message="Node crashed — no output to inspect",
+            tool_failures=[],
+            has_tool_failure=False,
         )
 
     if not successor_fns:
+        severity = "critical" if has_tool_failure else ("warning" if tool_failures else "ok")
+        message = (
+            _build_tool_failure_message(tool_failures)
+            or "No successor nodes to validate against"
+        )
         return InspectionResult(
             is_silent_failure=False,
             missing_fields=[],
             empty_fields=[],
             type_mismatches=[],
-            severity="ok",
-            message="No successor nodes to validate against",
+            severity=severity,
+            message=message,
+            tool_failures=tool_failures,
+            has_tool_failure=has_tool_failure,
         )
 
     all_missing: list[str] = []
@@ -85,9 +214,9 @@ def inspect_transition(
 
     is_silent_failure = bool(all_missing)
 
-    if all_missing:
+    if all_missing or has_tool_failure:
         worst_severity = "critical"
-    elif all_empty or all_mismatches:
+    elif all_empty or all_mismatches or tool_failures:
         worst_severity = "warning"
     elif unannotated and suspicious_empty:
         worst_severity = "warning"
@@ -96,7 +225,7 @@ def inspect_transition(
 
     message = _build_message(
         current_node, all_missing, all_empty, all_mismatches,
-        unannotated, suspicious_empty,
+        unannotated, suspicious_empty, tool_failures,
     )
 
     return InspectionResult(
@@ -108,6 +237,8 @@ def inspect_transition(
         message=message,
         unannotated_successors=unannotated,
         suspicious_empty_keys=suspicious_empty,
+        tool_failures=tool_failures,
+        has_tool_failure=has_tool_failure,
     )
 
 
@@ -175,6 +306,13 @@ def _get_fn_name(fn: Any) -> str:
     return repr(fn)
 
 
+def _build_tool_failure_message(tool_failures: list[ToolFailure]) -> str:
+    if not tool_failures:
+        return ""
+    parts = [f'{tf.failure_type} on "{tf.field_name}": {tf.evidence}' for tf in tool_failures]
+    return "Tool failures: " + "; ".join(parts)
+
+
 def _build_message(
     node: str,
     missing: list[str],
@@ -182,6 +320,7 @@ def _build_message(
     mismatches: list[FieldMismatch],
     unannotated: list[str] | None = None,
     suspicious_empty: list[str] | None = None,
+    tool_failures: list[ToolFailure] | None = None,
 ) -> str:
     parts = []
     if missing:
@@ -204,6 +343,9 @@ def _build_message(
             f"Suspicious empty output keys (may degrade downstream): "
             f"{', '.join(suspicious_empty)}"
         )
+    if tool_failures:
+        tf_parts = [f'{tf.failure_type} on "{tf.field_name}"' for tf in tool_failures]
+        parts.append(f"Tool failures: {', '.join(tf_parts)}")
     if not parts:
         return "All checks passed"
     return "; ".join(parts)
@@ -227,7 +369,8 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
         if not insp.is_silent_failure and insp.severity not in ("critical", "warning"):
             continue
         bad_fields = set(insp.missing_fields + insp.empty_fields)
-        if bad_fields or seen_bad_fields.intersection(bad_fields) or insp.is_silent_failure:
+        if (bad_fields or seen_bad_fields.intersection(bad_fields)
+                or insp.is_silent_failure or insp.has_tool_failure):
             if event.node_name not in seen_nodes:
                 chain.append(event.node_name)
                 seen_nodes.add(event.node_name)

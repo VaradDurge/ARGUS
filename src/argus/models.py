@@ -20,6 +20,15 @@ class FieldMismatch:
 
 
 @dataclass
+class ToolFailure:
+    # "error_response" | "rate_limit" | "empty_result" | "error_in_data" | "partial_failure"
+    failure_type: str
+    field_name: str    # which key in the output dict triggered detection
+    severity: str      # "critical" | "warning"
+    evidence: str      # short human-readable description of what was found
+
+
+@dataclass
 class InspectionResult:
     is_silent_failure: bool
     missing_fields: list[str]
@@ -29,6 +38,8 @@ class InspectionResult:
     message: str
     unannotated_successors: list[str] = field(default_factory=list)
     suspicious_empty_keys: list[str] = field(default_factory=list)
+    tool_failures: list[ToolFailure] = field(default_factory=list)
+    has_tool_failure: bool = False  # True if any tool_failures with severity="critical"
 
 
 @dataclass
