@@ -6,7 +6,14 @@ import os
 from pathlib import Path
 from typing import Any
 
-from argus.models import FieldMismatch, InspectionResult, NodeEvent, RunRecord, ToolFailure, ValidatorResult
+from argus.models import (
+    FieldMismatch,
+    InspectionResult,
+    NodeEvent,
+    RunRecord,
+    ToolFailure,
+    ValidatorResult,
+)
 
 _ARGUS_DIR = ".argus"
 _RUNS_DIR = "runs"
