@@ -1,21 +1,42 @@
-MIT License
-
 Copyright (c) 2026 Varad Durge
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+All rights reserved.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is hereby granted to any person obtaining a copy of this software
+and associated documentation files (the "Software") to use, copy, and modify
+the Software for non-commercial purposes only, subject to the following
+conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. Attribution Requirement
+   Any use, distribution, or modification of the Software must include proper
+   attribution to the original author, Varad Durge, including this copyright
+   notice in all copies or substantial portions of the Software.
+
+2. Non-Commercial Use Only
+   The Software may not be used, in whole or in part, for commercial purposes
+   without prior written permission from the author. Commercial purposes
+   include, but are not limited to, incorporating the Software into a product
+   or service that is sold, licensed for a fee, or used to generate revenue.
+
+3. No Commercial Redistribution
+   Redistribution of the Software, with or without modification, is permitted
+   for non-commercial purposes only. Redistribution for commercial purposes —
+   including selling, sublicensing, or bundling the Software as part of a
+   commercial offering — is strictly prohibited without prior written
+   permission from the author.
+
+4. Commercial Licensing
+   Any commercial use or commercial redistribution of the Software requires a
+   separate paid license or explicit written permission from the author.
+   Contact: varaddurge@gmail.com
+
+5. No Warranty
+   The Software is provided "as is", without warranty of any kind, express or
+   implied, including but not limited to the warranties of merchantability,
+   fitness for a particular purpose, and noninfringement.
+
+6. Limitation of Liability
+   In no event shall the author be liable for any claim, damages, or other
+   liability, whether in an action of contract, tort, or otherwise, arising
+   from, out of, or in connection with the Software or the use of or other
+   dealings in the Software.
