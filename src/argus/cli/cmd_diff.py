@@ -102,9 +102,11 @@ def diff_runs(run_id_a: str, run_id_b: str | None = None) -> None:
             changed = _print_node_diff(name, b_event, a_event, name_col)
             if changed:
                 stats["changed"] += 1
-                if b_event.status in ("crashed", "fail", "semantic_fail") and a_event.status == "pass":
+                b_bad = b_event.status in ("crashed", "fail", "semantic_fail")
+                a_bad = a_event.status in ("crashed", "fail", "semantic_fail")
+                if b_bad and a_event.status == "pass":
                     stats["fixed"] += 1
-                elif b_event.status == "pass" and a_event.status in ("crashed", "fail", "semantic_fail"):
+                elif b_event.status == "pass" and a_bad:
                     stats["regressed"] += 1
         elif in_before:
             _print_frozen_node(name, before_map[name], after, name_col)
@@ -188,7 +190,10 @@ def _print_node_diff(
     field_diffs = _diff_output(before.output_dict, after.output_dict)
     inspection_diffs = _diff_inspection(before.inspection, after.inspection)
     validator_diffs = _diff_validators(before.validator_results, after.validator_results)
-    has_changes = status_changed or bool(field_diffs) or bool(inspection_diffs) or bool(validator_diffs)
+    has_changes = (
+        status_changed or bool(field_diffs)
+        or bool(inspection_diffs) or bool(validator_diffs)
+    )
     pad = " " * (name_col - len(name))
 
     if not has_changes:
@@ -320,7 +325,8 @@ def _diff_inspection(
     resolved_missing = b_missing - a_missing
     for f in sorted(resolved_missing):
         diffs.append(
-            f'[bold green]✓[/bold green] [dim]missing field "[bold]{escape(f)}[/bold]" resolved[/dim]'
+            "[bold green]✓[/bold green] "
+            f'[dim]missing field "[bold]{escape(f)}[/bold]" resolved[/dim]'
         )
 
     # Fields that are now missing but weren't before
@@ -334,7 +340,8 @@ def _diff_inspection(
     resolved_empty = b_empty - a_empty
     for f in sorted(resolved_empty):
         diffs.append(
-            f'[bold green]✓[/bold green] [dim]empty field "[bold]{escape(f)}[/bold]" now populated[/dim]'
+            "[bold green]✓[/bold green] "
+            f'[dim]empty field "[bold]{escape(f)}[/bold]" now populated[/dim]'
         )
 
     # Fields that are now empty but weren't before
@@ -350,7 +357,8 @@ def _diff_inspection(
 
     for field_name, ftype in sorted(b_tf - a_tf):
         diffs.append(
-            f'[bold green]✓[/bold green] [dim]tool {escape(ftype)} on "{escape(field_name)}" resolved[/dim]'
+            "[bold green]✓[/bold green] "
+            f'[dim]tool {escape(ftype)} on "{escape(field_name)}" resolved[/dim]'
         )
     for field_name, ftype in sorted(a_tf - b_tf):
         diffs.append(
@@ -399,11 +407,13 @@ def _diff_validators(
         elif b_valid != a_valid:
             if not b_valid and a_valid:
                 diffs.append(
-                    f"[bold green]✓[/bold green] [dim]validator {escape(vname)} · fail → pass[/dim]"
+                    "[bold green]✓[/bold green] "
+                    f"[dim]validator {escape(vname)} · fail → pass[/dim]"
                 )
             else:
                 diffs.append(
-                    f"[bold magenta]⊗[/bold magenta] [dim]validator {escape(vname)} · pass → fail[/dim]"
+                    "[bold magenta]⊗[/bold magenta] "
+                    f"[dim]validator {escape(vname)} · pass → fail[/dim]"
                 )
 
     return diffs
