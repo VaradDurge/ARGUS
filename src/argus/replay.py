@@ -34,12 +34,6 @@ class ReplayEngine:
         """
         record = load_run(run_id)
 
-        # build frozen outputs map: node_name → FIFO list of saved output dicts
-        frozen_map: dict[str, list[Any]] = defaultdict(list)
-        for s in record.steps:
-            if s.output_dict is not None:
-                frozen_map[s.node_name].append(s.output_dict)
-
         # find the step for from_node
         step = next((e for e in record.steps if e.node_name == from_node), None)
         if step is None:
@@ -48,6 +42,15 @@ class ReplayEngine:
                 f"Node '{from_node}' not found in run '{run_id}'. "
                 f"Available nodes: {available}"
             )
+
+        # build frozen outputs ONLY for nodes before from_node
+        # nodes at and after from_node must run live (with the fixed code)
+        frozen_map: dict[str, list[Any]] = defaultdict(list)
+        for s in record.steps:
+            if s.node_name == from_node:
+                break
+            if s.output_dict is not None:
+                frozen_map[s.node_name].append(s.output_dict)
 
         # deserialize the input state
         state_snapshot = step.input_state

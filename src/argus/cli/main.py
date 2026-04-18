@@ -6,6 +6,7 @@ import typer
 from rich.console import Console
 from rich.text import Text
 
+from argus.cli.cmd_diff import diff_runs
 from argus.cli.cmd_replay import inspect_step, replay_run
 from argus.cli.cmd_show import show_last, show_list, show_run
 
@@ -32,6 +33,7 @@ _COMMANDS = [
     ("show",    "show details for a specific run"),
     ("replay",  "re-run a pipeline from a saved checkpoint"),
     ("inspect", "dump full state snapshot for a node"),
+    ("diff",    "compare two runs node-by-node"),
 ]
 
 _EXAMPLES = [
@@ -41,6 +43,8 @@ _EXAMPLES = [
     ("argus replay <id> <node>",                "re-run from a saved node state"),
     ("argus replay <id> <node> --app mod:fn",   "replay with a live graph factory"),
     ("argus inspect <id> --step <node>",        "dump raw input/output for a node"),
+    ("argus diff <id>",                         "diff a replay run against its original"),
+    ("argus diff <id-a> <id-b>",               "diff any two runs"),
 ]
 
 
@@ -138,3 +142,12 @@ def cmd_inspect(
 ) -> None:
     """Dump full input/output state snapshot for a specific step."""
     inspect_step(run_id=run_id, step_name=step)
+
+
+@app.command("diff")
+def cmd_diff(
+    run_id_a: Annotated[str, typer.Argument(help="Run ID, or a replay run ID to auto-diff against its original.")],
+    run_id_b: Optional[str] = typer.Argument(default=None, help="Second run ID. Omit to auto-compare against parent."),
+) -> None:
+    """Compare two runs node-by-node: status, duration, and output field changes."""
+    diff_runs(run_id_a, run_id_b)
