@@ -146,8 +146,12 @@ def cmd_inspect(
 
 @app.command("diff")
 def cmd_diff(
-    run_id_a: Annotated[str, typer.Argument(help="Run ID, or a replay run ID to auto-diff against its original.")],
-    run_id_b: Optional[str] = typer.Argument(default=None, help="Second run ID. Omit to auto-compare against parent."),
+    run_id_a: Annotated[
+        str, typer.Argument(help="Run ID or replay run ID.")
+    ],
+    run_id_b: Optional[str] = typer.Argument(
+        default=None, help="Second run ID. Omit for auto-diff."
+    ),
 ) -> None:
     """Compare two runs node-by-node: status, duration, and output field changes."""
     diff_runs(run_id_a, run_id_b)
