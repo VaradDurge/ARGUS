@@ -57,18 +57,31 @@ _WHEN_TO_USE = [
 ]
 
 _OPTIONS = [
-    ("replay  --app  module.path:fn",  "str",  "zero-arg callable returning StateGraph or CompiledGraph"),
-    ("inspect --step / -s  <node>",   "str",  "node name to inspect  (required)"),
-    ("show run <id>",                  "str",  "full run id or 8-char prefix"),
-    ("diff <id-a> <id-b>",            "str",  "two run ids; omit second to auto-diff vs original"),
+    (
+        "replay  --app  module.path:fn",
+        "str",
+        "zero-arg callable returning StateGraph or CompiledGraph",
+    ),
+    ("inspect --step / -s  <node>", "str", "node name to inspect  (required)"),
+    ("show run <id>",               "str", "full run id or 8-char prefix"),
+    (
+        "diff <id-a> <id-b>",
+        "str",
+        "two run ids; omit second to auto-diff vs original",
+    ),
 ]
 
 _STATUSES = [
-    ("[bold green]✓[/bold green]  pass",            "node completed, output looks healthy"),
-    ("[bold yellow]⚠[/bold yellow]  silent failure", "node ran but returned empty / missing fields"),
-    ("[bold magenta]⊗[/bold magenta]  semantic fail","validator rejected the output"),
-    ("[bold red]✗[/bold red]  crashed",             "node raised an exception"),
-    ("[bold yellow]⏸[/bold yellow]  interrupted",   "human-in-the-loop pause"),
+    ("[bold green]✓[/bold green]  pass",
+     "node completed, output looks healthy"),
+    ("[bold yellow]⚠[/bold yellow]  silent failure",
+     "node ran but returned empty / missing fields"),
+    ("[bold magenta]⊗[/bold magenta]  semantic fail",
+     "validator rejected the output"),
+    ("[bold red]✗[/bold red]  crashed",
+     "node raised an exception"),
+    ("[bold yellow]⏸[/bold yellow]  interrupted",
+     "human-in-the-loop pause"),
 ]
 
 
@@ -140,8 +153,7 @@ def _banner(ctx: typer.Context) -> None:
     # ── Options ─────────────────────────────────────────────────────────────
     _console.print("  [dim]options[/dim]")
     _console.print()
-    opt_w  = max(len(opt)  for opt, _, _ in _OPTIONS)
-    type_w = max(len(typ)  for _, typ, _ in _OPTIONS)
+    opt_w = max(len(opt) for opt, _, _ in _OPTIONS)
     for opt, typ, desc in _OPTIONS:
         row = Text()
         row.append(f"  {opt:<{opt_w}}  ", style="bold")
@@ -164,7 +176,10 @@ def _banner(ctx: typer.Context) -> None:
     _console.print()
     _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
     _console.print()
-    _console.print("  [dim]run  [bold]argus <command> --help[/bold]  for per-command flag details[/dim]")
+    _console.print(
+        "  [dim]run  [bold]argus <command> --help[/bold]"
+        "  for per-command flag details[/dim]"
+    )
     _console.print()
 
 
