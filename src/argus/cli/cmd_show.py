@@ -10,6 +10,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
+from argus.cli import print_footer
 from argus.models import NodeEvent, RunRecord
 from argus.storage import last_run_id, list_runs, load_run
 
@@ -44,10 +45,10 @@ def show_last() -> None:
     if run_id is None:
         console.print("[dim]No runs found in .argus/runs/[/dim]")
         return
-    show_run(run_id)
+    show_run(run_id, _footer=True)
 
 
-def show_run(run_id: str) -> None:
+def show_run(run_id: str, _footer: bool = False) -> None:
     try:
         record = load_run(run_id)
     except FileNotFoundError as e:
@@ -58,6 +59,8 @@ def show_run(run_id: str) -> None:
         _print_chain(chain)
     else:
         _print_run(record)
+    if _footer:
+        print_footer()
 
 
 _STATUS_DOT = {
@@ -103,6 +106,7 @@ def show_list() -> None:
     console.print(table)
     console.print(f"  [dim]{n} run{'s' if n != 1 else ''}[/dim]")
     console.print()
+    print_footer()
 
 
 _SENTINEL_NODES: frozenset[str] = frozenset({"__start__", "__end__", "START", "END"})

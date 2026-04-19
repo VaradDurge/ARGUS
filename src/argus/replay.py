@@ -61,6 +61,12 @@ class ReplayEngine:
         # get fresh graph and attach watcher
         graph = app_factory()
 
+        # Unwrap compiled graphs: LangGraph CompiledGraph exposes the underlying
+        # StateGraph via a `.graph` attribute.  Accept it transparently so users
+        # don't need to refactor their build functions.
+        if hasattr(graph, "invoke") and hasattr(graph, "graph"):
+            graph = graph.graph
+
         # check if factory returns a StateGraph (not compiled)
         if hasattr(graph, "nodes") and not hasattr(graph, "invoke"):
             watcher = ArgusWatcher(max_field_size=self._max_field_size)
@@ -72,19 +78,10 @@ class ReplayEngine:
                 watcher._session.frozen_outputs = dict(frozen_map)
             new_run_id = watcher._session.run_id if watcher._session else None
             app = graph.compile()
-        elif hasattr(graph, "invoke"):
-            # factory returned an already-compiled app — wrap with a new watcher
-            # Note: for replay accuracy, factory should return StateGraph, not compiled app
-            print(
-                "[argus replay] WARNING: app_factory returned a compiled app. "
-                "For better replay accuracy, return a StateGraph (before compile)."
-            )
-            app = graph
-            watcher = None
-            new_run_id = None
         else:
             raise ValueError(
-                "app_factory must return a LangGraph StateGraph or compiled CompiledGraph."
+                "app_factory must return a LangGraph StateGraph or CompiledGraph. "
+                "Got: " + type(graph).__name__
             )
 
         app.invoke(state)

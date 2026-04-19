@@ -28,23 +28,47 @@ _WORDMARK = [
     "┴ ┴ ┴└─ └─┘ └─┘ └─┘",
 ]
 
-_COMMANDS = [
-    ("list",    "list all recorded runs"),
-    ("show",    "show details for a specific run"),
-    ("replay",  "re-run a pipeline from a saved checkpoint"),
-    ("inspect", "dump full state snapshot for a node"),
-    ("diff",    "compare two runs node-by-node"),
+_SETUP_LINES = [
+    ("from argus import ArgusWatcher",     ""),
+    ("watcher = ArgusWatcher()",           ""),
+    ("watcher.watch(graph)",               "# graph = your StateGraph, before .compile()"),
+    ("app = graph.compile()",              ""),
+    ("app.invoke(initial_state)",          ""),
+    ("watcher.finalize()",                 "# persists the run to .argus/runs/"),
 ]
 
-_EXAMPLES = [
-    ("argus list",                              "see every run, newest first"),
-    ("argus show last",                         "inspect the most recent run"),
-    ("argus show run <id>",                     "use full id or 8-char prefix"),
-    ("argus replay <id> <node>",                "re-run from a saved node state"),
-    ("argus replay <id> <node> --app mod:fn",   "replay with a live graph factory"),
-    ("argus inspect <id> --step <node>",        "dump raw input/output for a node"),
-    ("argus diff <id>",                         "diff a replay run against its original"),
-    ("argus diff <id-a> <id-b>",               "diff any two runs"),
+_COMMANDS = [
+    ("list",                              "list all recorded runs, newest first"),
+    ("show last",                         "inspect the most recent run"),
+    ("show run <id>",                     "inspect a specific run  (full id or 8-char prefix)"),
+    ("replay <id> <node>",                "re-run from a saved node checkpoint"),
+    ("replay <id> <node> --app mod:fn",   "replay with a live graph factory"),
+    ("inspect <id> --step <node>",        "dump raw input / output state for a node"),
+    ("diff <id>",                         "diff a replay run against its original"),
+    ("diff <id-a> <id-b>",               "diff any two runs side-by-side"),
+]
+
+_WHEN_TO_USE = [
+    ("list",     "after a run — get the run id for further commands"),
+    ("show",     "understand what happened: statuses, warnings, root cause"),
+    ("replay",   "re-run from a broken node after fixing the code"),
+    ("inspect",  "read exact input/output JSON for a specific step"),
+    ("diff",     "verify a fix actually changed behaviour between runs"),
+]
+
+_OPTIONS = [
+    ("replay  --app  module.path:fn",  "str",  "zero-arg callable returning StateGraph or CompiledGraph"),
+    ("inspect --step / -s  <node>",   "str",  "node name to inspect  (required)"),
+    ("show run <id>",                  "str",  "full run id or 8-char prefix"),
+    ("diff <id-a> <id-b>",            "str",  "two run ids; omit second to auto-diff vs original"),
+]
+
+_STATUSES = [
+    ("[bold green]✓[/bold green]  pass",            "node completed, output looks healthy"),
+    ("[bold yellow]⚠[/bold yellow]  silent failure", "node ran but returned empty / missing fields"),
+    ("[bold magenta]⊗[/bold magenta]  semantic fail","validator rejected the output"),
+    ("[bold red]✗[/bold red]  crashed",             "node raised an exception"),
+    ("[bold yellow]⏸[/bold yellow]  interrupted",   "human-in-the-loop pause"),
 ]
 
 
@@ -67,36 +91,80 @@ def _banner(ctx: typer.Context) -> None:
         _console.print(suffix)
 
     _console.print()
-    _console.print("  [dim]─────────────────────────────────────────[/dim]")
+    _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
     _console.print()
 
-    name_w = max(len(cmd) for cmd, _ in _COMMANDS)
-    for name, desc in _COMMANDS:
+    # ── Setup ──────────────────────────────────────────────────────────────
+    _console.print("  [dim]setup[/dim]")
+    _console.print()
+    code_w = max(len(code) for code, _ in _SETUP_LINES)
+    for code, comment in _SETUP_LINES:
         row = Text()
-        row.append(f"  {name:<{name_w}}  ", style="bold")
+        row.append(f"    {code:<{code_w}}  ", style="")
+        if comment:
+            row.append(comment, style="dim")
+        _console.print(row)
+
+    _console.print()
+    _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
+    _console.print()
+
+    # ── Commands ────────────────────────────────────────────────────────────
+    _console.print("  [dim]commands[/dim]")
+    _console.print()
+    cmd_w = max(len(cmd) for cmd, _ in _COMMANDS)
+    for cmd, desc in _COMMANDS:
+        row = Text()
+        row.append(f"  argus {cmd:<{cmd_w}}  ", style="bold")
         row.append(desc, style="dim")
         _console.print(row)
 
     _console.print()
-    _console.print("  [dim]─────────────────────────────────────────[/dim]")
-    _console.print()
-    _console.print("  [dim]examples[/dim]")
+    _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
     _console.print()
 
-    cmd_w = max(len(cmd) for cmd, _ in _EXAMPLES)
-    for cmd, note in _EXAMPLES:
+    # ── When to use ─────────────────────────────────────────────────────────
+    _console.print("  [dim]when to use[/dim]")
+    _console.print()
+    wtu_w = max(len(cmd) for cmd, _ in _WHEN_TO_USE)
+    for cmd, desc in _WHEN_TO_USE:
         row = Text()
-        row.append(f"  {cmd:<{cmd_w}}  ", style="")
-        row.append(f"# {note}", style="dim")
+        row.append(f"  {cmd:<{wtu_w}}  ", style="bold")
+        row.append(desc, style="dim")
         _console.print(row)
 
     _console.print()
-    hint = Text()
-    hint.append("  argus ", style="dim")
-    hint.append("<command>", style="italic dim")
-    hint.append(" --help", style="dim")
-    hint.append("  for all options", style="dim")
-    _console.print(hint)
+    _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
+    _console.print()
+
+    # ── Options ─────────────────────────────────────────────────────────────
+    _console.print("  [dim]options[/dim]")
+    _console.print()
+    opt_w  = max(len(opt)  for opt, _, _ in _OPTIONS)
+    type_w = max(len(typ)  for _, typ, _ in _OPTIONS)
+    for opt, typ, desc in _OPTIONS:
+        row = Text()
+        row.append(f"  {opt:<{opt_w}}  ", style="bold")
+        row.append(f"[{typ}]  ", style="italic dim")
+        row.append(desc, style="dim")
+        _console.print(row)
+
+    _console.print()
+    _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
+    _console.print()
+
+    # ── Node statuses ────────────────────────────────────────────────────────
+    _console.print("  [dim]node statuses[/dim]")
+    _console.print()
+    for icon_label, desc in _STATUSES:
+        row = Text.from_markup(f"  {icon_label:<26}  ")
+        row.append(desc, style="dim")
+        _console.print(row)
+
+    _console.print()
+    _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
+    _console.print()
+    _console.print("  [dim]run  [bold]argus <command> --help[/bold]  for per-command flag details[/dim]")
     _console.print()
 
 

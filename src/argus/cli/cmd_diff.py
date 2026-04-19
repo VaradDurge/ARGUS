@@ -7,6 +7,7 @@ from rich.markup import escape
 from rich.rule import Rule
 from rich.text import Text
 
+from argus.cli import print_footer
 from argus.models import InspectionResult, NodeEvent, RunRecord, ValidatorResult
 from argus.storage import load_run
 
@@ -119,6 +120,7 @@ def diff_runs(run_id_a: str, run_id_b: str | None = None) -> None:
     console.print()
     _print_summary(stats)
     console.print()
+    print_footer()
 
 
 # ── Node map ─────────────────────────────────────────────────────────────────

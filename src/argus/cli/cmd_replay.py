@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.rule import Rule
 from rich.text import Text
 
+from argus.cli import print_footer
 from argus.replay import ReplayEngine
 from argus.storage import load_run
 
@@ -24,10 +25,16 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
 
     available = [e.node_name for e in record.steps]
     if from_step not in available:
-        console.print(
+        msg = (
             f"[red]Error:[/red] node '[bold]{from_step}[/bold]' not found.\n"
             f"Available: {', '.join(available)}"
         )
+        if ":" in from_step:
+            msg += (
+                f"\n\n  [dim]Hint:[/dim] '[bold]{from_step}[/bold]' looks like a "
+                f"module:function — did you mean [bold]--app {from_step}[/bold]?"
+            )
+        console.print(msg)
         return
 
     if app_module_str is None:
@@ -95,6 +102,14 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
             name   = f"[bold]{step.node_name}[/bold]"
             icon   = "[bold yellow]⚠[/bold yellow]"
             label  = "[bold yellow]silent failure[/bold yellow]"
+        elif step.status == "semantic_fail":
+            name   = f"[bold]{step.node_name}[/bold]"
+            icon   = "[bold magenta]⊗[/bold magenta]"
+            label  = "[bold magenta]semantic fail[/bold magenta]"
+        elif step.status == "interrupted":
+            name   = f"[bold]{step.node_name}[/bold]"
+            icon   = "[bold yellow]⏸[/bold yellow]"
+            label  = "[bold yellow]interrupted[/bold yellow]"
         else:
             name   = f"[bold red]{step.node_name}[/bold red]"
             icon   = "[bold red]✗[/bold red]"
@@ -117,8 +132,7 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
 
     console.print(result)
     console.print()
-    console.print("  [dim]argus show last  for full details[/dim]")
-    console.print()
+    print_footer()
 
 
 def _import_factory(spec: str) -> Callable[[], Any] | None:
@@ -194,3 +208,4 @@ def inspect_step(run_id: str, step_name: str) -> None:
         console.print()
         console.print(f"  [italic dim]{event.inspection.message}[/italic dim]")
     console.print()
+    print_footer()
