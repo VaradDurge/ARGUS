@@ -105,40 +105,222 @@ def show_list() -> None:
     console.print()
 
 
+_SENTINEL_NODES: frozenset[str] = frozenset({"__start__", "__end__", "START", "END"})
+
+
+def _dag_layers(
+    edge_map: dict[str, list[str]],
+    node_names: list[str],
+) -> list[list[str]]:
+    """BFS layer computation for a DAG. Returns [[layer0_nodes], [layer1_nodes], ...]."""
+    known = set(node_names)
+    in_degree: dict[str, int] = {n: 0 for n in node_names}
+    for src, dests in edge_map.items():
+        if src not in known:
+            continue
+        for dst in dests:
+            if dst in known:
+                in_degree[dst] = in_degree.get(dst, 0) + 1
+
+    remaining = dict(in_degree)
+    queue = [n for n in node_names if in_degree.get(n, 0) == 0]
+    layers: list[list[str]] = []
+    visited: set[str] = set()
+
+    name_order = {n: i for i, n in enumerate(node_names)}
+
+    while queue:
+        layers.append(list(queue))
+        visited.update(queue)
+        next_layer: list[str] = []
+        for node in queue:
+            for dst in edge_map.get(node, []):
+                if dst not in known or dst in visited:
+                    continue
+                remaining[dst] -= 1
+                if remaining[dst] == 0 and dst not in next_layer:
+                    next_layer.append(dst)
+        # Sort by declaration order so topology matches graph definition
+        next_layer.sort(key=lambda n: name_order.get(n, len(node_names)))
+        queue = next_layer
+
+    return layers
+
+
+def _topology_lines(
+    edge_map: dict[str, list[str]],
+    node_names: list[str],
+) -> list[str]:
+    """Return ASCII-art DAG lines. Sequential chains shown as A → B → C.
+    Fan-out/fan-in groups shown as a bracket with the sequential tail on the
+    middle row:
+
+        ingest
+        ├─ analyst_a ──┐
+        ├─ analyst_b   │
+        ├─ analyst_c  ─┤  aggregator → scorer → reporter
+        ├─ analyst_d   │
+        └─ analyst_e ──┘
+    """
+    nodes = [n for n in node_names if n not in _SENTINEL_NODES]
+    clean_map: dict[str, list[str]] = {
+        src: [d for d in dests if d not in _SENTINEL_NODES]
+        for src, dests in edge_map.items()
+        if src not in _SENTINEL_NODES
+    }
+    if not nodes:
+        return []
+
+    layers = _dag_layers(clean_map, nodes)
+    if not layers:
+        # No edges — show as a plain chain in declaration order
+        return ["  " + " → ".join(nodes)]
+
+    # Classify layers: collect parallel groups and absorb their sequential tails
+    # so the tail appears inline on the middle row.
+    items: list = []  # ("seq", node) | ("parallel", [nodes], [tail_nodes])
+    i = 0
+    while i < len(layers):
+        layer = layers[i]
+        if len(layer) == 1:
+            items.append(("seq", layer[0]))
+            i += 1
+        else:
+            tail: list[str] = []
+            j = i + 1
+            while j < len(layers) and len(layers[j]) == 1:
+                tail.append(layers[j][0])
+                j += 1
+            items.append(("parallel", layer, tail))
+            i = j
+
+    result: list[str] = []
+    seq_buf: list[str] = []
+
+    def _flush() -> None:
+        if seq_buf:
+            result.append("  " + " → ".join(seq_buf))
+            seq_buf.clear()
+
+    for item in items:
+        if item[0] == "seq":
+            seq_buf.append(item[1])
+            continue
+
+        _flush()
+        layer: list[str] = item[1]
+        tail_nodes: list[str] = item[2]
+        tail_str = " → ".join(tail_nodes)
+        n = len(layer)
+        mid = n // 2
+        max_len = max(len(name) for name in layer)
+
+        for k, node in enumerate(layer):
+            # pad_w: extra width so the bracket column aligns for all names
+            pad_w = max_len - len(node) + 1  # +1 guarantees min 1 char gap
+
+            if k == 0:
+                prefix  = "  ├─ "
+                fill    = "─" * pad_w
+                bracket = "─┐"
+            elif k == n - 1:
+                prefix  = "  └─ "
+                fill    = "─" * pad_w
+                bracket = "─┘"
+            elif k == mid and tail_str:
+                prefix  = "  ├─ "
+                fill    = " " * pad_w
+                bracket = "─┤  " + tail_str
+            else:
+                prefix  = "  ├─ "
+                fill    = " " * pad_w
+                bracket = " │"
+
+            result.append(f"{prefix}{node}{fill}{bracket}")
+
+    _flush()
+    return result
+
+
+def _find_parallel_groups(
+    edge_map: dict[str, list[str]],
+) -> dict[str, list[str]]:
+    """Return {fan_in_node: [parallel_node, ...]} for nodes with 2+ incoming sources."""
+    reverse: dict[str, list[str]] = {}
+    for src, dests in edge_map.items():
+        for dst in dests:
+            reverse.setdefault(dst, []).append(src)
+    return {dst: srcs for dst, srcs in reverse.items() if len(srcs) >= 2}
+
+
 def _segment_events(
     events: list[NodeEvent],
+    edge_map: dict[str, list[str]] | None = None,
 ) -> list[tuple[str, object]]:
-    """Split events into normal segments and cycle groups.
+    """Split events into normal, cycle, and parallel segments.
 
     Returns a list of:
-        ("normal", [NodeEvent, ...])
-        ("cycle",  [[iter0_events], [iter1_events], ...])
+        ("normal",   [NodeEvent, ...])
+        ("cycle",    [[iter0_events], [iter1_events], ...])
+        ("parallel", [NodeEvent, ...])
     """
     counts = Counter(e.node_name for e in events)
     cyclic_names = {name for name, c in counts.items() if c > 1}
 
-    if not cyclic_names:
+    # Detect parallel fan-out members
+    parallel_members: set[str] = set()
+    if edge_map:
+        groups = _find_parallel_groups(edge_map)
+        parallel_members = {node for nodes in groups.values() for node in nodes}
+
+    if not cyclic_names and not parallel_members:
         return [("normal", events)]
 
-    # Find the contiguous index range that contains all cyclic events
-    cycle_indices = [i for i, e in enumerate(events) if e.node_name in cyclic_names]
-    cycle_start = cycle_indices[0]
-    cycle_end = cycle_indices[-1] + 1
+    # Cycle grouping takes priority (cyclic graphs with parallel branches are rare)
+    if cyclic_names:
+        cycle_indices = [i for i, e in enumerate(events) if e.node_name in cyclic_names]
+        cycle_start = cycle_indices[0]
+        cycle_end = cycle_indices[-1] + 1
 
-    segments: list[tuple[str, object]] = []
-    if cycle_start > 0:
-        segments.append(("normal", events[:cycle_start]))
+        segments: list[tuple[str, object]] = []
+        if cycle_start > 0:
+            segments.append(("normal", events[:cycle_start]))
 
-    # Group cyclic block into iterations by attempt_index
-    cycle_block = events[cycle_start:cycle_end]
-    iterations: dict[int, list[NodeEvent]] = {}
-    for e in cycle_block:
-        iterations.setdefault(e.attempt_index, []).append(e)
-    sorted_iters = [iterations[k] for k in sorted(iterations.keys())]
-    segments.append(("cycle", sorted_iters))
+        cycle_block = events[cycle_start:cycle_end]
+        iterations: dict[int, list[NodeEvent]] = {}
+        for e in cycle_block:
+            iterations.setdefault(e.attempt_index, []).append(e)
+        sorted_iters = [iterations[k] for k in sorted(iterations.keys())]
+        segments.append(("cycle", sorted_iters))
 
-    if cycle_end < len(events):
-        segments.append(("normal", events[cycle_end:]))
+        if cycle_end < len(events):
+            segments.append(("normal", events[cycle_end:]))
+        return segments
+
+    # Parallel segmentation: collect contiguous runs of parallel members
+    segments = []
+    normal_buf: list[NodeEvent] = []
+    parallel_buf: list[NodeEvent] = []
+
+    for event in events:
+        if event.node_name in parallel_members:
+            parallel_buf.append(event)
+        else:
+            if parallel_buf:
+                if normal_buf:
+                    segments.append(("normal", normal_buf))
+                    normal_buf = []
+                segments.append(("parallel", parallel_buf))
+                parallel_buf = []
+            normal_buf.append(event)
+
+    if parallel_buf:
+        if normal_buf:
+            segments.append(("normal", normal_buf))
+            normal_buf = []
+        segments.append(("parallel", parallel_buf))
+    if normal_buf:
+        segments.append(("normal", normal_buf))
 
     return segments
 
@@ -200,12 +382,15 @@ def _print_chain(chain: list[RunRecord]) -> None:
             steps=run.steps,
         )
 
-        segments = _segment_events(run.steps)
+        segments = _segment_events(run.steps, edge_map=combined_edge_map)
         for seg_type, seg_data in segments:
             if seg_type == "normal":
                 for event in seg_data:  # type: ignore[union-attr]
                     _print_node(event, name_col, ctx, display_index=global_idx)
                     global_idx += 1
+            elif seg_type == "parallel":
+                _print_parallel_group(seg_data, name_col)  # type: ignore[arg-type]
+                global_idx += len(seg_data)  # type: ignore[arg-type]
             else:
                 _print_cycle_group(seg_data, name_col, ctx)  # type: ignore[arg-type]
                 for iter_events in seg_data:
@@ -264,14 +449,27 @@ def _print_run(record: RunRecord) -> None:
     console.print(Rule(style="dim"))
     console.print()
 
-    # ── Node list (with cycle grouping) ────────────────────────────────────
+    # ── Graph topology ─────────────────────────────────────────────────────
+    topo = _topology_lines(record.graph_edge_map, record.graph_node_names)
+    if topo and len(record.graph_node_names) > 1:
+        console.print("  [dim]graph[/dim]")
+        console.print()
+        for line in topo:
+            console.print(f"[dim]{line}[/dim]")
+        console.print()
+        console.print(Rule(style="dim"))
+        console.print()
+
+    # ── Node list (with cycle / parallel grouping) ─────────────────────────
     name_col = max(len(e.node_name) for e in record.steps) + 2
-    segments = _segment_events(record.steps)
+    segments = _segment_events(record.steps, edge_map=record.graph_edge_map)
 
     for seg_type, seg_data in segments:
         if seg_type == "normal":
             for event in seg_data:  # type: ignore[union-attr]
                 _print_node(event, name_col, record)
+        elif seg_type == "parallel":
+            _print_parallel_group(seg_data, name_col)  # type: ignore[arg-type]
         else:
             _print_cycle_group(seg_data, name_col, record)  # type: ignore[arg-type]
 
@@ -367,6 +565,78 @@ def _print_cycle_group(
         title=title,
         title_align="left",
         border_style="cyan dim",
+        padding=(0, 1),
+    )
+    console.print(panel)
+    console.print()
+
+
+def _print_parallel_group(
+    events: list[NodeEvent],
+    name_col: int,
+) -> None:
+    """Render a fan-out group as a blue panel showing nodes that ran in parallel."""
+    node_names = " · ".join(e.node_name for e in events)
+    inner_lines: list[str] = []
+
+    for event in events:
+        status = event.status
+        has_warnings = (
+            status == "pass"
+            and event.inspection is not None
+            and (
+                event.inspection.empty_fields
+                or event.inspection.type_mismatches
+                or (event.inspection.tool_failures and not event.inspection.has_tool_failure)
+            )
+        )
+        if status == "pass" and has_warnings:
+            icon  = "[bold yellow]~[/bold yellow]"
+            label = "[bold green]pass[/bold green] [dim yellow](warnings)[/dim yellow]"
+        elif status == "pass":
+            icon  = "[bold green]✓[/bold green]"
+            label = "[bold green]pass[/bold green]"
+        elif status == "fail":
+            icon  = "[bold yellow]⚠[/bold yellow]"
+            label = "[bold yellow]silent failure[/bold yellow]"
+        elif status == "semantic_fail":
+            icon  = "[bold magenta]⊗[/bold magenta]"
+            label = "[bold magenta]semantic fail[/bold magenta]"
+        elif status == "interrupted":
+            icon  = "[bold yellow]⏸[/bold yellow]"
+            label = "[bold yellow]interrupted[/bold yellow]"
+        else:
+            icon  = "[bold red]✗[/bold red]"
+            label = "[bold red]crashed[/bold red]"
+
+        pad = " " * (name_col - len(event.node_name))
+        dur = f"[italic dim]{event.duration_ms:.0f} ms[/italic dim]"
+        inner_lines.append(
+            f"  [bold]{event.node_name}[/bold]{pad}  {dur}   {icon}  {label}"
+        )
+        if event.exception:
+            first_line = event.exception.splitlines()[0]
+            inner_lines.append(f"     [dim]└─[/dim]  [italic]{first_line}[/italic]")
+        for vr in event.validator_results:
+            vicon = (
+                "[dim green]✓[/dim green]"
+                if vr.is_valid
+                else "[bold magenta]⊗[/bold magenta]"
+            )
+            inner_lines.append(
+                f"     [dim]└─[/dim]  {vicon} [dim]{vr.validator_name}[/dim]"
+            )
+
+    inner_text = "\n".join(inner_lines)
+    title = (
+        f"[bold blue]⟼ parallel[/bold blue]  "
+        f"[dim]{node_names}[/dim]"
+    )
+    panel = Panel(
+        inner_text,
+        title=title,
+        title_align="left",
+        border_style="blue dim",
         padding=(0, 1),
     )
     console.print(panel)

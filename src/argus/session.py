@@ -45,6 +45,9 @@ try:
 except ImportError:
     _GraphInterrupt = None  # type: ignore[assignment,misc]
 
+# Sentinel for _pop_frozen_output — distinct from any real output value
+_MISSING = object()
+
 
 class ArgusSession:
     """Framework-agnostic monitoring session.
@@ -163,6 +166,14 @@ class ArgusSession:
             return wrapped
         return decorator
 
+    def _pop_frozen_output(self, node_name: str) -> Any:
+        """Pop the next frozen output for node_name, if available. Thread-safe."""
+        with self._lock:
+            frozen = self.frozen_outputs
+            if frozen and node_name in frozen and frozen[node_name]:
+                return frozen[node_name].pop(0)
+        return _MISSING
+
     def _make_sync_wrapper(self, node_name: str, original_fn: Callable) -> Callable:
         @functools.wraps(original_fn)
         def _wrapped(state: Any) -> Any:
@@ -170,21 +181,24 @@ class ArgusSession:
             self.on_node_start(node_name, input_snap)
             t0 = time.perf_counter()
             try:
-                frozen = self.frozen_outputs
-                if frozen and node_name in frozen and frozen[node_name]:
-                    output = frozen[node_name].pop(0)
+                frozen_out = self._pop_frozen_output(node_name)
+                if frozen_out is not _MISSING:
+                    output = frozen_out
                 else:
                     output = original_fn(state)
                 duration = (time.perf_counter() - t0) * 1000
                 output_snap = self.capture_output(output)
-                self.on_node_end(node_name, input_snap, output_snap, duration, exc=None)
+                self.on_node_end(
+                    node_name, input_snap, output_snap, duration, exc=None,
+                )
                 return output
             except Exception as exc:
                 duration = (time.perf_counter() - t0) * 1000
                 # Detect GraphInterrupt before treating as crash
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
                     self.on_node_end(
-                        node_name, input_snap, None, duration, exc=None, is_interrupt=True
+                        node_name, input_snap, None, duration,
+                        exc=None, is_interrupt=True,
                     )
                     raise
                 self.on_node_end(node_name, input_snap, None, duration, exc=exc)
@@ -199,20 +213,23 @@ class ArgusSession:
             self.on_node_start(node_name, input_snap)
             t0 = time.perf_counter()
             try:
-                frozen = self.frozen_outputs
-                if frozen and node_name in frozen and frozen[node_name]:
-                    output = frozen[node_name].pop(0)
+                frozen_out = self._pop_frozen_output(node_name)
+                if frozen_out is not _MISSING:
+                    output = frozen_out
                 else:
                     output = await original_fn(state)
                 duration = (time.perf_counter() - t0) * 1000
                 output_snap = self.capture_output(output)
-                self.on_node_end(node_name, input_snap, output_snap, duration, exc=None)
+                self.on_node_end(
+                    node_name, input_snap, output_snap, duration, exc=None,
+                )
                 return output
             except Exception as exc:
                 duration = (time.perf_counter() - t0) * 1000
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
                     self.on_node_end(
-                        node_name, input_snap, None, duration, exc=None, is_interrupt=True
+                        node_name, input_snap, None, duration,
+                        exc=None, is_interrupt=True,
                     )
                     raise
                 self.on_node_end(node_name, input_snap, None, duration, exc=exc)
@@ -225,7 +242,9 @@ class ArgusSession:
     def capture_state(self, state: Any) -> dict[str, Any]:
         snap = safe_serialize(state, self.max_field_size)
         if not self._initial_state and snap:
-            self._initial_state = snap
+            with self._lock:
+                if not self._initial_state:
+                    self._initial_state = snap
         return snap
 
     def capture_output(self, output: Any) -> dict[str, Any]:
@@ -251,65 +270,76 @@ class ArgusSession:
             attempt_idx = self._node_attempt_counts.get(node_name, 0)
             self._node_attempt_counts[node_name] = attempt_idx + 1
 
-        # determine status
-        if is_interrupt:
-            status = "interrupted"
-            exc_str = None
-        elif exc is not None:
-            status = "crashed"
-            tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-            exc_str = f"{type(exc).__name__}: {exc}\n{tb}"
-        else:
-            status = "pass"
-            exc_str = None
+            # determine status
+            if is_interrupt:
+                status = "interrupted"
+                exc_str = None
+            elif exc is not None:
+                status = "crashed"
+                tb = "".join(
+                    traceback.format_exception(type(exc), exc, exc.__traceback__)
+                )
+                exc_str = f"{type(exc).__name__}: {exc}\n{tb}"
+            else:
+                status = "pass"
+                exc_str = None
 
-        # build merged state (input + output merged, as successor would see it)
-        merged = dict(input_snap)
-        if output_snap:
-            merged.update(output_snap)
+            # build merged state (input + output, as successor would see it)
+            merged = dict(input_snap)
+            if output_snap:
+                merged.update(output_snap)
 
-        # structural inspection (skip on crash or interrupt)
-        inspection = None
-        if status == "pass" and output_snap is not None:
-            successor_fns = self._get_successor_fns(node_name)
-            inspection = inspect_transition(
-                current_node=node_name,
+            # structural inspection (skip on crash or interrupt)
+            inspection = None
+            if status == "pass" and output_snap is not None:
+                successor_fns = self._get_successor_fns(node_name)
+                inspection = inspect_transition(
+                    current_node=node_name,
+                    output_dict=output_snap,
+                    merged_state=merged,
+                    successor_fns=successor_fns,
+                )
+                if inspection.is_silent_failure or inspection.has_tool_failure:
+                    status = "fail"
+
+            # semantic validation (skip on crash/interrupt)
+            validator_results: list[ValidatorResult] = []
+            if output_snap is not None and status in ("pass", "fail"):
+                validator_results = self._run_validators(
+                    node_name, output_snap,
+                )
+                if (
+                    any(not r.is_valid for r in validator_results)
+                    and status == "pass"
+                ):
+                    status = "semantic_fail"
+
+            event = NodeEvent(
+                step_index=step_idx,
+                node_name=node_name,
+                status=status,
+                input_state=input_snap,
                 output_dict=output_snap,
-                merged_state=merged,
-                successor_fns=successor_fns,
+                duration_ms=round(duration_ms, 2),
+                timestamp_utc=datetime.now(timezone.utc).isoformat(),
+                exception=exc_str,
+                inspection=inspection,
+                attempt_index=attempt_idx,
+                validator_results=validator_results,
             )
-            if inspection.is_silent_failure or inspection.has_tool_failure:
-                status = "fail"
 
-        # semantic validation (skip on crash/interrupt)
-        validator_results: list[ValidatorResult] = []
-        if output_snap is not None and status in ("pass", "fail"):
-            validator_results = self._run_validators(node_name, output_snap)
-            if any(not r.is_valid for r in validator_results) and status == "pass":
-                status = "semantic_fail"
-
-        event = NodeEvent(
-            step_index=step_idx,
-            node_name=node_name,
-            status=status,
-            input_state=input_snap,
-            output_dict=output_snap,
-            duration_ms=round(duration_ms, 2),
-            timestamp_utc=datetime.now(timezone.utc).isoformat(),
-            exception=exc_str,
-            inspection=inspection,
-            attempt_index=attempt_idx,
-            validator_results=validator_results,
-        )
-
-        with self._lock:
             self._events.append(event)
 
-        # auto-finalize: on crash/interrupt always; on last-node only for non-cyclic
-        should_finalize = (
-            status in ("crashed", "interrupted")
-            or (not self._is_cyclic and node_name == self._last_expected_node())
-        )
+            # auto-finalize decision (atomic with event append)
+            should_finalize = (
+                status in ("crashed", "interrupted")
+                or (
+                    not self._is_cyclic
+                    and node_name == self._last_expected_node()
+                )
+            )
+
+        # finalize outside the lock to avoid holding it during I/O
         if should_finalize:
             self._finalize()
 
@@ -345,6 +375,7 @@ class ArgusSession:
             if self._completed:
                 return
             self._completed = True
+            events_snapshot = list(self._events)
 
         completed_at = datetime.now(timezone.utc).isoformat()
 
@@ -355,13 +386,18 @@ class ArgusSession:
         except Exception:
             duration_ms = None
 
-        has_crash = any(e.status == "crashed" for e in self._events)
-        has_interrupt = any(e.status == "interrupted" for e in self._events)
-        has_silent_failure = any(
-            e.inspection and (e.inspection.is_silent_failure or e.inspection.has_tool_failure)
-            for e in self._events
+        has_crash = any(e.status == "crashed" for e in events_snapshot)
+        has_interrupt = any(
+            e.status == "interrupted" for e in events_snapshot
         )
-        has_semantic_fail = any(e.status == "semantic_fail" for e in self._events)
+        has_silent_failure = any(
+            e.inspection
+            and (e.inspection.is_silent_failure or e.inspection.has_tool_failure)
+            for e in events_snapshot
+        )
+        has_semantic_fail = any(
+            e.status == "semantic_fail" for e in events_snapshot
+        )
 
         if has_crash:
             overall_status = "crashed"
@@ -374,16 +410,16 @@ class ArgusSession:
 
         _fail_statuses = ("fail", "crashed", "semantic_fail")
         first_failure = next(
-            (e.node_name for e in self._events if e.status in _fail_statuses),
+            (e.node_name for e in events_snapshot if e.status in _fail_statuses),
             None,
         )
 
         interrupt_node = next(
-            (e.node_name for e in self._events if e.status == "interrupted"),
+            (e.node_name for e in events_snapshot if e.status == "interrupted"),
             None,
         )
 
-        root_cause_chain = build_root_cause_chain(self._events)
+        root_cause_chain = build_root_cause_chain(events_snapshot)
 
         record = RunRecord(
             run_id=self.run_id,
@@ -397,7 +433,7 @@ class ArgusSession:
             graph_node_names=self.graph_node_names,
             graph_edge_map=self.graph_edge_map,
             initial_state=self._initial_state,
-            steps=list(self._events),
+            steps=events_snapshot,
             is_cyclic=self._is_cyclic,
             parent_run_id=self.parent_run_id,
             replay_from_step=self.replay_from_step,

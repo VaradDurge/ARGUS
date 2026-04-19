@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -43,7 +42,7 @@ def patch_graph(graph: Any, session: ArgusSession) -> None:
                 node_value.runnable.func = session.wrap(node_name, original_fn)
             # handle dedicated async func if present
             afunc = node_value.runnable.afunc
-            if afunc is not None and not asyncio.iscoroutinefunction(original_fn or afunc):
+            if afunc is not None and afunc is not original_fn:
                 node_value.runnable.afunc = session.wrap(node_name, afunc)
         else:
             # Legacy: nodes are plain callables

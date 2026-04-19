@@ -180,6 +180,10 @@ def inspect_transition(
     worst_severity = "ok"
     annotated_count = 0
 
+    # Fields this node actually wrote — used to skip checks for fields that
+    # are a parallel sibling's responsibility (fan-out/fan-in pattern).
+    node_provided_keys: set[str] = set(output_dict.keys()) if output_dict else set()
+
     for fn in successor_fns:
         fn_name = _get_fn_name(fn)
         state_type = get_node_state_type(fn)
@@ -192,7 +196,7 @@ def inspect_transition(
             continue
 
         annotated_count += 1
-        missing, empty, mismatches = _check_fields(fields, merged_state)
+        missing, empty, mismatches = _check_fields(fields, merged_state, node_provided_keys)
 
         for f in missing:
             if f not in all_missing:
@@ -245,7 +249,15 @@ def inspect_transition(
 def _check_fields(
     expected_fields: dict[str, dict],
     actual_state: dict[str, Any],
+    node_provided_keys: set[str] | None = None,
 ) -> tuple[list[str], list[str], list[FieldMismatch]]:
+    """Check successor field requirements against actual state.
+
+    node_provided_keys: keys the current node actually wrote to output_dict.
+    When supplied, fields absent from this set are treated as "another node's
+    responsibility" (parallel sibling pattern) and are not flagged as missing.
+    When None (legacy callers), the old behaviour is preserved.
+    """
     missing = []
     empty = []
     mismatches = []
@@ -254,20 +266,23 @@ def _check_fields(
         required = meta.get("required", True)
         expected_type = meta.get("type")
 
-        if field_name not in actual_state:
-            if required:
-                missing.append(field_name)
+        if field_name not in actual_state or _is_empty(actual_state.get(field_name)):
+            # If the current node didn't write this field, it is not our
+            # responsibility — a parallel sibling or later node will provide it.
+            if node_provided_keys is not None and field_name not in node_provided_keys:
+                continue
+            if field_name not in actual_state:
+                if required:
+                    missing.append(field_name)
+            else:
+                # present but empty
+                if required:
+                    missing.append(field_name)
+                else:
+                    empty.append(field_name)
             continue
 
         value = actual_state[field_name]
-
-        # emptiness check — required empty == missing; optional empty == warning
-        if _is_empty(value):
-            if required:
-                missing.append(field_name)
-            else:
-                empty.append(field_name)
-            continue
 
         # lightweight type coherence check (primitives only)
         if expected_type is not None and isinstance(expected_type, type):
@@ -357,7 +372,17 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
     Each node name appears at most once in the result (deduplicated), preserving
     chronological order of first occurrence. This handles cyclic graphs where the
     same node may run multiple times across iterations.
+
+    Parallel fan-out guard: fields provided by any node in the run are excluded
+    from "missing field" blame. A field flagged missing on analyst_a is not a
+    root cause if analyst_b actually provided it — they ran simultaneously.
     """
+    # Fields actually produced by any node across the entire run
+    all_provided: set[str] = set()
+    for event in steps_so_far:
+        if event.output_dict:
+            all_provided.update(event.output_dict.keys())
+
     chain: list[str] = []
     seen_nodes: set[str] = set()
     seen_bad_fields: set[str] = set()
@@ -369,12 +394,14 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
         if not insp.is_silent_failure and insp.severity not in ("critical", "warning"):
             continue
         bad_fields = set(insp.missing_fields + insp.empty_fields)
-        if (bad_fields or seen_bad_fields.intersection(bad_fields)
-                or insp.is_silent_failure or insp.has_tool_failure):
+        # Remove fields that were actually provided elsewhere — parallel siblings
+        real_bad = bad_fields - all_provided
+        if (real_bad or seen_bad_fields.intersection(real_bad)
+                or insp.has_tool_failure):
             if event.node_name not in seen_nodes:
                 chain.append(event.node_name)
                 seen_nodes.add(event.node_name)
-            seen_bad_fields.update(bad_fields)
+            seen_bad_fields.update(real_bad)
 
     chain.reverse()
     return chain
