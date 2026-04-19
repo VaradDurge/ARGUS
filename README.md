@@ -1,6 +1,6 @@
 # ARGUS
 
-**Monitoring for multi-agent pipelines.** ARGUS catches silent failures between agents, traces root causes across the chain, validates semantic correctness, and lets you replay any run from the exact step it broke — without re-running what already worked.
+**Node-level monitoring for LangGraph pipelines.** Catches silent failures between agents, traces root causes across the chain, validates semantic correctness, and replays any run from the exact node it broke — without re-running what already worked.
 
 Works with LangGraph out of the box. Works with any Python pipeline (Prefect, Temporal, raw functions) via `ArgusSession`.
 
@@ -48,10 +48,12 @@ watcher = ArgusWatcher()
 watcher.watch(graph)       # call before graph.compile()
 app = graph.compile()
 result = app.invoke(state)
-# watcher.finalize()       # only needed for cyclic graphs
+watcher.finalize()         # required for cyclic graphs; safe to call always
 ```
 
-No changes to node functions. No decorators. Two lines.
+No changes to node functions. No decorators. Three lines.
+
+`watch()` accepts both an uncompiled `StateGraph` and an already-compiled app — if you pass a compiled graph, ARGUS unwraps it internally.
 
 ### Any Python pipeline (Prefect, Temporal, raw functions)
 
@@ -64,7 +66,6 @@ session = ArgusSession(validators={
 })
 session.set_edges({"fetch": ["validate"], "validate": ["process"]})
 
-# wrap all agents at once
 wrapped = session.instrument({
     "fetch":    fetch_fn,
     "validate": validate_fn,
@@ -77,7 +78,7 @@ state = wrapped["process"](state)
 session.finalize()
 ```
 
-Or use the decorator style at definition time:
+Or use the decorator at definition time:
 
 ```python
 @session.node("fetch")
@@ -90,83 +91,128 @@ def fetch(state: MyState) -> dict:
 ## CLI
 
 ```bash
-argus list                                              # all runs, newest first
-argus show last                                         # most recent run
-argus show run <id>                                     # by full or 8-char prefix ID
-argus replay <id> <node> --app my_module:build_graph    # re-run from a specific node
-argus inspect <id> --step <node>                        # dump raw input/output for a node
+argus list                                             # all runs, newest first
+argus show last                                        # most recent run
+argus show run <id>                                    # by full id or 8-char prefix
+argus replay <id> <node> --app my_module:build_graph   # re-run from a specific node
+argus inspect <id> --step <node>                       # dump raw input/output for a node
+argus diff <id>                                        # diff a replay against its original
+argus diff <id-a> <id-b>                               # diff any two runs
 ```
 
-Example `argus show` output — silent failure:
+Run `argus --help` for the full setup guide, when-to-use notes, and flag reference.
+
+---
+
+## What the output looks like
+
+**Silent failure — root cause two nodes upstream:**
 
 ```
 argus  20240405-abc12345  ·  2024-04-05 12:30  ·  1243 ms
 status  ●  silent_failure
 
-────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────
 
-   1  fetch      43 ms    ✓  pass
-   2  validate   12 ms    ⚠  silent failure
+   1  fetch       43 ms    ✓  pass
+   2  validate    12 ms    ⚠  silent failure
       └─  Field "score" is missing
       └─  process received bad state
-   3  process   891 ms    ✗  crashed
+   3  process    891 ms    ✗  crashed
       └─  KeyError: 'score'
       └─  at pipeline.py:47  →  result = state["score"] * weight
       └─  Field 'score' was absent from the incoming state
 
-────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────
 root cause   validate
 ```
 
-Cyclic graphs — the repeating nodes are grouped into a labelled box:
+**Parallel execution — fan-out nodes shown as a blue panel:**
 
 ```
-╭─ ↩ cycle  validator → corrector × 3 ─────────────────────────────╮
-│   iteration 1                                                      │
-│                                                                    │
-│      validator   0 ms   ✓  pass                                    │
-│      corrector   0 ms   ✓  pass                                    │
-│                                                                    │
-│   ────────────────────────────────────────────────────────────     │
-│   iteration 2                                                      │
-│   ...                                                              │
-╰────────────────────────────────────────────────────────────────────╯
+argus  20240405-abc12345  ·  2024-04-05 14:10  ·  834 ms
+status  ●  clean
+
+────────────────────────────────────────────────────────────
+
+  graph
+
+    ingest
+    ├─ analyst_a ──┐
+    ├─ analyst_b   │
+    ├─ analyst_c  ─┤  aggregator → scorer → reporter
+    ├─ analyst_d   │
+    └─ analyst_e ──┘
+
+────────────────────────────────────────────────────────────
+
+   1  ingest       91 ms    ✓  pass
+
+╭─ ⟼ parallel  analyst_a · analyst_b · analyst_c · analyst_d · analyst_e ──╮
+│  analyst_a   210 ms   ✓  pass                                              │
+│  analyst_b   198 ms   ✓  pass                                              │
+│  analyst_c   231 ms   ✓  pass                                              │
+│  analyst_d   187 ms   ✓  pass                                              │
+│  analyst_e   203 ms   ✓  pass                                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+
+   7  aggregator   44 ms    ✓  pass
 ```
 
-Human interrupt chains — `argus show last` on a resumed run stitches the full trace:
+**Cyclic graphs — iterations grouped into a labelled box:**
+
+```
+╭─ ↩ cycle  validator → corrector × 3 ──────────────────────────╮
+│   iteration 1                                                   │
+│                                                                 │
+│      validator   0 ms   ✓  pass                                 │
+│      corrector   0 ms   ✓  pass                                 │
+│                                                                 │
+│   ─────────────────────────────────────────────────────────     │
+│   iteration 2                                                   │
+│   ...                                                           │
+╰─────────────────────────────────────────────────────────────────╯
+```
+
+**Human interrupt chains — full trace stitched on resume:**
 
 ```
 argus  20240405-abc12345  ·  2024-04-05 12:30
 status    ●  clean
 ⏸  1 human interrupt
 
-────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────
 
    1  brief_generator    0 ms   ✓  pass
    2  content_writer     0 ms   ✓  pass
    3  human_reviewer     0 ms   ⏸  interrupted
       └─  execution paused — awaiting human approval
 
-──────── ⏸  human interrupt  resumed  20240405-xyz99999 ────────────
+──────── ⏸  human interrupt  resumed  20240405-xyz99999 ────
 
    4  content_reviser    0 ms   ✓  pass
    5  publisher          0 ms   ✓  pass
 ```
 
-Works for any depth of interrupts — each additional interrupt adds another separator.
+**Diff — comparing a replay against the original:**
 
----
+```
+argus diff  abc12345  →  def67890
 
-## License
+────────────────────────────────────────────────────────────
 
-MIT
+   fetch       ✓ pass       →  ✓ pass       43 ms  →  41 ms
+   validate    ⚠ fail       →  ✓ pass      (fixed)
+     └─  summary: was "" (13 chars now)
+   process     ✗ crashed    →  ✓ pass      (fixed)
 
----
+────────────────────────────────────────────────────────────
+2 nodes changed  ·  2 fixed
+```
+
 ---
 
 # In Depth
-
-Everything below is the full technical reference — how each feature works, what problem it solves, and how it's implemented.
 
 ---
 
@@ -185,14 +231,12 @@ Everything below is the full technical reference — how each feature works, wha
 
 ## Feature 1: Zero-Intrusion Monitoring
 
-**Problem:** Adding logging and timing to every agent function pollutes business logic. Not adding it means no visibility.
-
-**Solution:** `session.wrap(node_name, fn)` returns a monitored version of your function that is identical to the original from the caller's perspective. Your code is untouched.
+`session.wrap(node_name, fn)` returns a monitored version of your function that is identical to the original from the caller's perspective. Your code is untouched.
 
 ```python
 @session.node("fetch")
 def fetch(state: MyState) -> dict:
-    result = llm.invoke(state["query"])   # your agent — unchanged
+    result = llm.invoke(state["query"])
     return {"response": result}
 ```
 
@@ -206,7 +250,7 @@ When `fetch(state)` is called, ARGUS:
 
 Both sync and async functions are handled — the wrapper detects `asyncio.iscoroutinefunction()` and preserves async behavior.
 
-**`instrument()` for bulk wrapping (15 agents, one call):**
+**`instrument()` for bulk wrapping:**
 
 ```python
 wrapped = session.instrument(
@@ -214,33 +258,19 @@ wrapped = session.instrument(
         "fetch":    fetch_fn,
         "clean":    clean_fn,
         "classify": classify_fn,
-        # ... all 15
     },
     edges={
-        "fetch":    ["clean"],
-        "clean":    ["classify"],
-        # ...
+        "fetch":  ["clean"],
+        "clean":  ["classify"],
     },
 )
-state = wrapped["fetch"](state)
 ```
-
-**`@session.node()` decorator (at definition time):**
-
-```python
-@session.node("fetch")
-def fetch(state): ...
-```
-
-Both call `session.wrap()` under the hood — same monitoring, different ergonomics.
 
 ---
 
 ## Feature 2: State Snapshot Capture
 
-**Problem:** When a failure occurs, there's no record of what any node received or produced. You can't inspect it post-hoc.
-
-**Solution:** Every node execution stores a `NodeEvent` with:
+Every node execution stores a `NodeEvent`:
 
 ```
 NodeEvent {
@@ -248,101 +278,70 @@ NodeEvent {
     node_name:     str
     input_state:   dict         # full state BEFORE the node ran
     output_dict:   dict | None  # full state AFTER (None if crashed)
-    duration_ms:   float        # wall-clock time in milliseconds
+    duration_ms:   float
     timestamp_utc: str          # ISO-8601 UTC
     exception:     str | None   # full traceback on crash
-    attempt_index: int          # times this node ran before (cyclic graphs)
+    attempt_index: int          # how many times this node ran before (cyclic graphs)
 }
 ```
 
-`safe_serialize` converts any Python object — TypedDicts, Pydantic models, dataclasses, LangChain objects — to a plain dict. Fields larger than `max_field_size` (default 50,000 chars) are truncated with a marker.
-
-The first `capture_state` call also stores `initial_state` on the session — the exact state the pipeline started with. The replay engine uses this to reconstruct any mid-pipeline state without re-running previous nodes.
+`safe_serialize` converts TypedDicts, Pydantic models, dataclasses, and LangChain objects to plain dicts. Fields larger than `max_field_size` (default 50,000 chars) are truncated with a marker.
 
 ---
 
-## Feature 3: Silent Failure Detection (Structural)
+## Feature 3: Silent Failure Detection
 
-**Problem:** Node A runs without error. Its output is missing `score` which Node B needs. Node B quietly produces garbage. Node C crashes on the garbage. You see Node C fail and debug Node C. The real bug is Node A.
+After every node completes, ARGUS inspects the transition to the next node using its type annotations.
 
-**Solution:** After every node completes, ARGUS immediately inspects the transition to the **successor node** by reading its type annotations.
-
-Mechanism:
-1. Look up the edge map for the current node's outbound edges
-2. Get the actual function objects for each successor
-3. Read the **first parameter's type annotation** from the successor function signature
-4. Introspect that type — supports TypedDict, Pydantic v1/v2, dataclasses
+1. Look up outbound edges for the current node
+2. Get the function objects for each successor
+3. Read the first parameter's type annotation
+4. Introspect it — supports TypedDict, Pydantic v1/v2, dataclasses
 5. For every expected field, check the actual merged state:
-   - Field absent → `missing_fields` → **critical** → `is_silent_failure = True`
-   - Field is `None`, `""`, `[]`, `{}` → `empty_fields` → warning if optional, critical if required
-   - Field present but wrong primitive type → `type_mismatches` → warning
-6. If `is_silent_failure`, change node status from `"pass"` to `"fail"`
+   - Field absent → `missing_fields` → status becomes `"fail"`
+   - Field is `None`, `""`, `[]`, `{}` → `empty_fields` → warning
+   - Field present but wrong type → `type_mismatches` → warning
 
-ARGUS reads **your type annotations** to know what each node expects. No configuration:
+No configuration — ARGUS reads your existing type annotations:
 
 ```python
-def validate(state: ValidateState) -> dict: ...
-
 class ValidateState(TypedDict):
-    response: str                    # required
-    score: float                     # required
-    metadata: NotRequired[dict]      # optional
+    response: str
+    score: float
+    metadata: NotRequired[dict]
 ```
 
-If `fetch` doesn't put `score` in its output, ARGUS flags it the moment `fetch` completes — before `validate` runs.
-
-**Severity levels:**
-- `"critical"` — missing required fields → status becomes `"fail"`
-- `"warning"` — empty optional fields or type mismatches → status stays `"pass"` with `~` warning icon
+If `fetch` doesn't put `score` in its output, ARGUS flags it the moment `fetch` completes — before `validate` even runs.
 
 ---
 
 ## Feature 4: Semantic Validation
 
-**Problem:** Structural checks catch missing fields. They don't catch semantically wrong values. An LLM returning `{"label": "UNKNOWN"}` when only `"positive"`, `"negative"`, `"neutral"` are valid is structurally correct. It passes every structural check and silently corrupts downstream logic.
+Structural checks catch missing fields. They don't catch wrong values. An LLM returning `{"label": "UNKNOWN"}` when only `"positive"`, `"negative"`, `"neutral"` are valid passes every structural check.
 
-**Solution:** Validator lambdas — you define what "correct" means:
+Validator lambdas let you define what correct means:
 
 ```python
 validators = {
     "classify": lambda o: (o.get("label") in ["positive","negative","neutral"], "invalid label"),
     "summarize": lambda o: (len(o.get("summary","")) > 50, "summary too short"),
-    "score":     lambda o: (0.0 <= o.get("confidence", -1) <= 1.0, "confidence out of range"),
     "*":         lambda o: ("error" not in o, f"error field present: {o.get('error')}"),
 }
 ```
 
-`"*"` is a wildcard — runs on every node's output before the node-specific validator.
-
-After every node completes, the wildcard validator runs first, then the node-specific one. Each returns a `ValidatorResult`:
-
-```
-ValidatorResult {
-    validator_name: str    # e.g. "classify:check_label"
-    is_valid:       bool
-    message:        str    # your failure reason
-}
-```
-
-If any validator returns `False`, status becomes `"semantic_fail"` — a distinct status from structural `"fail"`, so you know which kind of failure occurred.
-
-The validator is pure Python — use embedding similarity, regex, JSON schema, numeric bounds, keyword presence, anything.
+`"*"` is a wildcard — runs on every node before the node-specific validator. If any validator returns `False`, status becomes `"semantic_fail"` — a distinct status from structural `"fail"`.
 
 ---
 
 ## Feature 5: Root Cause Chain Tracing
 
-**Problem:** In a 10-node pipeline, nodes 7, 8, 9, 10 all show failures. The real cause is node 3. Without root cause tracing you debug symptoms.
+`build_root_cause_chain` walks events in reverse at finalization:
 
-**Solution:** `build_root_cause_chain` walks events in reverse at finalization:
-
-1. Walk events from last to first
-2. Track which "bad fields" (missing/empty) have been seen
-3. If an earlier node produced the same bad fields that a later node failed on → that earlier node is in the chain
-4. Deduplicate — each node appears at most once (handles cyclic graphs where the same node ran multiple times)
+1. Walk events last to first
+2. Track which bad fields (missing/empty) have been seen
+3. If an earlier node produced the same bad fields a later node failed on → that earlier node is in the chain
+4. Deduplicate (cyclic graphs where the same node ran multiple times)
 5. Reverse to restore chronological order
-
-Result stored as `RunRecord.root_cause_chain: list[str]`.
 
 CLI output:
 ```
@@ -351,11 +350,30 @@ root cause   fetch  →  validate  →  process
 
 ---
 
-## Feature 6: Cycle Detection
+## Feature 6: Parallel Execution
 
-**Problem:** Cyclic graphs (retry loops, self-correction loops) need different finalization. In a linear graph you finalize when the last node completes. In a cyclic graph the "last node" runs multiple times — finalizing after the first iteration cuts off the rest.
+Fan-out groups (multiple nodes receiving state from the same parent) run concurrently via `asyncio.gather`. ARGUS detects these from the edge map and groups them in the CLI output as a blue `⟼ parallel` panel.
 
-**Solution:** Iterative DFS with an explicit recursion stack (not Python's call stack — avoids recursion limits on large graphs). Detects any back-edge. Runs once when `set_edges()` is called.
+The DAG topology is printed above the node list for any graph with more than one node:
+
+```
+  graph
+
+    ingest
+    ├─ analyst_a ──┐
+    ├─ analyst_b   │
+    ├─ analyst_c  ─┤  aggregator → scorer
+    ├─ analyst_d   │
+    └─ analyst_e ──┘
+```
+
+Sequential chains (A → B → C) are inlined on the middle row of fan-in groups to keep the layout compact.
+
+---
+
+## Feature 7: Cycle Detection
+
+Iterative DFS with an explicit recursion stack (not Python's call stack — no recursion limit issues). Detects any back-edge. Runs once when `set_edges()` is called.
 
 Auto-finalization logic:
 ```
@@ -365,107 +383,108 @@ should_finalize = (
 )
 ```
 
-- **Linear graph** → auto-finalizes when the last node completes
-- **Cyclic graph** → never auto-finalizes on last-node; requires explicit `watcher.finalize()`
-- **Any graph** → always finalizes immediately on crash or interrupt
+- Linear graph → auto-finalizes when the last node completes
+- Cyclic graph → requires explicit `watcher.finalize()`
+- Any graph → always finalizes immediately on crash or interrupt
 
-`attempt_index` on `NodeEvent` tracks how many times a given node has run — in a cyclic graph you see `fetch[0]`, `fetch[1]`, `fetch[2]` as the loop iterates.
-
-**CLI display:** cyclic nodes are grouped into a labeled box (`↩ cycle  node_a → node_b × N`) with each iteration shown as a named subsection inside. Non-cyclic nodes before and after the loop render normally.
+`attempt_index` on `NodeEvent` tracks iteration count in cyclic graphs.
 
 ---
 
-## Feature 7: Human Interrupt Handling
+## Feature 8: Human Interrupt Handling
 
-**Problem:** LangGraph's `GraphInterrupt` (human-in-the-loop approval) pauses execution mid-graph. Without special handling, ARGUS treats it as a crash. The paused state is lost. You can't resume cleanly or know which runs are waiting for approval.
+LangGraph's `GraphInterrupt` pauses execution mid-graph. ARGUS handles it in three layers:
 
-**Solution:** Three-layer system:
-
-**Layer 1 — Interrupt detection:**
-
+**Detection:**
 ```python
 if isinstance(exc, GraphInterrupt):
     on_node_end(..., is_interrupt=True)
     raise   # re-raise so LangGraph's checkpoint mechanism still works
 ```
 
-Node gets `status = "interrupted"`. Exception is re-raised so LangGraph handles its own checkpointing normally.
-
-**Layer 2 — Checkpoint persistence:**
-
+**Persistence:**
 ```
 CheckpointRecord {
     run_id:               str
-    interrupted_at_node:  str       # which node was mid-execution
-    checkpoint_state:     dict      # full state at interrupt point
+    interrupted_at_node:  str
+    checkpoint_state:     dict
     created_at:           str
     resumed:              bool
     resumed_at:           str | None
 }
 ```
 
-Saved atomically to `.argus/checkpoints/<run_id>.json` via write-to-tmp-then-rename. Survives process crashes.
+Saved atomically to `.argus/checkpoints/<run_id>.json` via write-to-tmp-then-rename.
 
-**Layer 3 — Resume tracking:**
-
+**Resume:**
 ```python
 watcher.resume(checkpoint_run_id, app, resume_input)
 ```
 
-Marks the checkpoint as resumed (sets `resumed=True` and `resumed_at` timestamp), re-invokes the app, finalizes. The `RunRecord` gets `interrupted=True` and `interrupt_node` set so you can query which runs are paused.
-
-CLI shows interrupted nodes with `⏸` and "execution paused — awaiting human approval".
-
-**Interrupt chain stitching in `argus show`:**
-
-When you run `argus show last` (or `argus show run <id>`) on a run that has a `parent_run_id`, ARGUS walks the full parent chain back to the root and renders all segments in one view. Segments are separated by a labeled rule that includes the resume run ID.
-
-For multiple interrupts (Run A → Run B → Run C), `argus show run <C-id>` shows the complete sequence: all of A's nodes, interrupt separator, all of B's nodes, interrupt separator, all of C's nodes. Step numbers are continuous across the chain.
+`argus show last` on a resumed run walks the full parent chain and stitches all segments into one view. Step numbers are continuous. Each interrupt adds a labeled separator with the resume run ID.
 
 ---
 
-## Feature 8: Replay Engine
+## Feature 9: Replay Engine
 
-**Problem:** A 15-node pipeline fails at node 9. You fix the bug. You have to re-run nodes 1–8 again, burning LLM API credits, to test the fix.
-
-**Solution:** `ReplayEngine.replay()`:
+`ReplayEngine.replay()`:
 
 1. Loads the original `RunRecord` from disk
-2. Finds the `NodeEvent` for `from_node` — gets its `input_state` (exact snapshot)
-3. Deserializes it back to the original state type (TypedDict, Pydantic, dataclass)
-4. Calls `app_factory()` to get a fresh uncompiled `StateGraph`
-5. Attaches a new `ArgusWatcher` to the fresh graph
-6. Sets `parent_run_id` and `replay_from_step` on the new session
-7. Calls `app.invoke(recovered_state)` — pipeline runs from node 9 forward, skipping 1–8
+2. Finds the `NodeEvent` for `from_node` — gets its `input_state`
+3. Deserializes it back to the original state type
+4. Calls `app_factory()` to get a fresh graph
+5. If the factory returns a compiled app, unwraps it via `.graph` automatically
+6. Attaches a new `ArgusWatcher`, sets `parent_run_id` and `replay_from_step`
+7. Invokes from the recovered state — nodes before `from_node` are skipped entirely
 8. Finalizes, returns the new `run_id`
 
 ```bash
 argus replay a1b2c3d4 validate --app my_module:build_graph
 ```
 
-`build_graph` must be a zero-argument function returning an **uncompiled** `StateGraph`. ARGUS patches nodes before `compile()` — returning an already-compiled app skips instrumentation.
+`build_graph` must be a zero-argument callable. It can return either an uncompiled `StateGraph` or a compiled app — ARGUS handles both.
 
 The replay `RunRecord` shows:
 ```
 replay of  <original-run-id>  from  validate
 ```
 
+Use `argus diff <replay-id>` to compare it against the original.
+
 ---
 
-## Feature 9: Persistent Run Storage
+## Feature 10: Run Diff
 
-**Problem:** Pipeline runs and their failure states are ephemeral. Next reproduction attempt may get different LLM outputs.
+`argus diff` compares two runs node-by-node: status changes, duration delta, and output field diffs.
 
-**Solution:** Every run is saved atomically to `.argus/runs/<run_id>.json`.
+```bash
+argus diff <replay-id>          # auto-diffs against the parent run
+argus diff <id-a> <id-b>        # diff any two runs
+```
+
+For each node it shows:
+- Status before → after (with `fixed` / `regressed` labels)
+- Duration delta
+- Which output fields changed, were added, or went empty
+
+Summary line at the end: `2 nodes changed  ·  2 fixed  ·  0 regressed`.
+
+Frozen nodes (those that weren't re-executed in the replay) are shown dimmed.
+
+---
+
+## Feature 11: Persistent Run Storage
+
+Every run saved atomically to `.argus/runs/<run_id>.json`.
 
 ```
 RunRecord {
-    run_id:              str               # UUID-based, unique per run
+    run_id:              str
     argus_version:       str
     started_at:          str               # ISO-8601 UTC
     completed_at:        str | None
     duration_ms:         float | None
-    overall_status:      str               # "clean" | "crashed" | "silent_failure" | "interrupted"
+    overall_status:      str
     first_failure_step:  str | None
     root_cause_chain:    list[str]
     graph_node_names:    list[str]
@@ -480,29 +499,7 @@ RunRecord {
 }
 ```
 
-Run IDs support **prefix matching** — `argus show abc12` instead of the full UUID.
-
----
-
-## Feature 10: LangGraph Adapter
-
-**Problem:** LangGraph users shouldn't need to know about `ArgusSession`, edge extraction, or node patching internals.
-
-**Solution:** `ArgusWatcher` is a two-line adapter:
-
-```python
-watcher = ArgusWatcher(validators={"*": my_validator})
-watcher.watch(graph)   # before compile()
-```
-
-`watch(graph)` automatically:
-1. Validates the graph hasn't been compiled yet
-2. Extracts node names from `graph.nodes`
-3. Extracts edge topology from `graph.edges`, `graph.branches` (conditional edges, LangGraph ≥0.2), and `graph._conditional_edges` (legacy)
-4. Creates an `ArgusSession` with everything registered
-5. Patches every node function with its monitored wrapper
-
-Handles both LangGraph ≤0.2 (plain callable nodes) and ≥0.2 (`StateNodeSpec` objects with `.runnable.func`).
+Run IDs support prefix matching — `argus show abc12` instead of the full UUID.
 
 ---
 
@@ -512,10 +509,11 @@ Handles both LangGraph ≤0.2 (plain callable nodes) and ≥0.2 (`StateNodeSpec`
 |---|---|
 | `clean` | All nodes passed structural and semantic checks |
 | `crashed` | At least one node raised an unhandled exception |
-| `silent_failure` | At least one node passed without crashing but produced invalid output |
+| `silent_failure` | A node passed without crashing but produced invalid output |
+| `semantic_fail` | A validator returned `False` for a node's output |
 | `interrupted` | A `GraphInterrupt` occurred — pipeline paused for human input |
 
-Priority: `crashed > interrupted > silent_failure > clean`.
+Priority: `crashed > interrupted > semantic_fail > silent_failure > clean`.
 
 ---
 
@@ -524,7 +522,7 @@ Priority: `crashed > interrupted > silent_failure > clean`.
 | Icon | Meaning |
 |---|---|
 | `✓` green | Pass — all checks clean |
-| `~` yellow | Pass with warnings (empty or mismatched fields) |
+| `~` yellow | Pass with warnings (empty or mismatched optional fields) |
 | `⚠` yellow | Silent failure (missing required fields) |
 | `⊗` magenta | Semantic fail (validator returned False) |
 | `⏸` yellow | Interrupted (human approval pending) |
@@ -534,7 +532,7 @@ Priority: `crashed > interrupted > silent_failure > clean`.
 
 ## Crash Diagnosis
 
-ARGUS pattern-matches exception strings to generate a human-readable one-liner alongside the raw traceback:
+ARGUS pattern-matches exception strings to generate a one-liner alongside the raw traceback:
 
 | Exception | Diagnosis |
 |---|---|
