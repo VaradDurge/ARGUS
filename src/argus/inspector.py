@@ -142,7 +142,11 @@ def inspect_tool_outputs(output_dict: dict[str, Any], strict: bool = False) -> l
                             severity="warning",
                             evidence=f"nested error field: {as_str[:120]!r}",
                         ))
-                elif inner_key in _STATUS_KEYS and isinstance(inner_value, int) and 400 <= inner_value <= 599:
+                elif (
+                    inner_key in _STATUS_KEYS
+                    and isinstance(inner_value, int)
+                    and 400 <= inner_value <= 599
+                ):
                     _add(ToolFailure(
                         failure_type="error_response",
                         field_name=field_path,
@@ -239,7 +243,9 @@ def inspect_transition(
             continue
 
         annotated_count += 1
-        missing, empty, mismatches = _check_fields(fields, merged_state, node_provided_keys, strict=strict)
+        missing, empty, mismatches = _check_fields(
+            fields, merged_state, node_provided_keys, strict=strict
+        )
 
         for f in missing:
             if f not in all_missing:

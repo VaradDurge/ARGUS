@@ -23,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from argus.session import ArgusSession
 from argus.storage import load_run
 
-
 # ── TypedDicts for successor annotation (must be module-level for get_type_hints) ──
 
 class _BS01ProcessorInput(TypedDict):
@@ -171,7 +170,9 @@ def probe_all() -> list[ProbeResult]:
     results.append(run_probe(
         case_id="BS-03",
         description="Rate limit error — ARGUS classifies as warning, not critical",
-        evasion_technique='"rate limit" matches _RATE_LIMIT_RE → severity=warning → not flagged as fail',
+        evasion_technique=(
+            '"rate limit" matches _RATE_LIMIT_RE → severity=warning → not flagged as fail'
+        ),
         nodes=["fetcher", "processor"],
         edges={"fetcher": ["processor"]},
         node_fns={"fetcher": fetcher_rate_limit, "processor": processor_rate},
@@ -213,7 +214,9 @@ def probe_all() -> list[ProbeResult]:
     results.append(run_probe(
         case_id="BS-05",
         description="Wrong element type in list — list[int] returned where list[str] expected",
-        evasion_technique="ARGUS type checks primitives only (str/int/float/bool), not generic list types",
+        evasion_technique=(
+            "ARGUS type checks primitives only (str/int/float/bool), not generic list types"
+        ),
         nodes=["fetcher", "processor"],
         edges={"fetcher": ["processor"]},
         node_fns={"fetcher": fetcher_wrong_type, "processor": processor_wrong_type},
@@ -234,7 +237,9 @@ def probe_all() -> list[ProbeResult]:
     results.append(run_probe(
         case_id="BS-06",
         description="Semantically degraded output — valid structure, garbage values, no validator",
-        evasion_technique="No error key, no missing fields, no validator → ARGUS has nothing to catch",
+        evasion_technique=(
+            "No error key, no missing fields, no validator → ARGUS has nothing to catch"
+        ),
         nodes=["llm", "reviewer"],
         edges={"llm": ["reviewer"]},
         node_fns={"llm": llm_node_degraded, "reviewer": reviewer},
@@ -309,7 +314,10 @@ def main() -> None:
             return "missed ✗" if not expected_miss else "missed (expected)"
 
         d_label = fmt(r.default_detected, r.expected_miss)
-        s_label = "CAUGHT ✓" if r.strict_detected else ("still missed" if r.id == "BS-06" else "missed ✗")
+        s_label = (
+            "CAUGHT ✓" if r.strict_detected
+            else ("still missed" if r.id == "BS-06" else "missed ✗")
+        )
         print(f"  {r.id:<8}  {d_label:<20}  {s_label:<20}  {r.description[:45]}")
 
     default_caught = sum(r.default_detected for r in results)
@@ -317,7 +325,10 @@ def main() -> None:
 
     print(f"\n{'─'*76}")
     print(f"  Default mode  — caught {default_caught}/{len(results)}")
-    print(f"  Strict mode   — caught {strict_caught}/{len(results)}  (BS-06 is fundamental — needs validators)")
+    print(
+        f"  Strict mode   — caught {strict_caught}/{len(results)}"
+        "  (BS-06 is fundamental — needs validators)"
+    )
 
     newly_fixed_default = [r for r in results if r.default_detected and r.expected_miss]
     newly_fixed_strict = [r for r in results if r.strict_detected and not r.default_detected]
