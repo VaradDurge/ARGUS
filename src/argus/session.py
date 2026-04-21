@@ -62,12 +62,15 @@ class ArgusSession:
         max_field_size: int = 50_000,
         validators: dict[str, Callable[[dict], tuple[bool, str]]] | None = None,
         parent_run_id: str | None = None,
+        strict: bool = False,
     ) -> None:
         self.run_id: str = run_id or generate_run_id()
         self.max_field_size = max_field_size
         self.graph_node_names: list[str] = []
         self.graph_edge_map: dict[str, list[str]] = {}
         self.node_fn_registry: dict[str, Any] = {}
+
+        self._strict = strict
 
         # validator map: key is node name or "*" (wildcard)
         self._validators: dict[str, Callable[[dict], tuple[bool, str]]] = validators or {}
@@ -298,6 +301,7 @@ class ArgusSession:
                     output_dict=output_snap,
                     merged_state=merged,
                     successor_fns=successor_fns,
+                    strict=self._strict,
                 )
                 if inspection.is_silent_failure or inspection.has_tool_failure:
                     status = "fail"

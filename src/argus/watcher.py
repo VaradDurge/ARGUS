@@ -40,9 +40,11 @@ class ArgusWatcher:
         self,
         max_field_size: int = 50_000,
         validators: dict[str, Callable[[dict], tuple[bool, str]]] | None = None,
+        strict: bool = False,
     ) -> None:
         self._max_field_size = max_field_size
         self._validators = validators or {}
+        self._strict = strict
         self._session: ArgusSession | None = None
 
     def watch(self, graph: Any) -> None:
@@ -64,6 +66,7 @@ class ArgusWatcher:
         self._session = ArgusSession(
             max_field_size=self._max_field_size,
             validators=self._validators,
+            strict=self._strict,
         )
         self._session.set_node_names(node_names)
         self._session.set_edges(edge_map)

@@ -30,12 +30,15 @@ _ERROR_STR_RE = re.compile(
 _SEVERITY_RANK = {"critical": 2, "warning": 1}
 
 
-def inspect_tool_outputs(output_dict: dict[str, Any]) -> list[ToolFailure]:
+def inspect_tool_outputs(output_dict: dict[str, Any], strict: bool = False) -> list[ToolFailure]:
     """Scan a node's output dict for tool call failure patterns.
 
     Detects: error keys, HTTP error codes, empty result fields, error strings
     in data fields, and partial failures inside lists.
+    Also scans one level deep into nested dicts for error patterns (BS-02 fix).
     Returns a deduplicated list of ToolFailure — one per field, highest severity wins.
+
+    strict: if True, all warning-severity failures are promoted to critical.
     """
     # field_name → best ToolFailure so far (highest severity)
     by_field: dict[str, ToolFailure] = {}
@@ -119,6 +122,45 @@ def inspect_tool_outputs(output_dict: dict[str, Any]) -> list[ToolFailure]:
                     evidence=f"{error_count} of {len(value)} items contain errors",
                 ))
 
+        # Rule 6 — nested dict scan (BS-02 fix): check one level deep for error patterns
+        if isinstance(value, dict):
+            for inner_key, inner_value in value.items():
+                field_path = f"{key}.{inner_key}"
+                if inner_key in _ERROR_KEYS and inner_value:
+                    as_str = str(inner_value)
+                    if _RATE_LIMIT_RE.search(as_str):
+                        _add(ToolFailure(
+                            failure_type="rate_limit",
+                            field_name=field_path,
+                            severity="warning",
+                            evidence=f"nested rate limit: {as_str[:120]!r}",
+                        ))
+                    else:
+                        _add(ToolFailure(
+                            failure_type="error_response",
+                            field_name=field_path,
+                            severity="warning",
+                            evidence=f"nested error field: {as_str[:120]!r}",
+                        ))
+                elif inner_key in _STATUS_KEYS and isinstance(inner_value, int) and 400 <= inner_value <= 599:
+                    _add(ToolFailure(
+                        failure_type="error_response",
+                        field_name=field_path,
+                        severity="warning",
+                        evidence=f"nested HTTP {inner_value} error",
+                    ))
+
+    # Strict mode: promote all warnings to critical
+    if strict:
+        for field_name, tf in list(by_field.items()):
+            if tf.severity == "warning":
+                by_field[field_name] = ToolFailure(
+                    failure_type=tf.failure_type,
+                    field_name=tf.field_name,
+                    severity="critical",
+                    evidence=tf.evidence,
+                )
+
     return list(by_field.values())
 
 
@@ -127,6 +169,7 @@ def inspect_transition(
     output_dict: dict[str, Any] | None,
     merged_state: dict[str, Any],
     successor_fns: list[Any],
+    strict: bool = False,
 ) -> InspectionResult:
     """Check if the output of current_node will cause a silent failure in any successor.
 
@@ -140,7 +183,7 @@ def inspect_transition(
         successor_fns: list of callable node functions that may run next
     """
     # Tool output inspection runs regardless of successors
-    tool_failures = inspect_tool_outputs(output_dict) if output_dict else []
+    tool_failures = inspect_tool_outputs(output_dict, strict=strict) if output_dict else []
     has_tool_failure = any(tf.severity == "critical" for tf in tool_failures)
 
     if output_dict is None:
@@ -196,7 +239,7 @@ def inspect_transition(
             continue
 
         annotated_count += 1
-        missing, empty, mismatches = _check_fields(fields, merged_state, node_provided_keys)
+        missing, empty, mismatches = _check_fields(fields, merged_state, node_provided_keys, strict=strict)
 
         for f in missing:
             if f not in all_missing:
@@ -216,9 +259,9 @@ def inspect_transition(
             if _is_empty(value) and key not in suspicious_empty:
                 suspicious_empty.append(key)
 
-    is_silent_failure = bool(all_missing)
+    is_silent_failure = bool(all_missing) or (strict and bool(all_mismatches))
 
-    if all_missing or has_tool_failure:
+    if all_missing or has_tool_failure or (strict and all_mismatches):
         worst_severity = "critical"
     elif all_empty or all_mismatches or tool_failures:
         worst_severity = "warning"
@@ -250,6 +293,7 @@ def _check_fields(
     expected_fields: dict[str, dict],
     actual_state: dict[str, Any],
     node_provided_keys: set[str] | None = None,
+    strict: bool = False,
 ) -> tuple[list[str], list[str], list[FieldMismatch]]:
     """Check successor field requirements against actual state.
 
@@ -257,6 +301,10 @@ def _check_fields(
     When supplied, fields absent from this set are treated as "another node's
     responsibility" (parallel sibling pattern) and are not flagged as missing.
     When None (legacy callers), the old behaviour is preserved.
+
+    strict: when True, fields absent from node_provided_keys are still checked
+    if they are also absent from actual_state (BS-01: silent field drop detection).
+    Fields already in actual_state (set by a parallel sibling) are still skipped.
     """
     missing = []
     empty = []
@@ -270,6 +318,15 @@ def _check_fields(
             # If the current node didn't write this field, it is not our
             # responsibility — a parallel sibling or later node will provide it.
             if node_provided_keys is not None and field_name not in node_provided_keys:
+                if strict and field_name not in actual_state:
+                    # BS-01: field completely absent from accumulated state —
+                    # a sequential node silently dropped it (not a parallel sibling,
+                    # because a sibling would have written it to actual_state).
+                    # Use missing (not empty) so is_silent_failure=True is triggered.
+                    if required:
+                        missing.append(field_name)
+                    else:
+                        empty.append(field_name)
                 continue
             if field_name not in actual_state:
                 if required:
@@ -296,6 +353,22 @@ def _check_fields(
                             actual_value_repr=repr(value)[:100],
                         )
                     )
+
+        # BS-05: generic list type checking (list[str], list[int], etc.)
+        origin = getattr(expected_type, "__origin__", None)
+        if origin is list:
+            args = getattr(expected_type, "__args__", None)
+            if args and isinstance(value, list) and value:
+                elem_type = args[0]
+                if isinstance(elem_type, type) and issubclass(elem_type, _PRIMITIVE_TYPES):
+                    bad = [i for i in value[:5] if not isinstance(i, elem_type)]
+                    if bad:
+                        mismatches.append(FieldMismatch(
+                            field_name=field_name,
+                            expected_type=f"list[{elem_type.__name__}]",
+                            actual_type=f"list[{type(bad[0]).__name__}]",
+                            actual_value_repr=repr(bad[0])[:100],
+                        ))
 
     return missing, empty, mismatches
 

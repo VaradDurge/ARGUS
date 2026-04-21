@@ -30,11 +30,29 @@ watcher.finalize()
 
 That's it. No changes to your node functions.
 
+**Strict mode** — catches additional failure patterns at the cost of more noise. Use in staging/CI:
+
+```python
+watcher = ArgusWatcher(strict=True)
+```
+
+Or without LangGraph:
+
+```python
+session = ArgusSession(strict=True)
+```
+
 ---
 
 ## What it catches
 
 **Silent failures** — a node returns `{}` or a dict missing a required field. No exception raised, pipeline keeps running. ARGUS compares each node's output against the next node's type annotations and flags it immediately.
+
+In strict mode, four more patterns are caught:
+- Error keys nested inside a sub-dict: `{"result": {"error": "upstream_failed"}}`
+- Rate limit responses that default mode treats as non-critical
+- Empty result fields (`results: []`) promoted from warning to failure
+- `list[int]` returned where `list[str]` is declared in the TypedDict
 
 **Semantic failures** — structure is fine but the value is wrong. Pass a validator:
 
