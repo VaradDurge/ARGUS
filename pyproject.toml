@@ -1,6 +1,6 @@
 [project]
 name = "argus-agents"
-version = "0.3.1"
+version = "0.3.2"
 description = "Silent watcher for LangGraph multiagent pipelines — detects silent failures, captures full state, enables step-level replay."
 readme = "README.md"
 license = { text = "LicenseRef-Varad-NonCommercial-1.0" }
