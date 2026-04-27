@@ -7,8 +7,10 @@ from rich.console import Console
 from rich.text import Text
 
 from argus.cli.cmd_diff import diff_runs
+from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
 from argus.cli.cmd_show import show_last, show_list, show_run
+from argus.cli.cmd_update import check_for_update
 
 app = typer.Typer(
     name="argus",
@@ -19,6 +21,9 @@ app = typer.Typer(
 
 show_app = typer.Typer(help="Show run details.", no_args_is_help=True)
 app.add_typer(show_app, name="show")
+
+open_app = typer.Typer(help="Open Argus tools.", no_args_is_help=True)
+app.add_typer(open_app, name="open")
 
 _console = Console()
 
@@ -38,6 +43,7 @@ _SETUP_LINES = [
 ]
 
 _COMMANDS = [
+    ("ui",                                 "start the web dashboard and open it in browser"),
     ("list",                              "list all recorded runs, newest first"),
     ("show last",                         "inspect the most recent run"),
     ("show run <id>",                     "inspect a specific run  (full id or 8-char prefix)"),
@@ -46,6 +52,7 @@ _COMMANDS = [
     ("inspect <id> --step <node>",        "dump raw input / output state for a node"),
     ("diff <id>",                         "diff a replay run against its original"),
     ("diff <id-a> <id-b>",               "diff any two runs side-by-side"),
+    ("update",                           "check GitHub for a newer release and upgrade"),
 ]
 
 _WHEN_TO_USE = [
@@ -227,6 +234,18 @@ def cmd_inspect(
     inspect_step(run_id=run_id, step_name=step)
 
 
+@app.command("ui")
+def cmd_ui() -> None:
+    """Start the web dashboard and open it in the browser."""
+    open_ui()
+
+
+@open_app.command("ui")
+def cmd_open_ui() -> None:
+    """Start the web dashboard and open it in the browser."""
+    open_ui()
+
+
 @app.command("diff")
 def cmd_diff(
     run_id_a: Annotated[
@@ -238,3 +257,9 @@ def cmd_diff(
 ) -> None:
     """Compare two runs node-by-node: status, duration, and output field changes."""
     diff_runs(run_id_a, run_id_b)
+
+
+@app.command("update")
+def cmd_update() -> None:
+    """Check GitHub for a newer release and upgrade if one is available."""
+    check_for_update()

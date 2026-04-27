@@ -445,6 +445,19 @@ def _build_message(
     return "; ".join(parts)
 
 
+def _extract_missing_key_from_exception(exc_str: str) -> str | None:
+    """Extract the missing key name from a KeyError traceback."""
+    import re
+
+    m = re.search(r"KeyError: '([^']+)'", exc_str)
+    if m:
+        return m.group(1)
+    m = re.search(r'KeyError: "([^"]+)"', exc_str)
+    if m:
+        return m.group(1)
+    return None
+
+
 def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
     """Walk backward through NodeEvents to find where a failure first originated.
 
@@ -455,6 +468,10 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
     Parallel fan-out guard: fields provided by any node in the run are excluded
     from "missing field" blame. A field flagged missing on analyst_a is not a
     root cause if analyst_b actually provided it — they ran simultaneously.
+
+    Crash-trace: when a node crashes with a KeyError/AttributeError, the chain
+    traces back to the nearest predecessor that should have produced the missing
+    field but didn't.
     """
     # Fields actually produced by any node across the entire run
     all_provided: set[str] = set()
@@ -466,6 +483,29 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
     seen_nodes: set[str] = set()
     seen_bad_fields: set[str] = set()
 
+    # Phase 1: trace crash exceptions back to the upstream node that omitted
+    # the required field.
+    for event in reversed(steps_so_far):
+        if event.status != "crashed" or not event.exception:
+            continue
+        missing_key = _extract_missing_key_from_exception(event.exception)
+        if not missing_key:
+            continue
+        # Walk backward to find the closest predecessor that ran but didn't
+        # produce the missing key.
+        for prev in reversed(steps_so_far):
+            if prev.step_index >= event.step_index:
+                continue
+            if prev.status == "crashed":
+                continue
+            # This predecessor ran successfully but didn't output the key
+            if prev.output_dict is not None and missing_key not in prev.output_dict:
+                if prev.node_name not in seen_nodes:
+                    chain.append(prev.node_name)
+                    seen_nodes.add(prev.node_name)
+                break
+
+    # Phase 2: inspection-based chain (silent failures, missing fields, etc.)
     for event in reversed(steps_so_far):
         insp = event.inspection
         if insp is None:

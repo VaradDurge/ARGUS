@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  /* Zinc-grey palette — not pure black, soft grey tones */
+  --bg-base:     #111113;
+  --bg-surface:  #18181b;
+  --bg-elevated: #1c1c20;
+  --bg-overlay:  #202025;
+
+  /* Borders */
+  --border-subtle:  #222226;
+  --border-default: #2a2a30;
+  --border-strong:  #363640;
+
+  /* Text */
+  --text-primary:   #e4e4e8;
+  --text-secondary: #868690;
+  --text-muted:     #52525a;
+  --text-faint:     #38383f;
+
+  /* Accent */
+  --accent-blue:      #3b82f6;
+  --accent-blue-dim:  rgba(59,130,246,0.10);
+  --accent-green:     #22c55e;
+  --accent-red:       #ef4444;
+  --accent-amber:     #f59e0b;
+  --accent-magenta:   #d946ef;
+  --accent-cyan:      #06b6d4;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--bg-base); }
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.006em;
+}
+
+.font-mono, code, pre, .mono {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-variant-ligatures: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.10); }
+
+/* JSON viewer syntax highlighting */
+.json-key     { color: #7baef8; }
+.json-string  { color: #7ecf8f; }
+.json-number  { color: #e5ab57; }
+.json-boolean { color: #b08cf5; }
+.json-null    { color: #4a4a52; }
+
+/* Sidebar nav transition */
+.nav-item {
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+/* Status dot colors (CLI-matching) */
+.status-pass    { color: #22c55e; }
+.status-warn    { color: #f59e0b; }
+.status-crash   { color: #ef4444; }
+.status-sem     { color: #d946ef; }
+.status-paused  { color: #f59e0b; }
+
+/* Step row — CLI-style */
+.step-row {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 5rem 1.5rem 1fr;
+  align-items: center;
+  gap: 0;
+  padding: 5px 16px;
+  min-height: 34px;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+.step-row:hover {
+  background: rgba(255,255,255,0.025);
+}

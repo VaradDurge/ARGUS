@@ -1,0 +1,42 @@
+{
+  "schema_version": "argus-demo-data-1",
+  "generated_at_utc": "2026-04-22T12:00:00Z",
+  "runs": [
+    {
+      "run_id": "run-clean-001",
+      "title": "Clean linear run",
+      "overall_status": "clean",
+      "path": "data/runs/run-clean-001.json",
+      "log_path": "data/logs/run-clean-001.log"
+    },
+    {
+      "run_id": "run-silent-001",
+      "title": "Silent failure (missing required field)",
+      "overall_status": "silent_failure",
+      "path": "data/runs/run-silent-001.json",
+      "log_path": "data/logs/run-silent-001.log"
+    },
+    {
+      "run_id": "run-crash-001",
+      "title": "Crash (downstream KeyError)",
+      "overall_status": "crashed",
+      "path": "data/runs/run-crash-001.json",
+      "log_path": "data/logs/run-crash-001.log"
+    },
+    {
+      "run_id": "run-parallel-001",
+      "title": "Parallel fan-out then fan-in",
+      "overall_status": "silent_failure",
+      "path": "data/runs/run-parallel-001.json",
+      "log_path": "data/logs/run-parallel-001.log"
+    },
+    {
+      "run_id": "run-cycle-001",
+      "title": "Cyclic graph (2 iterations)",
+      "overall_status": "silent_failure",
+      "path": "data/runs/run-cycle-001.json",
+      "log_path": "data/logs/run-cycle-001.log"
+    }
+  ]
+}
+

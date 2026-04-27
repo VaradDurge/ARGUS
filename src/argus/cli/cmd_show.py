@@ -421,6 +421,9 @@ def _print_chain(chain: list[RunRecord]) -> None:
         rc.append(chain_str, style="bold red")
         console.print(rc)
 
+    # ── Replay suggestion ─────────────────────────────────────────────────
+    _print_replay_suggestion(leaf)
+
     console.print()
 
 
@@ -481,13 +484,54 @@ def _print_run(record: RunRecord) -> None:
     if record.root_cause_chain:
         console.print()
         console.print(Rule(style="dim"))
-        chain = "  →  ".join(record.root_cause_chain)
+        chain_str = "  →  ".join(record.root_cause_chain)
         rc = Text()
         rc.append("  root cause  ", style="italic dim")
-        rc.append(chain, style="bold red")
+        rc.append(chain_str, style="bold red")
         console.print(rc)
 
+    # ── Replay suggestion ─────────────────────────────────────────────────
+    _print_replay_suggestion(record)
+
     console.print()
+
+
+def _print_replay_suggestion(record: RunRecord) -> None:
+    """Print a replay-from hint pointing at the root cause node, not the crashed node."""
+    if record.overall_status not in ("crashed", "silent_failure", "semantic_fail"):
+        return
+
+    # Find the crashed node
+    crashed_node = next(
+        (e.node_name for e in record.steps if e.status == "crashed"), None
+    )
+    # Root cause node: first entry in root_cause_chain, falling back to first_failure_step
+    root_cause = (
+        record.root_cause_chain[0] if record.root_cause_chain else record.first_failure_step
+    )
+
+    if root_cause and root_cause != crashed_node:
+        # The root cause differs from the crash site — highlight it
+        console.print()
+        hint = Text()
+        hint.append("  ", style="dim")
+        hint.append("⚑ ", style="bold yellow")
+        hint.append("fix ", style="dim")
+        hint.append(root_cause, style="bold red")
+        hint.append("  (root cause)", style="italic dim")
+        hint.append("  then replay from it:", style="dim")
+        console.print(hint)
+        console.print(
+            f"  [dim]  argus replay [italic]{record.run_id}[/italic]"
+            f" [bold]{root_cause}[/bold] --app module:factory[/dim]"
+        )
+    elif crashed_node:
+        # Crashed node is the root cause (or no chain detected)
+        console.print()
+        console.print(
+            f"  [dim]  argus replay [italic]{record.run_id}[/italic]"
+            f" [bold]{crashed_node}[/bold] --app module:factory[/dim]"
+        )
 
 
 def _print_cycle_group(
@@ -790,60 +834,76 @@ def _print_node(
     )
 
     if event.exception:
+        console.print(
+            f"  {indent}[dim]└─  exception[/dim]"
+        )
         first_line = event.exception.splitlines()[0]
         console.print(
-            f"  {indent}[dim]└─[/dim]  [italic]{first_line}[/italic]"
+            f"  {indent}[dim]   [/dim]  [italic]{first_line}[/italic]"
         )
         location = _extract_crash_location(event.exception)
         if location:
             console.print(
-                f"  {indent}[dim]└─[/dim]  [italic dim]{location}[/italic dim]"
+                f"  {indent}[dim]   [/dim]  [italic dim]{location}[/italic dim]"
             )
         diagnosis = _diagnose_crash(event.exception, event.input_state or {})
         if diagnosis:
             console.print(
-                f"  {indent}[dim]└─[/dim]  [italic dim]{diagnosis}[/italic dim]"
+                f"  {indent}[dim]   [/dim]  [italic dim]{diagnosis}[/italic dim]"
+            )
+
+    if insp and insp.tool_failures:
+        console.print(
+            f"  {indent}[dim]└─  tool failures[/dim]"
+        )
+        for tf in insp.tool_failures:
+            tf_icon = (
+                "[bold red]⚠[/bold red]"
+                if tf.severity == "critical"
+                else "[bold yellow]~[/bold yellow]"
+            )
+            console.print(
+                f"  {indent}[dim]   [/dim]  "
+                f'{tf_icon} [dim]Tool {tf.failure_type}: '
+                f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
             )
 
     if insp:
         if insp.missing_fields:
+            console.print(
+                f"  {indent}[dim]└─  missing fields[/dim]"
+            )
             for field in insp.missing_fields:
                 console.print(
-                    f"  {indent}[dim]└─[/dim]  "
+                    f"  {indent}[dim]   [/dim]  "
                     f'[italic]Field [bold]"{field}"[/bold] is missing[/italic]'
                 )
             console.print(
-                f"  {indent}[dim]└─[/dim]  "
+                f"  {indent}[dim]   [/dim]  "
                 f"[italic dim]{successor} received bad state[/italic dim]"
             )
         elif insp.empty_fields:
+            console.print(
+                f"  {indent}[dim]└─  missing fields[/dim]"
+            )
             for field in insp.empty_fields:
                 console.print(
-                    f"  {indent}[dim]└─[/dim]  "
+                    f"  {indent}[dim]   [/dim]  "
                     f'[italic]Field [bold]"{field}"[/bold] is empty[/italic]'
                 )
             console.print(
-                f"  {indent}[dim]└─[/dim]  "
+                f"  {indent}[dim]   [/dim]  "
                 f"[italic dim]{successor} received bad state[/italic dim]"
             )
         elif insp.type_mismatches:
+            console.print(
+                f"  {indent}[dim]└─  missing fields[/dim]"
+            )
             for m in insp.type_mismatches:
                 console.print(
-                    f"  {indent}[dim]└─[/dim]  "
+                    f"  {indent}[dim]   [/dim]  "
                     f'[italic]Field [bold]"{m.field_name}"[/bold] '
                     f"expected {m.expected_type}, got {m.actual_type}[/italic]"
-                )
-        if insp.tool_failures:
-            for tf in insp.tool_failures:
-                tf_icon = (
-                    "[bold red]⚠[/bold red]"
-                    if tf.severity == "critical"
-                    else "[bold yellow]~[/bold yellow]"
-                )
-                console.print(
-                    f"  {indent}[dim]└─[/dim]  "
-                    f'{tf_icon} [dim]Tool {tf.failure_type}: '
-                    f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
                 )
 
     if is_downstream and record.first_failure_step:
