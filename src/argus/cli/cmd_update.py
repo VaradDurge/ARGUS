@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import importlib.metadata
+import json
 import subprocess
 import sys
 import urllib.request
-import json
 
 from rich.console import Console
 
@@ -54,7 +54,9 @@ def check_for_update() -> None:
         return
 
     if _parse(latest) <= _parse(current):
-        _console.print(f"  [green]✓[/green]  [dim]already up to date[/dim]  [bold]({current})[/bold]\n")
+        _console.print(
+            f"  [green]✓[/green]  [dim]already up to date[/dim]  [bold]({current})[/bold]\n"
+        )
         return
 
     _console.print(
