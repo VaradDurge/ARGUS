@@ -5,11 +5,10 @@ Uses only stdlib (urllib) to avoid adding dependencies.
 from __future__ import annotations
 
 import json
-import os
 import threading
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -157,7 +156,9 @@ def push_run(run_data: dict[str, Any]) -> bool:
         "data": run_data,
         "overall_status": run_data.get("overall_status"),
         "started_at": run_data.get("started_at"),
-        "duration_ms": int(run_data["duration_ms"]) if run_data.get("duration_ms") is not None else None,
+        "duration_ms": (
+            int(run_data["duration_ms"]) if run_data.get("duration_ms") is not None else None
+        ),
         "step_count": len(run_data.get("steps", [])),
         "first_failure_step": run_data.get("first_failure_step"),
         "argus_version": run_data.get("argus_version"),

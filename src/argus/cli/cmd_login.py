@@ -140,7 +140,7 @@ def login() -> None:
 
     _console.print()
     _console.print("[bold]Opening browser for Google sign-in...[/bold]")
-    _console.print(f"  [dim]If the browser doesn't open, visit:[/dim]")
+    _console.print("  [dim]If the browser doesn't open, visit:[/dim]")
     _console.print(f"  [dim]{auth_url}[/dim]")
     _console.print()
 
@@ -188,8 +188,8 @@ def login() -> None:
     save_credentials(creds)
 
     _console.print(f"[green]Logged in[/green] as [bold]{creds.email}[/bold]")
-    _console.print(f"  [dim]Credentials saved to ~/.argus/credentials.json[/dim]")
-    _console.print(f"  [dim]Runs will now sync to the cloud automatically.[/dim]")
+    _console.print("  [dim]Credentials saved to ~/.argus/credentials.json[/dim]")
+    _console.print("  [dim]Runs will now sync to the cloud automatically.[/dim]")
 
 
 def logout() -> None:
@@ -206,7 +206,9 @@ def whoami() -> None:
     """Show current login status."""
     creds = load_credentials()
     if creds is None:
-        _console.print("[dim]Not logged in.[/dim] Run [bold]argus login[/bold] to sync runs to the cloud.")
+        _console.print(
+            "[dim]Not logged in.[/dim] Run [bold]argus login[/bold] to sync runs to the cloud."
+        )
         return
     _console.print(f"Logged in as [bold]{creds.email}[/bold]")
     _console.print(f"  [dim]user_id:[/dim] {creds.user_id}")
