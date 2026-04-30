@@ -1,19 +1,58 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import RunTable from '@/components/RunTable'
 import Link from 'next/link'
 import type { RunSummary } from '@/lib/types'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 
 export default function RunListPage() {
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [runs, setRuns] = useState<RunSummary[]>([])
 
   useEffect(() => {
-    fetch('/api/runs')
-      .then((r) => r.json())
-      .then((data) => setRuns(data))
-      .catch(() => {})
-  }, [])
+    if (!authLoading && !user) {
+      router.replace('/login')
+    }
+  }, [authLoading, user, router])
+
+  useEffect(() => {
+    if (!user) return
+
+    supabase
+      .from('runs')
+      .select(
+        'run_id, overall_status, started_at, duration_ms, step_count, first_failure_step, argus_version, parent_run_id, data'
+      )
+      .order('started_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error || !data) return
+        setRuns(
+          data.map((row: Record<string, unknown>) => ({
+            run_id: row.run_id as string,
+            overall_status: (row.overall_status ?? 'unknown') as RunSummary['overall_status'],
+            started_at: row.started_at as string,
+            duration_ms: row.duration_ms as number | null,
+            step_count: (row.step_count ?? 0) as number,
+            first_failure_step: row.first_failure_step as string | null,
+            graph_node_names: ((row.data as Record<string, unknown>)?.graph_node_names ?? []) as string[],
+            argus_version: (row.argus_version ?? '') as string,
+            parent_run_id: row.parent_run_id as string | null,
+          }))
+        )
+      })
+  }, [user])
+
+  if (authLoading || !user) {
+    return (
+      <div className="py-24 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+        Loading...
+      </div>
+    )
+  }
 
   const counts = {
     total: runs.length,
@@ -80,7 +119,7 @@ export default function RunListPage() {
           />
           <StatCard
             label="Pass rate"
-            value={passRate !== null ? `${passRate}%` : '—'}
+            value={passRate !== null ? `${passRate}%` : '\u2014'}
             valueColor={
               passRate === null ? undefined :
               passRate === 100 ? '#22c55e' :

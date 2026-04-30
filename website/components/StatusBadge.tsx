@@ -2,12 +2,13 @@
 
 import type { RunStatus, StepStatus, Severity } from '@/lib/types'
 
-const RUN_STATUS_MAP: Record<RunStatus, { label: string; color: string }> = {
-  clean: { label: 'clean', color: 'text-green-400 bg-green-400/10 border-green-400/20' },
-  silent_failure: { label: 'silent_failure', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
-  crashed: { label: 'crashed', color: 'text-red-400 bg-red-400/10 border-red-400/20' },
-  semantic_fail: { label: 'semantic_fail', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-  interrupted: { label: 'interrupted', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
+// Matches CLI _STATUS_DOT + _STATUS_STYLE exactly
+const RUN_STATUS_MAP: Record<RunStatus, { label: string; dot: string; color: string }> = {
+  clean:          { label: 'clean',          dot: '●', color: '#22c55e' },
+  silent_failure: { label: 'silent_failure', dot: '●', color: '#f59e0b' },
+  crashed:        { label: 'crashed',        dot: '●', color: '#ef4444' },
+  semantic_fail:  { label: 'semantic_fail',  dot: '●', color: '#d946ef' },
+  interrupted:    { label: 'interrupted',    dot: '⏸', color: '#f59e0b' },
 }
 
 const STEP_STATUS_MAP: Record<StepStatus, { icon: string; label: string; color: string }> = {
@@ -26,10 +27,11 @@ const SEVERITY_MAP: Record<Severity, { label: string; color: string }> = {
 }
 
 export function RunStatusBadge({ status }: { status: RunStatus }) {
-  const s = RUN_STATUS_MAP[status] ?? { label: status, color: 'text-[#6b7280]' }
+  const s = RUN_STATUS_MAP[status] ?? { label: status, dot: '●', color: '#71717a' }
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border font-mono ${s.color}`}>
-      {s.label}
+    <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold" style={{ color: s.color }}>
+      <span>{s.dot}</span>
+      <span>{s.label}</span>
     </span>
   )
 }

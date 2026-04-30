@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/lib/auth'
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,15 @@ function IconArgus() {
   )
 }
 
+function IconLogout() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+      <path d="M9 4l3 3-3 3M5.5 7H12" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface NavItem {
@@ -82,11 +92,24 @@ const PLACEHOLDER_ITEMS: PlaceholderItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const { user, signOut } = useAuth()
 
   function isActive(href: string, exact: boolean) {
     if (exact) return pathname === href
     return pathname.startsWith(href)
   }
+
+  // Get user initials for avatar
+  const initials = user?.user_metadata?.full_name
+    ? (user.user_metadata.full_name as string)
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : user?.email?.[0]?.toUpperCase() ?? '?'
+
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined
 
   return (
     <aside
@@ -195,19 +218,56 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* ── Footer ── */}
+      {/* ── User footer ── */}
       <div
-        className="px-4 py-3 flex items-center justify-between"
+        className="px-3 py-3 flex items-center justify-between gap-2"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
-        <div className="flex items-center gap-1.5">
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: '#22c55e', boxShadow: '0 0 5px rgba(34,197,94,0.5)' }}
-          />
-          <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>connected</span>
-        </div>
-        <span className="text-[10px] font-mono" style={{ color: '#3a3a3a' }}>v0.3.3</span>
+        {user ? (
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="w-6 h-6 rounded-full shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold"
+                  style={{ background: '#3b82f6', color: '#fff' }}
+                >
+                  {initials}
+                </div>
+              )}
+              <span
+                className="text-[11px] truncate"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {user.user_metadata?.full_name ?? user.email}
+              </span>
+            </div>
+            <button
+              onClick={signOut}
+              className="shrink-0 p-1.5 rounded-md hover:bg-white/5 transition-colors"
+              style={{ color: 'var(--text-faint)' }}
+              title="Sign out"
+            >
+              <IconLogout />
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: '#22c55e', boxShadow: '0 0 5px rgba(34,197,94,0.5)' }}
+              />
+              <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>connected</span>
+            </div>
+            <span className="text-[10px] font-mono" style={{ color: '#3a3a3a' }}>v0.3.3</span>
+          </>
+        )}
       </div>
     </aside>
   )

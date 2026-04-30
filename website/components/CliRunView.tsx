@@ -189,11 +189,18 @@ function findParallelMembers(edgeMap: Record<string, string[]>): Set<string> {
 
 /* ── Step icon/label matching CLI exactly ─────────────────────────── */
 
+// CLI color constants — matches _STATUS_STYLE and icon colors in cmd_show.py exactly
+const C_GREEN   = '#22c55e'
+const C_AMBER   = '#f59e0b'
+const C_RED     = '#ef4444'
+const C_MAGENTA = '#d946ef'
+
 interface StepDisplay {
   icon: string
   iconColor: string
   label: string
-  labelClass: string
+  labelColor: string
+  warnSuffix?: boolean  // "(warnings)" dim suffix
 }
 
 function getStepDisplay(event: NodeEvent): StepDisplay {
@@ -210,21 +217,21 @@ function getStepDisplay(event: NodeEvent): StepDisplay {
     )
 
   if (event.status === 'pass' && hasWarnings) {
-    return { icon: '~', iconColor: '#f59e0b', label: 'pass (warnings)', labelClass: 'text-green-400' }
+    return { icon: '~', iconColor: C_AMBER, label: 'pass', labelColor: C_GREEN, warnSuffix: true }
   }
   if (event.status === 'pass') {
-    return { icon: '✓', iconColor: '#22c55e', label: 'pass', labelClass: 'text-green-400' }
+    return { icon: '✓', iconColor: C_GREEN, label: 'pass', labelColor: C_GREEN }
   }
   if (event.status === 'fail') {
-    return { icon: '⚠', iconColor: '#f59e0b', label: 'silent failure', labelClass: 'text-amber-400' }
+    return { icon: '⚠', iconColor: C_AMBER, label: 'silent failure', labelColor: C_AMBER }
   }
   if (event.status === 'semantic_fail') {
-    return { icon: '⊗', iconColor: '#d946ef', label: 'semantic fail', labelClass: 'text-purple-400' }
+    return { icon: '⊗', iconColor: C_MAGENTA, label: 'semantic fail', labelColor: C_MAGENTA }
   }
   if (event.status === 'interrupted') {
-    return { icon: '⏸', iconColor: '#f59e0b', label: 'interrupted', labelClass: 'text-amber-400' }
+    return { icon: '⏸', iconColor: C_AMBER, label: 'interrupted', labelColor: C_AMBER }
   }
-  return { icon: '✗', iconColor: '#ef4444', label: 'crashed', labelClass: 'text-red-400' }
+  return { icon: '✗', iconColor: C_RED, label: 'crashed', labelColor: C_RED }
 }
 
 function successorName(event: NodeEvent, run: RunRecord): string {
@@ -234,10 +241,18 @@ function successorName(event: NodeEvent, run: RunRecord): string {
 
 /* ── Detail lines (matching CLI └─ format) ────────────────────────── */
 
+// Detail line uses inline color to match CLI exactly
 interface DetailLine {
   text: string
-  style?: string
+  color?: string     // hex color
+  italic?: boolean
+  underline?: boolean
   bold?: boolean
+  indent?: boolean   // leading spaces — render without the └─ prefix
+}
+
+function dl(text: string, opts: Omit<DetailLine, 'text'> = {}): DetailLine {
+  return { text, ...opts }
 }
 
 function getDetailLines(event: NodeEvent, run: RunRecord): DetailLine[] {
@@ -245,68 +260,68 @@ function getDetailLines(event: NodeEvent, run: RunRecord): DetailLine[] {
   const insp = event.inspection
   const display = getStepDisplay(event)
 
-  // Failure type tags
+  // Failure type tags (underlined, amber — matches CLI yellow underline)
   if (event.status === 'fail' && insp) {
     if (insp.is_silent_failure) {
-      lines.push({ text: 'context error', style: 'text-amber-400 underline' })
+      lines.push(dl('context error', { color: C_AMBER, underline: true }))
     }
     if (insp.has_tool_failure) {
-      lines.push({ text: 'tool failure', style: 'text-amber-400 underline' })
+      lines.push(dl('tool failure', { color: C_AMBER, underline: true }))
     }
   }
 
   // Interrupted
   if (event.status === 'interrupted') {
-    lines.push({ text: 'execution paused — awaiting human approval', style: 'text-[#52525e] italic' })
+    lines.push(dl('execution paused — awaiting human approval', { color: '#52525e', italic: true }))
     return lines
   }
 
-  // Semantic fail — show validators
+  // Semantic fail — show validators (magenta, matching CLI bold magenta)
   if (event.status === 'semantic_fail') {
     for (const vr of event.validator_results) {
       if (!vr.is_valid) {
-        lines.push({ text: `⊗ ${vr.validator_name}  ${vr.message}`, style: 'text-purple-400' })
+        lines.push(dl(`⊗ ${vr.validator_name}  ${vr.message}`, { color: C_MAGENTA }))
       }
     }
     return lines
   }
 
-  // Clean pass — show passing validators
-  if (event.status === 'pass' && display.label === 'pass') {
+  // Clean pass — show passing validators (dim green)
+  if (event.status === 'pass' && !display.warnSuffix) {
     const passing = event.validator_results.filter((v) => v.is_valid)
     for (const vr of passing) {
-      lines.push({ text: `✓ ${vr.validator_name}`, style: 'text-green-400/60' })
+      lines.push(dl(`✓ ${vr.validator_name}`, { color: '#1a6b35' }))
     }
     return lines
   }
 
-  // Pass with warnings
-  if (event.status === 'pass' && display.label === 'pass (warnings)') {
+  // Pass with warnings (dim lines matching CLI dim style)
+  if (event.status === 'pass' && display.warnSuffix) {
     const successor = successorName(event, run)
     if (insp?.empty_fields) {
       for (const field of insp.empty_fields) {
-        lines.push({ text: `Field "${field}" is empty`, style: 'text-[#52525e]' })
+        lines.push(dl(`Field "${field}" is empty`, { color: '#52525e' }))
       }
-      lines.push({ text: `${successor} may receive degraded state`, style: 'text-[#52525e]' })
+      lines.push(dl(`${successor} may receive degraded state`, { color: '#52525e' }))
     }
     if (insp?.type_mismatches) {
       for (const m of insp.type_mismatches) {
-        lines.push({ text: `Field "${m.field_name}" expected ${m.expected_type}, got ${m.actual_type}`, style: 'text-[#52525e]' })
+        lines.push(dl(`Field "${m.field_name}" expected ${m.expected_type}, got ${m.actual_type}`, { color: '#52525e' }))
       }
     }
     if (insp?.unannotated_successors?.length) {
       const names = insp.unannotated_successors.join(', ')
-      lines.push({ text: `silent-failure detection skipped — add type hints to: ${names}`, style: 'text-[#52525e]' })
+      lines.push(dl(`silent-failure detection skipped — add type hints to: ${names}`, { color: '#52525e' }))
     }
     if (insp?.suspicious_empty_keys) {
       for (const key of insp.suspicious_empty_keys) {
-        lines.push({ text: `Output key "${key}" is empty (may degrade downstream)`, style: 'text-[#52525e]' })
+        lines.push(dl(`Output key "${key}" is empty (may degrade downstream)`, { color: '#52525e' }))
       }
     }
     if (insp?.tool_failures) {
       for (const tf of insp.tool_failures) {
         const tfIcon = tf.severity === 'critical' ? '⚠' : '~'
-        lines.push({ text: `${tfIcon} Tool ${tf.failure_type}: field "${tf.field_name}" — ${tf.evidence}`, style: tf.severity === 'critical' ? 'text-red-400' : 'text-amber-400' })
+        lines.push(dl(`${tfIcon} Tool ${tf.failure_type}: field "${tf.field_name}" — ${tf.evidence}`, { color: tf.severity === 'critical' ? C_RED : C_AMBER }))
       }
     }
     return lines
@@ -320,53 +335,52 @@ function getDetailLines(event: NodeEvent, run: RunRecord): DetailLine[] {
     event.node_name !== run.first_failure_step
 
   if (event.exception) {
-    lines.push({ text: 'exception', style: 'text-[#52525e]' })
+    lines.push(dl('exception', { color: '#52525e' }))
     const firstLine = event.exception.split('\n').find((l) => l.trim()) ?? ''
-    lines.push({ text: `   ${firstLine}`, style: 'text-[#e4e4e8] italic' })
+    lines.push(dl(firstLine, { color: '#e4e4e8', italic: true, indent: true }))
 
-    // Extract crash location
     const locMatch = event.exception.match(/File ".*?([^/\\]+\.py)", line (\d+)/)
     if (locMatch) {
       const codeLines = event.exception.split('\n')
       const fileIdx = codeLines.findIndex((l) => l.includes(locMatch[0]))
       const codeLine = fileIdx >= 0 && fileIdx + 1 < codeLines.length ? codeLines[fileIdx + 1].trim() : ''
       if (codeLine) {
-        lines.push({ text: `   at ${locMatch[1]}:${locMatch[2]}  →  ${codeLine}`, style: 'text-[#52525e] italic' })
+        lines.push(dl(`at ${locMatch[1]}:${locMatch[2]}  →  ${codeLine}`, { color: '#71717a', italic: true, indent: true }))
       }
     }
   }
 
   if (insp?.tool_failures?.length) {
-    lines.push({ text: 'tool failures', style: 'text-[#52525e]' })
+    lines.push(dl('tool failures', { color: '#52525e' }))
     for (const tf of insp.tool_failures) {
       const tfIcon = tf.severity === 'critical' ? '⚠' : '~'
-      lines.push({ text: `   ${tfIcon} Tool ${tf.failure_type}: field "${tf.field_name}" — ${tf.evidence}`, style: tf.severity === 'critical' ? 'text-red-400' : 'text-amber-400' })
+      lines.push(dl(`${tfIcon} Tool ${tf.failure_type}: field "${tf.field_name}" — ${tf.evidence}`, { color: tf.severity === 'critical' ? C_RED : C_AMBER, indent: true }))
     }
   }
 
   if (insp) {
     if (insp.missing_fields?.length) {
-      lines.push({ text: 'missing fields', style: 'text-[#52525e]' })
+      lines.push(dl('missing fields', { color: '#52525e' }))
       for (const field of insp.missing_fields) {
-        lines.push({ text: `   Field "${field}" is missing`, style: 'text-[#e4e4e8] italic' })
+        lines.push(dl(`Field "${field}" is missing`, { color: '#e4e4e8', italic: true, indent: true }))
       }
-      lines.push({ text: `   ${successor} received bad state`, style: 'text-[#52525e] italic' })
+      lines.push(dl(`${successor} received bad state`, { color: '#52525e', italic: true, indent: true }))
     } else if (insp.empty_fields?.length) {
-      lines.push({ text: 'missing fields', style: 'text-[#52525e]' })
+      lines.push(dl('missing fields', { color: '#52525e' }))
       for (const field of insp.empty_fields) {
-        lines.push({ text: `   Field "${field}" is empty`, style: 'text-[#e4e4e8] italic' })
+        lines.push(dl(`Field "${field}" is empty`, { color: '#e4e4e8', italic: true, indent: true }))
       }
-      lines.push({ text: `   ${successor} received bad state`, style: 'text-[#52525e] italic' })
+      lines.push(dl(`${successor} received bad state`, { color: '#52525e', italic: true, indent: true }))
     } else if (insp.type_mismatches?.length) {
-      lines.push({ text: 'missing fields', style: 'text-[#52525e]' })
+      lines.push(dl('missing fields', { color: '#52525e' }))
       for (const m of insp.type_mismatches) {
-        lines.push({ text: `   Field "${m.field_name}" expected ${m.expected_type}, got ${m.actual_type}`, style: 'text-[#e4e4e8] italic' })
+        lines.push(dl(`Field "${m.field_name}" expected ${m.expected_type}, got ${m.actual_type}`, { color: '#e4e4e8', italic: true, indent: true }))
       }
     }
   }
 
   if (isDownstream && run.first_failure_step) {
-    lines.push({ text: `Root cause: ${run.first_failure_step}`, style: 'text-red-400 font-bold' })
+    lines.push(dl(`Root cause: ${run.first_failure_step}`, { color: C_RED, bold: true }))
   }
 
   return lines
@@ -406,25 +420,35 @@ function StepRow({
         <span className="w-4 shrink-0" />
         <span style={{ color: display.iconColor }} className="shrink-0 w-4 text-center">{display.icon}</span>
         <span className="w-2 shrink-0" />
-        <span className={`${display.labelClass} font-semibold`}>{display.label}</span>
+        <span style={{ color: display.labelColor }} className="font-bold">
+          {display.label}
+          {display.warnSuffix && <span style={{ color: '#78716c', fontWeight: 400 }}> (warnings)</span>}
+        </span>
         {/* Expand indicator */}
         <span className="ml-auto text-[10px] text-[#2a2a30] group-hover:text-[#52525e] transition-colors">
           {expanded ? '▾' : '▸'}
         </span>
       </button>
 
-      {/* Detail └─ lines */}
+      {/* Detail └─ lines — matches CLI indent/color exactly */}
       {details.length > 0 && (
         <div className="font-mono text-[12px] leading-6 pl-4">
           {details.map((line, i) => (
             <div key={i} className="flex items-baseline">
               <span className="w-8 shrink-0" />
               <span className="w-3 shrink-0" />
-              <span className="text-[#35353e] shrink-0 mr-2">
-                {line.text.startsWith('   ') ? '   ' : '└─'}
+              <span className="shrink-0 mr-2" style={{ color: '#35353e' }}>
+                {line.indent ? '   ' : '└─'}
               </span>
-              <span className={line.style ?? 'text-[#52525e]'}>
-                {line.text.startsWith('   ') ? line.text.slice(3) : line.text}
+              <span
+                style={{
+                  color: line.color ?? '#52525e',
+                  fontStyle: line.italic ? 'italic' : undefined,
+                  textDecoration: line.underline ? 'underline' : undefined,
+                  fontWeight: line.bold ? 700 : undefined,
+                }}
+              >
+                {line.text}
               </span>
             </div>
           ))}
@@ -454,7 +478,7 @@ function StepRow({
           {event.exception && (
             <div className="p-3" style={{ borderTop: '1px solid var(--border-default)' }}>
               <div className="text-[10px] uppercase tracking-widest font-semibold text-red-400 mb-2">Full Exception</div>
-              <pre className="text-[11px] text-red-300/80 bg-red-950/15 border border-red-900/25 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap leading-5 font-mono">
+              <pre className="text-[11px] text-red-200 bg-red-950/20 border border-red-800/30 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap leading-5 font-mono">
                 {event.exception}
               </pre>
             </div>

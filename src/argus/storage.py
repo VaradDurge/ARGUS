@@ -38,12 +38,25 @@ def _to_json_serializable(obj: Any) -> Any:
 
 
 def save_run(record: RunRecord) -> Path:
-    """Write a completed RunRecord to .argus/runs/<run-id>.json atomically."""
+    """Write a completed RunRecord to .argus/runs/<run-id>.json atomically.
+
+    If the user is logged in to ARGUS cloud, the run is also pushed
+    to Supabase in a background thread (non-blocking).
+    """
     path = _runs_path() / f"{record.run_id}.json"
     tmp = path.with_suffix(".tmp")
     data = _to_json_serializable(record)
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     tmp.rename(path)
+
+    # Cloud sync — push synchronously so the thread isn't killed on process exit
+    try:
+        from argus.cloud import is_logged_in, push_run
+        if is_logged_in():
+            push_run(data)
+    except Exception:
+        pass  # cloud sync is best-effort
+
     return path
 
 

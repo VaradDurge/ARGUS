@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.text import Text
 
 from argus.cli.cmd_diff import diff_runs
+from argus.cli.cmd_login import login, logout, whoami
 from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
 from argus.cli.cmd_show import show_last, show_list, show_run
@@ -52,6 +53,9 @@ _COMMANDS = [
     ("inspect <id> --step <node>",        "dump raw input / output state for a node"),
     ("diff <id>",                         "diff a replay run against its original"),
     ("diff <id-a> <id-b>",               "diff any two runs side-by-side"),
+    ("login",                            "sign in with Google to sync runs to the cloud"),
+    ("logout",                           "clear stored credentials"),
+    ("whoami",                           "show current login status"),
     ("update",                           "check GitHub for a newer release and upgrade"),
 ]
 
@@ -257,6 +261,24 @@ def cmd_diff(
 ) -> None:
     """Compare two runs node-by-node: status, duration, and output field changes."""
     diff_runs(run_id_a, run_id_b)
+
+
+@app.command("login")
+def cmd_login() -> None:
+    """Sign in with Google to sync runs to the cloud dashboard."""
+    login()
+
+
+@app.command("logout")
+def cmd_logout() -> None:
+    """Clear stored cloud credentials."""
+    logout()
+
+
+@app.command("whoami")
+def cmd_whoami() -> None:
+    """Show current cloud login status."""
+    whoami()
 
 
 @app.command("update")

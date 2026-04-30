@@ -7,7 +7,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from rich.console import Console
 
@@ -127,6 +127,7 @@ def _make_handler(runs_dir: Path, logs_dir: Path) -> type:
 
         def _serve_static(self, path: str) -> None:
             dist = _DIST_DIR
+            path = unquote(path)  # decode %5B[%5D] → [...] etc.
 
             # Root
             if path in ("", "/"):
