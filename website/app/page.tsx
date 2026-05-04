@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import RunTable from '@/components/RunTable'
+import EvaluationBuilder from '@/components/EvaluationBuilder'
+import type { EvalState } from '@/components/EvaluationBuilder'
 import Link from 'next/link'
 import type { RunSummary } from '@/lib/types'
 import { useAuth } from '@/lib/auth'
@@ -12,6 +14,7 @@ export default function RunListPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [runs, setRuns] = useState<RunSummary[]>([])
+  const [evalState, setEvalState] = useState<EvalState | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -36,7 +39,7 @@ export default function RunListPage() {
             overall_status: (row.overall_status ?? 'unknown') as RunSummary['overall_status'],
             started_at: row.started_at as string,
             duration_ms: row.duration_ms as number | null,
-            step_count: (row.step_count ?? 0) as number,
+            step_count: (row.step_count ?? (row.data as Record<string, unknown[]> | null)?.steps?.length ?? 0) as number,
             first_failure_step: row.first_failure_step as string | null,
             graph_node_names: ((row.data as Record<string, unknown>)?.graph_node_names ?? []) as string[],
             argus_version: (row.argus_version ?? '') as string,
@@ -133,7 +136,10 @@ export default function RunListPage() {
       {/* Divider */}
       <div className="mb-7" style={{ height: '1px', background: 'var(--border-default)' }} />
 
-      <RunTable runs={runs} />
+      {/* Evaluation builder */}
+      <EvaluationBuilder onEval={setEvalState} currentEval={evalState} />
+
+      <RunTable runs={runs} evalState={evalState} />
     </div>
   )
 }

@@ -1,0 +1,92 @@
+[
+  {
+    "workflow": "Customer Support Triage",
+    "fault_type": "silent_failure",
+    "true_fault_node": "knowledge_retriever",
+    "description": "retriever returns error key + drops kb_articles \u2014 response_drafter gets no context",
+    "clean_run": {
+      "argus": "clean",
+      "naive": "clean"
+    },
+    "failure_run": {
+      "argus_status": "silent_failure",
+      "argus_root_cause": "knowledge_retriever",
+      "argus_correct_rca": true,
+      "naive_status": "clean"
+    },
+    "argus_detected": true,
+    "naive_detected": false
+  },
+  {
+    "workflow": "RAG Q&A Pipeline",
+    "fault_type": "silent_failure",
+    "true_fault_node": "retriever",
+    "description": "retriever drops retrieved_chunks \u2014 answer_generator gets no context",
+    "clean_run": {
+      "argus": "clean",
+      "naive": "clean"
+    },
+    "failure_run": {
+      "argus_status": "silent_failure",
+      "argus_root_cause": "retriever",
+      "argus_correct_rca": true,
+      "naive_status": "clean"
+    },
+    "argus_detected": true,
+    "naive_detected": false
+  },
+  {
+    "workflow": "Code Review Agent",
+    "fault_type": "multi_hop",
+    "true_fault_node": "security_scanner",
+    "description": "scanner returns error key \u2192 review_generator crashes on None findings",
+    "clean_run": {
+      "argus": "clean",
+      "naive": "clean"
+    },
+    "failure_run": {
+      "argus_status": "crashed",
+      "argus_root_cause": "security_scanner",
+      "argus_correct_rca": true,
+      "naive_status": "crashed:KeyError"
+    },
+    "argus_detected": true,
+    "naive_detected": true
+  },
+  {
+    "workflow": "Data ETL Pipeline",
+    "fault_type": "multi_hop",
+    "true_fault_node": "data_fetcher",
+    "description": "data_fetcher returns error key + None records \u2192 transformer crashes",
+    "clean_run": {
+      "argus": "clean",
+      "naive": "clean"
+    },
+    "failure_run": {
+      "argus_status": "crashed",
+      "argus_root_cause": "data_fetcher",
+      "argus_correct_rca": true,
+      "naive_status": "crashed:KeyError"
+    },
+    "argus_detected": true,
+    "naive_detected": true
+  },
+  {
+    "workflow": "Research Synthesis Agent",
+    "fault_type": "silent_failure",
+    "true_fault_node": "web_searcher",
+    "description": "web_searcher returns error key + drops search_results \u2014 pipeline silently degrades",
+    "clean_run": {
+      "argus": "clean",
+      "naive": "clean"
+    },
+    "failure_run": {
+      "argus_status": "silent_failure",
+      "argus_root_cause": "web_searcher",
+      "argus_correct_rca": true,
+      "naive_status": "clean"
+    },
+    "argus_detected": true,
+    "naive_detected": false
+  }
+]

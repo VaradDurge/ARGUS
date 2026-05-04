@@ -79,13 +79,12 @@ interface PlaceholderItem {
 // ── Data ───────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Runs',   href: '/',        icon: <IconRuns />,   exact: true  },
+  { label: 'Runs',    href: '/',        icon: <IconRuns />,    exact: true  },
   { label: 'Compare', href: '/compare', icon: <IconCompare />, exact: false },
 ]
 
 const PLACEHOLDER_ITEMS: PlaceholderItem[] = [
-  { label: 'Evaluation', icon: <IconEval /> },
-  { label: 'Settings',   icon: <IconSettings /> },
+  { label: 'Settings', icon: <IconSettings /> },
 ]
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -184,8 +183,30 @@ export default function Sidebar() {
           style={{ height: '1px', background: 'var(--border-subtle)' }}
         />
 
+        {/* Eval hint */}
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border hover:bg-white/[0.03] transition-colors"
+          style={{ color: 'var(--text-secondary)', borderColor: 'transparent' }}
+        >
+          <span className="pl-1 shrink-0" style={{ color: 'var(--text-muted)' }}>
+            <IconEval />
+          </span>
+          <span>Evaluation</span>
+          <span
+            className="ml-auto text-[9px] px-1.5 py-0.5 rounded"
+            style={{
+              color: '#3b82f6',
+              border: '1px solid rgba(59,130,246,0.25)',
+              letterSpacing: '0.05em',
+            }}
+          >
+            on runs
+          </span>
+        </Link>
+
         {/* Analyze section */}
-        <div className="px-2 py-1 mb-1">
+        <div className="px-2 py-1 mt-2 mb-1">
           <span
             className="text-[9px] uppercase tracking-[0.12em] font-medium"
             style={{ color: 'var(--text-faint)' }}

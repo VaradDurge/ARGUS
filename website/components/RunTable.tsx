@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import type { RunSummary } from '@/lib/types'
 import { RunStatusBadge } from './StatusBadge'
+import EvalBadge from './EvalBadge'
+import type { EvalState } from './EvaluationBuilder'
 
 function getRunShape(run: RunSummary): { label: string; color: string } | null {
   if (run.overall_status === 'clean' && !run.first_failure_step) {
@@ -42,6 +44,7 @@ function truncateNodes(names: string[]): string {
 
 interface RunTableProps {
   runs: RunSummary[]
+  evalState?: EvalState | null
 }
 
 const COL_HEADER_STYLE: React.CSSProperties = {
@@ -54,7 +57,7 @@ const COL_HEADER_STYLE: React.CSSProperties = {
   paddingTop: '4px',
 }
 
-export default function RunTable({ runs }: RunTableProps) {
+export default function RunTable({ runs, evalState }: RunTableProps) {
   if (runs.length === 0) {
     return (
       <div className="text-center py-24" style={{ color: '#3f3f46' }}>
@@ -95,6 +98,9 @@ export default function RunTable({ runs }: RunTableProps) {
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '24px' }}>Duration</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingRight: '24px' }}>First Failure</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'right' }}>Shape</th>
+            {evalState && (
+              <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '16px' }}>Eval</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -210,6 +216,13 @@ export default function RunTable({ runs }: RunTableProps) {
                     )}
                   </Link>
                 </td>
+
+                {/* Eval */}
+                {evalState && (
+                  <td className="py-3.5 text-right pr-4">
+                    <EvalBadge run={run} evalState={evalState} />
+                  </td>
+                )}
               </tr>
             )
           })}
