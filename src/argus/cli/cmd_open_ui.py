@@ -17,6 +17,22 @@ _UI_URL = f"http://localhost:{_UI_PORT}"
 _DIST_DIR = Path(__file__).parent.parent / "ui_dist"
 
 
+def _get_cli_auth() -> dict | None:
+    """Return CLI credentials for auto-login in the local UI, refreshing if needed."""
+    try:
+        from argus.cloud import _get_valid_credentials  # noqa: PLC0415
+        creds = _get_valid_credentials()
+        if creds is None:
+            return None
+        return {
+            "access_token": creds.access_token,
+            "refresh_token": creds.refresh_token,
+            "email": creds.email,
+        }
+    except Exception:
+        return None
+
+
 def _port_in_use() -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("localhost", _UI_PORT)) == 0
@@ -160,7 +176,13 @@ def _make_handler(runs_dir: Path, logs_dir: Path) -> type:
             parsed = urlparse(self.path)
             path = parsed.path.rstrip("/")
 
-            if path == "/api/runs":
+            if path == "/api/auth":
+                auth = _get_cli_auth()
+                if auth:
+                    self._send_json(auth)
+                else:
+                    self._send_json({"error": "not logged in"}, 401)
+            elif path == "/api/runs":
                 self._list_runs()
             elif path.startswith("/api/runs/"):
                 self._get_run(path[len("/api/runs/"):])

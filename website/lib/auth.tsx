@@ -31,12 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      setLoading(false)
-    })
-
     // Listen for auth changes (handles OAuth callback tokens in hash)
     const {
       data: { subscription },
@@ -44,6 +38,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s)
       setLoading(false)
     })
+
+    // On localhost: try to auto-login from CLI credentials before falling back
+    // to the normal getSession() check.
+    const init = async () => {
+      if (window.location.hostname === 'localhost') {
+        try {
+          const res = await fetch('/api/auth')
+          if (res.ok) {
+            const { access_token, refresh_token } = await res.json()
+            if (access_token && refresh_token) {
+              const { data } = await supabase.auth.setSession({ access_token, refresh_token })
+              if (data.session) {
+                // onAuthStateChange will fire and update state
+                return
+              }
+            }
+          }
+        } catch {
+          // local server may not expose /api/auth — fall through
+        }
+      }
+      const { data: { session: s } } = await supabase.auth.getSession()
+      setSession(s)
+      setLoading(false)
+    }
+
+    init()
 
     return () => subscription.unsubscribe()
   }, [])

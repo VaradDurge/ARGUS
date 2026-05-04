@@ -29,19 +29,46 @@ export default function RunDetailClient({ id }: { id: string }) {
     const runId = segments[segments.length - 1]
     if (!runId || runId === '_') return
 
-    supabase
-      .from('runs')
-      .select('data')
-      .ilike('run_id', `${runId}%`)
-      .limit(1)
-      .single()
-      .then(({ data, error: err }) => {
-        if (err || !data) {
-          setError('Run not found')
+    const fetchRun = async () => {
+      const { data, error: err } = await supabase
+        .from('runs')
+        .select('data')
+        .ilike('run_id', `${runId}%`)
+        .limit(1)
+        .single()
+
+      if (err || !data) {
+        setError('Run not found')
+        return
+      }
+
+      const baseRun = data.data as RunRecord
+
+      // If interrupted, look for the resume run and stitch steps together
+      if (baseRun.overall_status === 'interrupted') {
+        const { data: resumeRows } = await supabase
+          .from('runs')
+          .select('data')
+          .eq('parent_run_id', baseRun.run_id)
+          .order('started_at', { ascending: true })
+
+        if (resumeRows && resumeRows.length > 0) {
+          const allSteps = [...(baseRun.steps ?? [])]
+          let lastStatus: RunRecord['overall_status'] = baseRun.overall_status
+          for (const row of resumeRows) {
+            const resumeRun = row.data as RunRecord
+            allSteps.push(...(resumeRun.steps ?? []))
+            lastStatus = resumeRun.overall_status
+          }
+          setRun({ ...baseRun, steps: allSteps, overall_status: lastStatus })
           return
         }
-        setRun(data.data as RunRecord)
-      })
+      }
+
+      setRun(baseRun)
+    }
+
+    fetchRun()
   }, [id, user])
 
   if (authLoading) {

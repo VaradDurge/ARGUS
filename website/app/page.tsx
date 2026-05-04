@@ -34,17 +34,20 @@ export default function RunListPage() {
       .then(({ data, error }) => {
         if (error || !data) return
         setRuns(
-          data.map((row: Record<string, unknown>) => ({
-            run_id: row.run_id as string,
-            overall_status: (row.overall_status ?? 'unknown') as RunSummary['overall_status'],
-            started_at: row.started_at as string,
-            duration_ms: row.duration_ms as number | null,
-            step_count: (row.step_count ?? (row.data as Record<string, unknown[]> | null)?.steps?.length ?? 0) as number,
-            first_failure_step: row.first_failure_step as string | null,
-            graph_node_names: ((row.data as Record<string, unknown>)?.graph_node_names ?? []) as string[],
-            argus_version: (row.argus_version ?? '') as string,
-            parent_run_id: row.parent_run_id as string | null,
-          }))
+          data
+            .map((row: Record<string, unknown>) => ({
+              run_id: row.run_id as string,
+              overall_status: (row.overall_status ?? 'unknown') as RunSummary['overall_status'],
+              started_at: row.started_at as string,
+              duration_ms: row.duration_ms as number | null,
+              step_count: (row.step_count ?? (row.data as Record<string, unknown[]> | null)?.steps?.length ?? 0) as number,
+              first_failure_step: row.first_failure_step as string | null,
+              graph_node_names: ((row.data as Record<string, unknown>)?.graph_node_names ?? []) as string[],
+              argus_version: (row.argus_version ?? '') as string,
+              parent_run_id: row.parent_run_id as string | null,
+            }))
+            // Hide resume runs — they are stitched into the interrupted parent on the detail page
+            .filter((r) => !r.parent_run_id)
         )
       })
   }, [user])
