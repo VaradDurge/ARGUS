@@ -458,3 +458,20 @@ class ArgusSession:
     def force_finalize(self) -> None:
         """Alias for finalize() — used by legacy code and replay engine."""
         self._finalize()
+
+    def reset_for_resume(self, parent_run_id: str) -> None:
+        """Reset session state so post-interrupt steps are captured in a new run record.
+
+        Called by ArgusWatcher.resume() before re-invoking the graph.
+        The new run record will have parent_run_id set so cmd_show can stitch
+        the chain together across the interrupt boundary.
+        """
+        with self._lock:
+            self.run_id = generate_run_id()
+            self.parent_run_id = parent_run_id
+            self._events = []
+            self._step_index = 0
+            self._initial_state = {}
+            self._started_at = datetime.now(timezone.utc).isoformat()
+            self._completed = False
+            self._node_attempt_counts = {}

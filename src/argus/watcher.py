@@ -99,5 +99,7 @@ class ArgusWatcher:
             resume_input: input to pass to app.invoke() — often None for LangGraph resumes
         """
         mark_checkpoint_resumed(checkpoint_run_id)
+        if self._session is not None:
+            self._session.reset_for_resume(checkpoint_run_id)
         app.invoke(resume_input)
         self.finalize()
