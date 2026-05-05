@@ -102,7 +102,7 @@ def _refresh_if_needed(creds: Credentials) -> Credentials:
         save_credentials(creds)
         return creds
     except Exception:
-        return creds
+        return None
 
 
 def _get_valid_credentials() -> Credentials | None:

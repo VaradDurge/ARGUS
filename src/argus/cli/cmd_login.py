@@ -80,11 +80,14 @@ def login() -> None:
     """Run the OAuth login flow."""
     if is_logged_in():
         creds = load_credentials()
-        _console.print(
-            f"[green]Already logged in[/green] as [bold]{creds.email}[/bold]\n"
-            "  Run [bold]argus logout[/bold] first to switch accounts."
-        )
-        return
+        if creds and time.time() < creds.expires_at - 60:
+            _console.print(
+                f"[green]Already logged in[/green] as [bold]{creds.email}[/bold]\n"
+                "  Run [bold]argus logout[/bold] first to switch accounts."
+            )
+            return
+        # Token expired — clear it and proceed with fresh login
+        clear_credentials()
 
     port = _find_free_port()
     redirect_url = f"http://localhost:{port}/callback"
