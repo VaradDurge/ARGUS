@@ -562,6 +562,155 @@ function SideBySideRow({ diff, index, isLast, isFirstDivergence }: {
   )
 }
 
+/* ── Eval metrics ─────────────────────────────────────────────────── */
+
+const FAIL_WEIGHT: Record<string, number> = { crashed: 3, semantic_fail: 2, fail: 1 }
+
+interface RunMetrics {
+  failureCount: number
+  failureWeight: number
+  firstFailIdx: number   // Infinity if clean
+  successRate: number    // 0–100
+}
+
+function runMetrics(run: RunRecord): RunMetrics {
+  const steps = run.steps ?? []
+  const total = steps.length
+  if (total === 0) return { failureCount: 0, failureWeight: 0, firstFailIdx: Infinity, successRate: 100 }
+
+  let failureCount = 0
+  let failureWeight = 0
+  let firstFailIdx = Infinity
+  let passCount = 0
+
+  steps.forEach((s, i) => {
+    if (s.status === 'pass') {
+      passCount++
+    } else {
+      failureCount++
+      failureWeight += FAIL_WEIGHT[s.status] ?? 1
+      if (i < firstFailIdx) firstFailIdx = i
+    }
+  })
+
+  return { failureCount, failureWeight, firstFailIdx, successRate: Math.round((passCount / total) * 100) }
+}
+
+type Winner = 'A' | 'B' | 'tie'
+
+interface EvalResult {
+  winner: Winner
+  reason: string
+  a: RunMetrics
+  b: RunMetrics
+}
+
+function computeEvalMetrics(runA: RunRecord, runB: RunRecord): EvalResult {
+  const a = runMetrics(runA)
+  const b = runMetrics(runB)
+
+  if (a.failureCount !== b.failureCount) {
+    const winner: Winner = a.failureCount < b.failureCount ? 'A' : 'B'
+    return { winner, reason: `fewer failures (A: ${a.failureCount}, B: ${b.failureCount})`, a, b }
+  }
+  if (a.failureWeight !== b.failureWeight) {
+    const winner: Winner = a.failureWeight < b.failureWeight ? 'A' : 'B'
+    return { winner, reason: 'less severe failures', a, b }
+  }
+  if (a.firstFailIdx !== b.firstFailIdx) {
+    const winner: Winner = a.firstFailIdx > b.firstFailIdx ? 'A' : 'B'
+    const aStep = a.firstFailIdx === Infinity ? 'none' : `step ${a.firstFailIdx + 1}`
+    const bStep = b.firstFailIdx === Infinity ? 'none' : `step ${b.firstFailIdx + 1}`
+    return { winner, reason: `failure at ${aStep} vs ${bStep}`, a, b }
+  }
+  return { winner: 'tie', reason: 'identical failure profile', a, b }
+}
+
+function EvalPanel({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
+  const { winner, reason, a, b } = computeEvalMetrics(runA, runB)
+
+  const winnerColor = winner === 'tie' ? '#f59e0b' : '#22c55e'
+  const winnerLabel = winner === 'tie' ? 'tie' : `${winner} wins`
+
+  function cellWinner(aVal: number, bVal: number, higherIsBetter = false): Winner {
+    if (aVal === bVal) return 'tie'
+    return (higherIsBetter ? aVal > bVal : aVal < bVal) ? 'A' : 'B'
+  }
+
+  const rows: { label: string; aVal: string; bVal: string; rowWinner: Winner }[] = [
+    {
+      label: 'failures',
+      aVal: String(a.failureCount),
+      bVal: String(b.failureCount),
+      rowWinner: cellWinner(a.failureCount, b.failureCount),
+    },
+    {
+      label: 'severity',
+      aVal: String(a.failureWeight),
+      bVal: String(b.failureWeight),
+      rowWinner: cellWinner(a.failureWeight, b.failureWeight),
+    },
+    {
+      label: 'first fail',
+      aVal: a.firstFailIdx === Infinity ? '—' : `step ${a.firstFailIdx + 1}`,
+      bVal: b.firstFailIdx === Infinity ? '—' : `step ${b.firstFailIdx + 1}`,
+      rowWinner: cellWinner(a.firstFailIdx, b.firstFailIdx, true),
+    },
+    {
+      label: 'success',
+      aVal: `${a.successRate}%`,
+      bVal: `${b.successRate}%`,
+      rowWinner: cellWinner(a.successRate, b.successRate, true),
+    },
+  ]
+
+  return (
+    <div className="mx-3 mb-2 rounded-md overflow-hidden font-mono text-[11px]" style={{ border: '1px solid #1a1a1f' }}>
+      {/* Banner */}
+      <div
+        className="flex items-center gap-2 px-3 py-1.5"
+        style={{ background: '#111116', borderBottom: '1px solid #1a1a1f' }}
+      >
+        <span className="text-[#3a3a40]">eval</span>
+        <span style={{ color: winnerColor }}>●</span>
+        <span style={{ color: winnerColor }} className="font-bold">{winnerLabel}</span>
+        <span className="text-[#3a3a40]">·</span>
+        <span className="text-[#52525e]">{reason}</span>
+      </div>
+
+      {/* Metrics table */}
+      <div style={{ background: '#0d0d11' }}>
+        {/* Header row */}
+        <div className="grid px-3 py-1" style={{ gridTemplateColumns: '80px 1fr 1fr 48px', borderBottom: '1px solid #1a1a1f' }}>
+          <span className="text-[#2a2a30]" />
+          <span className="text-[#3a3a40] uppercase tracking-wider text-[9px]">A</span>
+          <span className="text-[#3a3a40] uppercase tracking-wider text-[9px]">B</span>
+          <span />
+        </div>
+        {rows.map((row) => {
+          const isTie = row.rowWinner === 'tie'
+          const checkA = !isTie && row.rowWinner === 'A'
+          const checkB = !isTie && row.rowWinner === 'B'
+          return (
+            <div
+              key={row.label}
+              className="grid px-3 py-1"
+              style={{ gridTemplateColumns: '80px 1fr 1fr 48px', borderBottom: '1px solid #111116' }}
+            >
+              <span className="text-[#3a3a40]">{row.label}</span>
+              <span style={{ color: checkA ? '#22c55e' : '#52525e' }}>{row.aVal}</span>
+              <span style={{ color: checkB ? '#22c55e' : '#52525e' }}>{row.bVal}</span>
+              <span style={{ color: '#22c55e' }} className="text-right">
+                {isTie ? <span className="text-[#2a2a30]">—</span> : `${row.rowWinner} ✓`}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ── Main DiffView ────────────────────────────────────────────────── */
 
 export default function DiffView({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
@@ -622,6 +771,9 @@ export default function DiffView({ runA, runB }: { runA: RunRecord; runB: RunRec
             )}
           </div>
         </div>
+
+        {/* ── Eval metrics panel ─────────────────────────────────── */}
+        <EvalPanel runA={runA} runB={runB} />
 
         {/* ── Thin separator ─────────────────────────────────────── */}
         <div className="mx-3 mt-1 mb-2" style={{ height: '1px', background: '#1a1a1f' }} />

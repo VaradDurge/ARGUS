@@ -239,15 +239,29 @@ def cmd_inspect(
 
 
 @app.command("ui")
-def cmd_ui() -> None:
+def cmd_ui(
+    app: Annotated[
+        Optional[str],
+        typer.Option(
+            help="'module.path:factory_fn' — zero-arg callable returning a StateGraph. Enables replay from the UI.",  # noqa: E501
+        ),
+    ] = None,
+) -> None:
     """Start the web dashboard and open it in the browser."""
-    open_ui()
+    open_ui(app_module_str=app)
 
 
 @open_app.command("ui")
-def cmd_open_ui() -> None:
+def cmd_open_ui(
+    app: Annotated[
+        Optional[str],
+        typer.Option(
+            help="'module.path:factory_fn' — zero-arg callable returning a StateGraph. Enables replay from the UI.",  # noqa: E501
+        ),
+    ] = None,
+) -> None:
     """Start the web dashboard and open it in the browser."""
-    open_ui()
+    open_ui(app_module_str=app)
 
 
 @app.command("diff")

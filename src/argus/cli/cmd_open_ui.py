@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import importlib
 import json
 import mimetypes
 import socket
+import sys
 import threading
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -15,6 +18,10 @@ _console = Console()
 _UI_PORT = 7842
 _UI_URL = f"http://localhost:{_UI_PORT}"
 _DIST_DIR = Path(__file__).parent.parent / "ui_dist"
+
+# ── Replay job registry ────────────────────────────────────────────────────
+_replay_jobs: dict[str, dict] = {}
+_replay_lock = threading.Lock()
 
 
 def _get_cli_auth() -> dict | None:
@@ -43,7 +50,68 @@ def _content_type(suffix: str) -> str:
     return ct or "application/octet-stream"
 
 
-def _make_handler(runs_dir: Path, logs_dir: Path) -> type:
+_CONFIG_PATH = Path(".") / ".argus" / "config.json"
+
+
+def _load_config_app_factory() -> str | None:
+    """Read default app factory from .argus/config.json in CWD."""
+    try:
+        data = json.loads(_CONFIG_PATH.read_text())
+        return data.get("app") or None
+    except Exception:
+        return None
+
+
+def _save_config_app_factory(app: str) -> None:
+    """Write app factory to .argus/config.json."""
+    _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        existing = json.loads(_CONFIG_PATH.read_text())
+    except Exception:
+        existing = {}
+    existing["app"] = app
+    _CONFIG_PATH.write_text(json.dumps(existing, indent=2))
+
+
+def _import_factory_for_ui(spec: str):
+    """Import the app factory callable from a 'module:fn' spec. Raises on failure."""
+    if ":" not in spec:
+        raise ValueError(f"app must be 'module:function', got: '{spec}'")
+    module_path, fn_name = spec.rsplit(":", 1)
+    cwd = str(Path.cwd())
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as e:
+        raise ImportError(f"Cannot import '{module_path}': {e}") from e
+    fn = getattr(module, fn_name, None)
+    if fn is None or not callable(fn):
+        raise ValueError(f"'{fn_name}' not found or not callable in '{module_path}'")
+    return fn
+
+
+def _run_replay_worker(job_id: str, run_id: str, from_node: str, app_module_str: str) -> None:
+    """Background thread: runs ReplayEngine and updates _replay_jobs on completion."""
+    from argus.replay import ReplayEngine  # noqa: PLC0415
+    from argus.storage import list_runs  # noqa: PLC0415
+    try:
+        factory = _import_factory_for_ui(app_module_str)
+        known_ids = {r["run_id"] for r in list_runs()}
+        engine = ReplayEngine()
+        engine.replay(run_id=run_id, from_node=from_node, app_factory=factory)
+        new_ids = {r["run_id"] for r in list_runs()} - known_ids
+        if not new_ids:
+            raise RuntimeError("Replay completed but new run ID could not be located.")
+        new_run_id = next(iter(new_ids))
+        with _replay_lock:
+            _replay_jobs[job_id] = {"status": "done", "run_id": new_run_id, "error": None}
+    except Exception as exc:
+        with _replay_lock:
+            _replay_jobs[job_id] = {"status": "error", "run_id": None, "error": str(exc)}
+
+
+def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) -> type:
     class ArgusHandler(BaseHTTPRequestHandler):
         def log_message(self, *args: object) -> None:  # suppress access logs
             pass
@@ -193,13 +261,96 @@ def _make_handler(runs_dir: Path, logs_dir: Path) -> type:
                 a = qs.get("a", [""])[0]
                 b = qs.get("b", [""])[0]
                 self._compare(a, b)
+            elif path == "/api/config":
+                self._send_json({"app": app_module_str or _load_config_app_factory() or ""})
+            elif path.startswith("/api/replay/status/"):
+                job_id = path[len("/api/replay/status/"):]
+                with _replay_lock:
+                    job = _replay_jobs.get(job_id)
+                if job is None:
+                    self._send_json({"error": "unknown job"}, 404)
+                else:
+                    resp: dict = {"status": job["status"]}
+                    if job.get("run_id"):
+                        resp["run_id"] = job["run_id"]
+                    if job.get("error"):
+                        resp["message"] = job["error"]
+                    self._send_json(resp)
             else:
                 self._serve_static(parsed.path)
+
+        def do_POST(self) -> None:
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+
+            if path == "/api/config":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+                new_app = (data.get("app") or "").strip()
+                if not new_app:
+                    self._send_json({"error": "app is required"}, 400)
+                    return
+                _save_config_app_factory(new_app)
+                self._send_json({"app": new_app})
+            elif path == "/api/replay":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+
+                run_id = (data.get("run_id") or "").strip()
+                from_step = (data.get("from_step") or "").strip()
+
+                if not run_id or not from_step:
+                    self._send_json({"error": "run_id and from_step are required"}, 400)
+                    return
+
+                # Resolve factory: startup flag → config file → none
+                effective_app = app_module_str or _load_config_app_factory()
+                if not effective_app:
+                    self._send_json({
+                        "error": "no_app_factory",
+                        "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
+                    }, 422)
+                    return
+
+                # Validate that the run exists
+                run_files = list(runs_dir.glob("*.json")) if runs_dir.exists() else []
+                run_exists = any(
+                    f.stem == run_id or f.stem.startswith(run_id)
+                    for f in run_files
+                )
+                if not run_exists:
+                    self._send_json({"error": "run not found"}, 404)
+                    return
+
+                job_id = str(uuid.uuid4())
+                with _replay_lock:
+                    _replay_jobs[job_id] = {"status": "running", "run_id": None, "error": None}
+
+                t = threading.Thread(
+                    target=_run_replay_worker,
+                    args=(job_id, run_id, from_step, effective_app),
+                    daemon=True,
+                )
+                t.start()
+
+                self._send_json({"job_id": job_id}, 202)
+            else:
+                self._send_json({"error": "not found"}, 404)
 
     return ArgusHandler
 
 
-def open_ui() -> None:
+def open_ui(app_module_str: str | None = None) -> None:
     if not _DIST_DIR.is_dir():
         _console.print(
             "[red]Error:[/red] UI assets not found.\n"
@@ -212,11 +363,14 @@ def open_ui() -> None:
         webbrowser.open(_UI_URL)
         return
 
+    # Resolve factory: --app flag → .argus/config.json → None
+    effective = app_module_str or _load_config_app_factory()
+
     project_dir = Path(".").resolve()
     runs_dir = project_dir / ".argus" / "runs"
     logs_dir = project_dir / ".argus" / "logs"
 
-    handler = _make_handler(runs_dir, logs_dir)
+    handler = _make_handler(runs_dir, logs_dir, effective)
     server = HTTPServer(("localhost", _UI_PORT), handler)
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -224,6 +378,8 @@ def open_ui() -> None:
 
     _console.print(f"Argus UI running at [bold]{_UI_URL}[/bold]")
     _console.print(f"  [dim]serving runs from[/dim] {runs_dir}")
+    if effective:
+        _console.print(f"  [dim]replay enabled via[/dim] {effective}")
     webbrowser.open(_UI_URL)
 
     # Keep the process alive while the server runs

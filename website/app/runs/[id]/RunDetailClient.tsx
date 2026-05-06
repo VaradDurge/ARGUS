@@ -14,20 +14,41 @@ export default function RunDetailClient({ id }: { id: string }) {
   const [run, setRun] = useState<RunRecord | null>(null)
   const [log, setLog] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isLocal, setIsLocal] = useState<boolean | null>(null)
+
+  // Detect local mode once on mount
+  useEffect(() => {
+    fetch('/api/runs')
+      .then((r) => setIsLocal(r.ok))
+      .catch(() => setIsLocal(false))
+  }, [])
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !user && isLocal === false) {
       router.replace('/login')
     }
-  }, [authLoading, user, router])
+  }, [authLoading, user, isLocal, router])
 
   useEffect(() => {
-    if (!user) return
+    if (isLocal === null) return // still detecting
 
-    // Read the actual run ID from the browser URL
     const segments = window.location.pathname.replace(/\/+$/, '').split('/')
     const runId = segments[segments.length - 1]
     if (!runId || runId === '_') return
+
+    if (isLocal) {
+      fetch(`/api/runs/${runId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) { setError('Run not found'); return }
+          setRun(data as RunRecord)
+        })
+        .catch(() => setError('Failed to load run'))
+      return
+    }
+
+    // Supabase path (requires auth)
+    if (!user) return
 
     const fetchRun = async () => {
       const { data, error: err } = await supabase
@@ -69,9 +90,9 @@ export default function RunDetailClient({ id }: { id: string }) {
     }
 
     fetchRun()
-  }, [id, user])
+  }, [id, user, isLocal])
 
-  if (authLoading) {
+  if (authLoading || isLocal === null) {
     return (
       <div className="py-24 text-center text-sm" style={{ color: '#3f3f46' }}>
         Loading...

@@ -1,9 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { RunRecord, NodeEvent, ValidatorResult } from '@/lib/types'
 import JsonViewer from './JsonViewer'
+
+/* ── Replay state ─────────────────────────────────────────────────── */
+
+type ReplayPhase = 'idle' | 'submitting' | 'polling' | 'done' | 'error' | 'no_factory'
+
+interface ReplayState {
+  phase: ReplayPhase
+  jobId?: string
+  newRunId?: string
+  message?: string
+}
 
 /* ── Constants matching CLI exactly ────────────────────────────────── */
 
@@ -386,6 +398,21 @@ function getDetailLines(event: NodeEvent, run: RunRecord): DetailLine[] {
   return lines
 }
 
+/* ── Replay Button ────────────────────────────────────────────────── */
+
+function ReplayButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      className="ml-2 shrink-0 font-mono text-[11px] opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-0.5 rounded"
+      style={{ color: '#52525e', border: '1px solid #2a2a30' }}
+    >
+      ↺ replay from here
+    </button>
+  )
+}
+
 /* ── Step Row Component ───────────────────────────────────────────── */
 
 function StepRow({
@@ -393,11 +420,13 @@ function StepRow({
   nameCol,
   run,
   displayIndex,
+  onReplay,
 }: {
   event: NodeEvent
   nameCol: number
   run: RunRecord
   displayIndex?: number
+  onReplay?: (node: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const display = getStepDisplay(event)
@@ -428,6 +457,9 @@ function StepRow({
         <span className="ml-auto text-[10px] text-[#2a2a30] group-hover:text-[#52525e] transition-colors">
           {expanded ? '▾' : '▸'}
         </span>
+        {onReplay && !SENTINEL_NODES.has(event.node_name) && (
+          <ReplayButton onClick={() => onReplay(event.node_name)} />
+        )}
       </button>
 
       {/* Detail └─ lines — matches CLI indent/color exactly */}
@@ -495,10 +527,12 @@ function ParallelGroup({
   events,
   nameCol,
   run,
+  onReplay,
 }: {
   events: NodeEvent[]
   nameCol: number
   run: RunRecord
+  onReplay?: (node: string) => void
 }) {
   const nodeNames = events.map((e) => e.node_name).join(' · ')
   return (
@@ -511,7 +545,7 @@ function ParallelGroup({
         <span className="text-[#52525e] ml-3">{nodeNames}</span>
       </div>
       {events.map((event, i) => (
-        <StepRow key={i} event={event} nameCol={nameCol} run={run} />
+        <StepRow key={i} event={event} nameCol={nameCol} run={run} onReplay={onReplay} />
       ))}
     </div>
   )
@@ -523,10 +557,12 @@ function CycleGroup({
   iterations,
   nameCol,
   run,
+  onReplay,
 }: {
   iterations: NodeEvent[][]
   nameCol: number
   run: RunRecord
+  onReplay?: (node: string) => void
 }) {
   const cycleNodeNames = iterations[0]?.map((e) => e.node_name).join(' → ') ?? ''
   return (
@@ -548,7 +584,7 @@ function CycleGroup({
             iteration {idx + 1}
           </div>
           {iterEvents.map((event, i) => (
-            <StepRow key={i} event={event} nameCol={nameCol} run={run} />
+            <StepRow key={i} event={event} nameCol={nameCol} run={run} onReplay={onReplay} />
           ))}
         </div>
       ))}
@@ -636,6 +672,90 @@ export default function CliRunView({ run }: { run: RunRecord }) {
   const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '●', color: '#52525e' }
   const statusLabelClass = STATUS_LABEL_STYLE[run.overall_status] ?? 'text-[#52525e]'
 
+  const router = useRouter()
+  const [replayState, setReplayState] = useState<ReplayState>({ phase: 'idle' })
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [appFactory, setAppFactory] = useState('')
+  const [factorySaved, setFactorySaved] = useState(false)
+  const factoryInputRef = useRef<HTMLInputElement>(null)
+
+  // Load saved factory from server config on mount
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((d: { app?: string }) => { if (d.app) setAppFactory(d.app) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
+  async function saveFactory(value: string) {
+    if (!value.trim()) return
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app: value.trim() }),
+    }).catch(() => {})
+    setFactorySaved(true)
+    setTimeout(() => setFactorySaved(false), 1500)
+  }
+
+  async function handleReplay(nodeName: string) {
+    if (pollRef.current) clearInterval(pollRef.current)
+    setReplayState({ phase: 'submitting' })
+
+    let resp: Response
+    try {
+      resp = await fetch('/api/replay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_id: run.run_id, from_step: nodeName }),
+      })
+    } catch {
+      setReplayState({ phase: 'error', message: 'Network error' })
+      return
+    }
+
+    if (resp.status === 422) {
+      setReplayState({ phase: 'no_factory' })
+      setTimeout(() => factoryInputRef.current?.focus(), 50)
+      return
+    }
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}))
+      setReplayState({ phase: 'error', message: (body as { error?: string }).error ?? `HTTP ${resp.status}` })
+      return
+    }
+
+    const { job_id } = await resp.json() as { job_id: string }
+    setReplayState({ phase: 'polling', jobId: job_id })
+
+    const deadline = Date.now() + 5 * 60 * 1000 // 5-minute timeout
+    pollRef.current = setInterval(async () => {
+      if (Date.now() > deadline) {
+        clearInterval(pollRef.current!)
+        setReplayState({ phase: 'error', message: 'Timed out waiting for replay' })
+        return
+      }
+      try {
+        const pr = await fetch(`/api/replay/status/${job_id}`)
+        const pdata = await pr.json() as { status: string; run_id?: string; message?: string }
+        if (pdata.status === 'done') {
+          clearInterval(pollRef.current!)
+          setReplayState({ phase: 'done', newRunId: pdata.run_id })
+          router.push(`/compare?a=${run.run_id}&b=${pdata.run_id}`)
+        } else if (pdata.status === 'error') {
+          clearInterval(pollRef.current!)
+          setReplayState({ phase: 'error', message: pdata.message ?? 'Replay failed' })
+        }
+      } catch {
+        // transient network hiccup — keep polling
+      }
+    }, 2000)
+  }
+
   let globalIdx = 0
 
   return (
@@ -675,14 +795,79 @@ export default function CliRunView({ run }: { run: RunRecord }) {
             </div>
             <span className="text-xs font-mono text-[var(--text-secondary)]">argus show {run.run_id.slice(0, 12)}…</span>
           </div>
-          <Link
-            href={`/compare?a=${run.run_id}`}
-            className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-md transition-colors hover:text-white font-mono"
-            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}
-          >
-            compare
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* App factory input */}
+            <form
+              onSubmit={(e) => { e.preventDefault(); saveFactory(appFactory) }}
+              className="flex items-center gap-1"
+            >
+              <input
+                ref={factoryInputRef}
+                type="text"
+                value={appFactory}
+                onChange={(e) => setAppFactory(e.target.value)}
+                onBlur={() => { if (appFactory.trim()) saveFactory(appFactory) }}
+                placeholder="module:build_graph"
+                className="font-mono text-[10px] px-2 py-1 rounded-md outline-none w-[160px] transition-colors"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: `1px solid ${replayState.phase === 'no_factory' ? '#f59e0b' : 'var(--border-default)'}`,
+                  color: appFactory ? 'var(--text-primary)' : '#3a3a40',
+                }}
+              />
+              {factorySaved && (
+                <span className="text-[10px] font-mono text-green-400">saved</span>
+              )}
+            </form>
+            <Link
+              href={`/compare?a=${run.run_id}`}
+              className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-md transition-colors hover:text-white font-mono"
+              style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}
+            >
+              compare
+            </Link>
+          </div>
         </div>
+
+        {/* ── Replay status banner ───────────────────────────────── */}
+        {replayState.phase !== 'idle' && (
+          <div
+            className="px-4 py-1.5 font-mono text-[12px] flex items-center gap-2"
+            style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-elevated)' }}
+          >
+            {replayState.phase === 'submitting' && (
+              <span style={{ color: '#f59e0b' }}>↺ submitting replay…</span>
+            )}
+            {replayState.phase === 'polling' && (
+              <span style={{ color: '#f59e0b' }}>
+                ↺ replay running
+                <span className="animate-pulse">…</span>
+              </span>
+            )}
+            {replayState.phase === 'done' && (
+              <>
+                <span style={{ color: '#22c55e' }}>✓ replay complete</span>
+                {replayState.newRunId && (
+                  <Link
+                    href={`/runs/${replayState.newRunId}`}
+                    className="ml-2 hover:underline"
+                    style={{ color: '#22c55e' }}
+                  >
+                    → view run
+                  </Link>
+                )}
+              </>
+            )}
+            {replayState.phase === 'error' && (
+              <span style={{ color: '#ef4444' }}>✗ replay failed: {replayState.message}</span>
+            )}
+            {replayState.phase === 'no_factory' && (
+              <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>
+                enter your app factory above (e.g. module:build_graph)
+              </span>
+            )}
+          </div>
+        )}
 
         {/* ── Content: CLI mirror ────────────────────────────────── */}
         <div className="py-4 font-mono text-[13px]">
@@ -745,19 +930,19 @@ export default function CliRunView({ run }: { run: RunRecord }) {
             if (seg.type === 'normal') {
               const rows = seg.events.map((event) => {
                 const idx = globalIdx++
-                return <StepRow key={idx} event={event} nameCol={nameCol} run={run} displayIndex={idx} />
+                return <StepRow key={idx} event={event} nameCol={nameCol} run={run} displayIndex={idx} onReplay={handleReplay} />
               })
               return <div key={si}>{rows}</div>
             }
             if (seg.type === 'parallel') {
               const startIdx = globalIdx
               globalIdx += seg.events.length
-              return <ParallelGroup key={si} events={seg.events} nameCol={nameCol} run={run} />
+              return <ParallelGroup key={si} events={seg.events} nameCol={nameCol} run={run} onReplay={handleReplay} />
             }
             // cycle
             const startIdx = globalIdx
             for (const iter of seg.iterations) globalIdx += iter.length
-            return <CycleGroup key={si} iterations={seg.iterations} nameCol={nameCol} run={run} />
+            return <CycleGroup key={si} iterations={seg.iterations} nameCol={nameCol} run={run} onReplay={handleReplay} />
           })}
 
           {/* ── Root cause chain ───────────────────────────────── */}

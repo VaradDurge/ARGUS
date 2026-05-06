@@ -15,19 +15,37 @@ function CompareContent() {
   const idA = searchParams.get('a') ?? ''
   const idB = searchParams.get('b') ?? ''
 
+  const [isLocal, setIsLocal] = useState<boolean | null>(null)
   const [allRuns, setAllRuns] = useState<RunSummary[]>([])
   const [runA, setRunA] = useState<RunRecord | null>(null)
   const [runB, setRunB] = useState<RunRecord | null>(null)
 
+  // Detect local mode once on mount
   useEffect(() => {
-    if (!authLoading && !user) {
+    fetch('/api/runs')
+      .then((r) => setIsLocal(r.ok))
+      .catch(() => setIsLocal(false))
+  }, [])
+
+  useEffect(() => {
+    if (isLocal === false && !authLoading && !user) {
       router.replace('/login')
     }
-  }, [authLoading, user, router])
+  }, [authLoading, user, isLocal, router])
 
+  // Load run list for selector
   useEffect(() => {
-    if (!user) return
+    if (isLocal === null) return
 
+    if (isLocal) {
+      fetch('/api/runs')
+        .then((r) => r.json())
+        .then((data: RunSummary[]) => setAllRuns(data))
+        .catch(() => {})
+      return
+    }
+
+    if (!user) return
     supabase
       .from('runs')
       .select(
@@ -50,14 +68,30 @@ function CompareContent() {
           }))
         )
       })
-  }, [user])
+  }, [isLocal, user])
 
+  // Load the two selected runs
   useEffect(() => {
-    if (!user || !idA || !idB) {
+    if (isLocal === null) return
+
+    if (!idA || !idB) {
       setRunA(null)
       setRunB(null)
       return
     }
+
+    if (isLocal) {
+      fetch(`/api/compare?a=${idA}&b=${idB}`)
+        .then((r) => r.json())
+        .then((data: { a: RunRecord | null; b: RunRecord | null }) => {
+          setRunA(data.a)
+          setRunB(data.b)
+        })
+        .catch(() => {})
+      return
+    }
+
+    if (!user) return
 
     async function loadRun(runId: string): Promise<RunRecord | null> {
       const { data, error } = await supabase
@@ -74,9 +108,9 @@ function CompareContent() {
       setRunA(a)
       setRunB(b)
     })
-  }, [idA, idB, user])
+  }, [idA, idB, isLocal, user])
 
-  if (authLoading || !user) {
+  if (isLocal === null || (isLocal === false && (authLoading || !user))) {
     return (
       <div className="py-24 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
         Loading...
