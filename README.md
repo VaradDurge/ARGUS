@@ -84,6 +84,8 @@ argus replay <id> <node> --app my_module:build_graph  # re-run from a broken nod
 argus inspect <id> --step <node>                      # raw input/output for a node
 argus diff <id>                                       # diff replay vs original
 argus diff <id-a> <id-b>                              # diff any two runs
+argus ui                                              # open the web dashboard
+argus login                                           # sign in to sync runs to cloud
 ```
 
 `argus --help` has the full setup guide and flag reference.
@@ -115,6 +117,10 @@ Parallel nodes shown as a grouped panel. Cyclic graphs show each iteration separ
 
 A 10-node pipeline fails at node 7. You fix the bug. Instead of re-running nodes 1–6 and burning API credits:
 
+**From the web UI** — hover any step in a run, click `↺ replay from here`. Set your app factory once (`my_module:build_graph`) in the input at the top of the page — it persists automatically. After replay completes, ARGUS opens the diff view automatically.
+
+**From the CLI:**
+
 ```bash
 argus replay <run-id> node_7 --app my_module:build_graph
 ```
@@ -126,6 +132,31 @@ Then diff it:
 ```bash
 argus diff <replay-id>
 ```
+
+---
+
+## Web UI
+
+```bash
+argus ui
+```
+
+Opens a local dashboard at `http://localhost:7842` serving runs from `.argus/runs/` in your current directory.
+
+**Run detail** — CLI-style terminal view with expandable input/output per node. Hover any step to replay from it.
+
+**Compare** — side-by-side diff of any two runs. Automatically opened after replay with an eval metrics panel:
+
+| metric | what it measures |
+|--------|-----------------|
+| failures | total non-passing steps |
+| severity | weighted score — crashed (3), semantic fail (2), silent failure (1) |
+| first fail | which step failed first |
+| success rate | % of passing steps |
+
+Winner is determined by: fewer failures → lower severity → later first failure.
+
+**Cloud sync** — run `argus login` to sign in with Google and sync runs to the cloud dashboard. The web UI works fully offline without logging in.
 
 ---
 
