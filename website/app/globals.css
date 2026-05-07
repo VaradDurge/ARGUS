@@ -41,8 +41,8 @@ html { background: var(--bg-base); }
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13.5px;
+  font-family: 'Times New Roman', Times, Georgia, serif;
+  font-size: 14px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

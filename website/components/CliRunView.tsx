@@ -950,7 +950,7 @@ export default function CliRunView({ run }: { run: RunRecord }) {
   return (
     <div className="max-w-5xl">
       {/* Back nav */}
-      <div className="mb-6">
+      <div className="mb-5">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-xs transition-colors text-[#52525e] hover:text-[#8a8a96]"
@@ -962,30 +962,64 @@ export default function CliRunView({ run }: { run: RunRecord }) {
         </Link>
       </div>
 
-      {/* ── Terminal frame ─────────────────────────────────────────── */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{
-          border: '1px solid var(--border-default)',
-          background: 'var(--bg-surface)',
-          boxShadow: '0 16px 48px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03) inset',
-        }}
-      >
-        {/* Terminal titlebar */}
-        <div
-          className="flex items-center justify-between px-4 py-2.5"
-          style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-default)' }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
+      {/* ── Run metadata — outside terminal box ──────────────────────── */}
+      <div className="mb-6 space-y-3">
+        {/* Title row: run id + actions */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span
+                style={{ color: statusInfo.color }}
+                className="text-lg leading-none"
+              >{statusInfo.dot}</span>
+              <h1 className="text-base font-mono text-[var(--text-primary)] tracking-tight">
+                {run.run_id}
+              </h1>
+              <span
+                className={`text-sm font-mono font-bold ${statusLabelClass}`}
+              >
+                {run.overall_status}
+              </span>
             </div>
-            <span className="text-xs font-mono text-[var(--text-secondary)]">argus show {run.run_id.slice(0, 12)}…</span>
+
+            {/* Secondary meta row */}
+            <div className="mt-2 flex items-center gap-4 flex-wrap">
+              <span className="font-mono text-[12px] text-[#52525e]">
+                {formatTimestamp(run.started_at)}
+              </span>
+              <span className="font-mono text-[12px] text-[#52525e]">
+                {formatDur(run.duration_ms)}
+              </span>
+              <span className="font-mono text-[11px] text-[#3a3a40]">
+                v{run.argus_version}
+              </span>
+              <span className="font-mono text-[11px] text-[#3a3a40]">
+                {steps.length} step{steps.length !== 1 ? 's' : ''}
+              </span>
+              {run.is_cyclic && (
+                <span className="font-mono text-[11px] text-purple-400">cyclic</span>
+              )}
+            </div>
+
+            {/* Replay lineage */}
+            {run.parent_run_id && (
+              <div className="mt-1.5 font-mono text-[11px] text-[#52525e]">
+                replay of{' '}
+                <a href={`/runs/${run.parent_run_id}`} className="hover:text-blue-400 transition-colors">
+                  {run.parent_run_id}
+                </a>
+                {run.replay_from_step && (
+                  <>
+                    {' '}from{' '}
+                    <span className="text-[var(--text-primary)] font-bold">{run.replay_from_step}</span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            {/* App factory input */}
+
+          {/* Action controls */}
+          <div className="flex items-center gap-2 shrink-0">
             <form
               onSubmit={(e) => { e.preventDefault(); saveFactory(appFactory) }}
               className="flex items-center gap-1"
@@ -1018,11 +1052,11 @@ export default function CliRunView({ run }: { run: RunRecord }) {
           </div>
         </div>
 
-        {/* ── Replay status banner ───────────────────────────────── */}
+        {/* Replay status banner */}
         {replayState.phase !== 'idle' && (
           <div
-            className="px-4 py-1.5 font-mono text-[12px] flex items-center gap-2"
-            style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-elevated)' }}
+            className="px-3 py-1.5 rounded-lg font-mono text-[12px] flex items-center gap-2"
+            style={{ border: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}
           >
             {replayState.phase === 'submitting' && (
               <span style={{ color: '#f59e0b' }}>↺ submitting replay…</span>
@@ -1058,63 +1092,54 @@ export default function CliRunView({ run }: { run: RunRecord }) {
           </div>
         )}
 
-        {/* ── Content: CLI mirror ────────────────────────────────── */}
-        <div className="py-4 font-mono text-[13px]">
-
-          {/* Header: argus  <run_id>  ·  <started>  ·  <duration> */}
-          <div className="px-4 leading-7">
-            <span className="text-[var(--text-primary)] font-bold italic">argus</span>
-            <span className="text-[#52525e] italic ml-2">
-              {run.run_id}  ·  {formatTimestamp(run.started_at)}  ·  {formatDur(run.duration_ms)}
+        {/* Root cause — shown outside box when it exists */}
+        {run.root_cause_chain && run.root_cause_chain.length > 0 && (
+          <div className="font-mono text-[12px] text-[#52525e]">
+            <span className="italic mr-2">root cause</span>
+            <span className="text-red-400 font-bold">
+              {run.root_cause_chain.join('  →  ')}
             </span>
           </div>
+        )}
+      </div>
 
-          {/* Status: status  ●  <status> */}
-          <div className="px-4 leading-7 flex items-center gap-0">
-            <span className="text-[#52525e] mr-4">status</span>
-            <span style={{ color: statusInfo.color }} className="mr-2 text-base">{statusInfo.dot}</span>
-            <span className={statusLabelClass}>{run.overall_status}</span>
+      {/* ── Terminal frame — ONLY graph topology + execution steps ─── */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{
+          border: '1px solid var(--border-default)',
+          background: 'var(--bg-surface)',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03) inset',
+        }}
+      >
+        {/* Terminal titlebar */}
+        <div
+          className="flex items-center px-4 py-2.5 gap-3"
+          style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-default)' }}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
           </div>
+          <span className="text-xs font-mono text-[var(--text-secondary)]">argus show {run.run_id.slice(0, 12)}…</span>
+        </div>
 
-          {/* Replay info */}
-          {run.parent_run_id && (
-            <div className="px-4 leading-7">
-              <span className="text-[#52525e] italic">replay of</span>
-              <a href={`/runs/${run.parent_run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors ml-2">
-                {run.parent_run_id}
-              </a>
-              {run.replay_from_step && (
-                <>
-                  <span className="text-[#52525e] italic ml-2">from</span>
-                  <span className="text-[var(--text-primary)] font-bold ml-2">{run.replay_from_step}</span>
-                </>
-              )}
+        {/* ── Graph topology ─────────────────────────────────────── */}
+        {topo.length > 0 && (
+          <div className="py-3 font-mono">
+            <div className="px-4 leading-6 text-[#52525e] text-[11px] uppercase tracking-widest mb-1">graph</div>
+            <div className="px-4">
+              {topo.map((line, i) => (
+                <div key={i} className="text-[#52525e] text-[12px] leading-6 whitespace-pre">{line}</div>
+              ))}
             </div>
-          )}
-
-          {/* Argus version + step count */}
-          <div className="px-4 leading-7 text-[#35353e] text-[11px]">
-            v{run.argus_version}  ·  {steps.length} step{steps.length !== 1 ? 's' : ''}
-            {run.is_cyclic && <span className="text-purple-400 ml-3">cyclic</span>}
+            <div className="mt-3 mx-4 border-t" style={{ borderColor: 'var(--border-default)' }} />
           </div>
+        )}
 
-          {/* ── Separator ──────────────────────────────────────── */}
-          <div className="my-3 mx-4 border-t" style={{ borderColor: 'var(--border-default)' }} />
-
-          {/* ── Graph topology ─────────────────────────────────── */}
-          {topo.length > 0 && (
-            <>
-              <div className="px-4 leading-6 text-[#52525e] text-[12px] mb-1">graph</div>
-              <div className="px-4 mb-1">
-                {topo.map((line, i) => (
-                  <div key={i} className="text-[#52525e] text-[12px] leading-6 whitespace-pre">{line}</div>
-                ))}
-              </div>
-              <div className="my-3 mx-4 border-t" style={{ borderColor: 'var(--border-default)' }} />
-            </>
-          )}
-
-          {/* ── Node steps ─────────────────────────────────────── */}
+        {/* ── Node steps ─────────────────────────────────────────── */}
+        <div className="py-2 font-mono text-[13px]">
           {segments.map((seg, si) => {
             if (seg.type === 'normal') {
               const rows = seg.events.map((event) => {
@@ -1124,30 +1149,13 @@ export default function CliRunView({ run }: { run: RunRecord }) {
               return <div key={si}>{rows}</div>
             }
             if (seg.type === 'parallel') {
-              const startIdx = globalIdx
               globalIdx += seg.events.length
               return <ParallelGroup key={si} events={seg.events} nameCol={nameCol} run={run} onReplay={handleReplay} />
             }
             // cycle
-            const startIdx = globalIdx
             for (const iter of seg.iterations) globalIdx += iter.length
             return <CycleGroup key={si} iterations={seg.iterations} nameCol={nameCol} run={run} onReplay={handleReplay} />
           })}
-
-          {/* ── Root cause chain ───────────────────────────────── */}
-          {run.root_cause_chain && run.root_cause_chain.length > 0 && (
-            <>
-              <div className="my-3 mx-4 border-t" style={{ borderColor: 'var(--border-default)' }} />
-              <div className="px-4 leading-7 flex items-baseline gap-0">
-                <span className="text-[#52525e] italic mr-4">root cause</span>
-                <span className="text-red-400 font-bold">
-                  {run.root_cause_chain.join('  →  ')}
-                </span>
-              </div>
-            </>
-          )}
-
-          {/* Bottom spacing */}
           <div className="h-2" />
         </div>
       </div>
@@ -1158,7 +1166,7 @@ export default function CliRunView({ run }: { run: RunRecord }) {
       {/* ── Initial State (below terminal) ─────────────────────────── */}
       {run.initial_state && Object.keys(run.initial_state).length > 0 && (
         <div className="mt-6">
-          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-[var(--text-secondary)] mb-2">
+          <h2 className="text-[11px] uppercase tracking-widest font-mono text-[var(--text-secondary)] mb-2">
             Initial State
           </h2>
           <JsonViewer data={run.initial_state} defaultCollapsed={true} />

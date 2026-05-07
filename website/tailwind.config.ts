@@ -21,7 +21,8 @@ const config: Config = {
         purple: '#a78bfa',
       },
       fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        sans: ["'Times New Roman'", 'Times', 'Georgia', 'serif'],
+        mono: ['var(--font-mono)', 'DM Mono', 'JetBrains Mono', 'Menlo', 'Consolas', 'monospace'],
       },
     },
   },
