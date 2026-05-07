@@ -8,7 +8,7 @@ import sys
 import threading
 import uuid
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -371,7 +371,7 @@ def open_ui(app_module_str: str | None = None) -> None:
     logs_dir = project_dir / ".argus" / "logs"
 
     handler = _make_handler(runs_dir, logs_dir, effective)
-    server = HTTPServer(("localhost", _UI_PORT), handler)
+    server = ThreadingHTTPServer(("localhost", _UI_PORT), handler)
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
