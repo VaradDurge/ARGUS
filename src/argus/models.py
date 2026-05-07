@@ -43,6 +43,24 @@ class InspectionResult:
 
 
 @dataclass
+class LLMCallInfo:
+    model_name: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    cost_usd: float | None = None
+
+
+@dataclass
+class LLMUsage:
+    calls: list[LLMCallInfo] = field(default_factory=list)
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float | None = None
+
+
+@dataclass
 class NodeEvent:
     step_index: int
     node_name: str
@@ -57,6 +75,7 @@ class NodeEvent:
     validator_results: list[ValidatorResult] = field(default_factory=list)
     is_subgraph_entry: bool = False   # True if this node is a compiled subgraph
     subgraph_run_id: str | None = None  # run_id of the child session for subgraph nodes
+    llm_usage: LLMUsage | None = None
 
 
 @dataclass
@@ -79,3 +98,6 @@ class RunRecord:
     subgraph_run_ids: list[str] = field(default_factory=list)  # child run ids
     interrupted: bool = False        # True if a GraphInterrupt occurred
     interrupt_node: str | None = None  # node name where interrupt occurred
+    total_llm_calls: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float | None = None

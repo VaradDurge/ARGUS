@@ -660,6 +660,195 @@ function segmentEvents(events: NodeEvent[], edgeMap?: Record<string, string[]>):
   return segments
 }
 
+/* ── Metrics Panel ───────────────────────────────────────────────── */
+
+function MetricsPanel({ run }: { run: RunRecord }) {
+  const steps = run.steps ?? []
+  const totalNodes = steps.length
+  const passedNodes = steps.filter((s) => s.status === 'pass').length
+  const failedNodes = steps.filter((s) => s.status !== 'pass').length
+  const successRate = totalNodes > 0 ? Math.round((passedNodes / totalNodes) * 100) : null
+
+  // Failure breakdown
+  const toolFailures = steps.filter((s) => s.inspection?.has_tool_failure).length
+  const contextFailures = steps.filter(
+    (s) => s.status === 'fail' && s.inspection?.is_silent_failure,
+  ).length
+  const semanticFailures = steps.filter((s) => s.status === 'semantic_fail').length
+  const crashes = steps.filter((s) => s.status === 'crashed').length
+
+  // Worst severity
+  const severityOrder = ['critical', 'warning', 'info', 'ok']
+  const worstSeverity = steps.reduce((worst, s) => {
+    const sev = s.inspection?.severity
+    if (!sev) return worst
+    return severityOrder.indexOf(sev) < severityOrder.indexOf(worst) ? sev : worst
+  }, 'ok' as string)
+
+  // LLM metrics
+  const totalLLMCalls = run.total_llm_calls ?? 0
+  const totalTokens = run.total_tokens ?? 0
+  const totalCost = run.total_cost_usd ?? null
+  const hasLLMData = totalLLMCalls > 0 || totalTokens > 0
+
+  // Per-node cost breakdown
+  const nodeCosts = steps
+    .filter((s) => s.llm_usage?.total_cost_usd != null && s.llm_usage.total_cost_usd > 0)
+    .map((s) => ({
+      name: s.node_name,
+      cost: s.llm_usage!.total_cost_usd!,
+      tokens: s.llm_usage!.total_tokens,
+      calls: s.llm_usage!.calls.length,
+    }))
+    .sort((a, b) => b.cost - a.cost)
+
+  const completed = run.completed_at != null
+
+  const severityColor: Record<string, string> = {
+    critical: C_RED,
+    warning: C_AMBER,
+    info: '#3b82f6',
+    ok: C_GREEN,
+  }
+
+  function fmtCost(usd: number): string {
+    if (usd < 0.01) return `$${usd.toFixed(4)}`
+    return `$${usd.toFixed(2)}`
+  }
+
+  function fmtTokens(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+    return `${n}`
+  }
+
+  return (
+    <div
+      className="mt-4 rounded-xl overflow-hidden"
+      style={{
+        border: '1px solid var(--border-default)',
+        background: 'var(--bg-surface)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.03) inset',
+      }}
+    >
+      {/* Header */}
+      <div
+        className="px-4 py-2 flex items-center gap-2"
+        style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-default)' }}
+      >
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-[var(--text-secondary)]">Metrics</span>
+      </div>
+
+      <div className="p-4 font-mono text-[12px]">
+        {/* ── Execution section ─────────────────────────────── */}
+        <div className="text-[10px] uppercase tracking-widest font-semibold text-[#52525e] mb-2">Execution</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-1.5 mb-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[#52525e]">completed</span>
+            <span style={{ color: completed ? C_GREEN : C_AMBER, fontWeight: 700 }}>
+              {completed ? 'yes' : 'no'}
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-2">
+            <span className="text-[#52525e]">duration</span>
+            <span className="text-[var(--text-primary)]">{formatDur(run.duration_ms)}</span>
+          </div>
+
+          <div className="flex items-baseline gap-2">
+            <span className="text-[#52525e]">success rate</span>
+            <span style={{ color: successRate === 100 ? C_GREEN : successRate === null ? '#52525e' : C_AMBER }}>
+              {successRate !== null ? `${passedNodes}/${totalNodes} (${successRate}%)` : '—'}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Failures section ──────────────────────────────── */}
+        <div className="text-[10px] uppercase tracking-widest font-semibold text-[#52525e] mb-2">Failures</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-1.5 mb-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[#52525e]">total</span>
+            <span style={{ color: failedNodes > 0 ? C_RED : C_GREEN, fontWeight: 700 }}>
+              {failedNodes}
+            </span>
+          </div>
+
+          {failedNodes > 0 && (
+            <div className="flex items-baseline gap-2 col-span-2">
+              <span className="text-[#52525e]">types</span>
+              <span className="text-[#71717a]">
+                {[
+                  toolFailures > 0 && `tool: ${toolFailures}`,
+                  contextFailures > 0 && `context: ${contextFailures}`,
+                  semanticFailures > 0 && `semantic: ${semanticFailures}`,
+                  crashes > 0 && `crash: ${crashes}`,
+                ]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </span>
+            </div>
+          )}
+
+          {run.first_failure_step && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[#52525e]">first failure</span>
+              <span style={{ color: C_RED, fontWeight: 700 }}>{run.first_failure_step}</span>
+            </div>
+          )}
+
+          <div className="flex items-baseline gap-2">
+            <span className="text-[#52525e]">severity</span>
+            <span style={{ color: severityColor[worstSeverity] ?? '#52525e', fontWeight: 700 }}>
+              {worstSeverity}
+            </span>
+          </div>
+        </div>
+
+        {/* ── LLM section — only if data exists ─────────────── */}
+        {hasLLMData && (
+          <>
+            <div className="text-[10px] uppercase tracking-widest font-semibold text-[#52525e] mb-2">LLM Usage</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-1.5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[#52525e]">calls</span>
+                <span className="text-[var(--text-primary)]">{totalLLMCalls}</span>
+              </div>
+
+              <div className="flex items-baseline gap-2">
+                <span className="text-[#52525e]">tokens</span>
+                <span className="text-[var(--text-primary)]">{fmtTokens(totalTokens)}</span>
+              </div>
+
+              {totalCost !== null && (
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[#52525e]">cost</span>
+                  <span style={{ color: C_GREEN, fontWeight: 700 }}>{fmtCost(totalCost)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Per-node cost breakdown */}
+            {nodeCosts.length >= 2 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#52525e] mb-1.5">Per-Node Cost</div>
+                <div className="text-[11px]">
+                  {nodeCosts.map((nc, i) => (
+                    <div key={i} className="flex items-baseline gap-0 leading-5">
+                      <span className="text-[#52525e] w-[140px] truncate shrink-0">{nc.name}</span>
+                      <span className="text-[#71717a] w-[60px] text-right shrink-0">{fmtCost(nc.cost)}</span>
+                      <span className="text-[#3a3a40] ml-3">{fmtTokens(nc.tokens)} tok · {nc.calls} call{nc.calls !== 1 ? 's' : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ── Main Component ───────────────────────────────────────────────── */
 
 export default function CliRunView({ run }: { run: RunRecord }) {
@@ -962,6 +1151,9 @@ export default function CliRunView({ run }: { run: RunRecord }) {
           <div className="h-2" />
         </div>
       </div>
+
+      {/* ── Metrics panel (below terminal) ─────────────────────────── */}
+      <MetricsPanel run={run} />
 
       {/* ── Initial State (below terminal) ─────────────────────────── */}
       {run.initial_state && Object.keys(run.initial_state).length > 0 && (

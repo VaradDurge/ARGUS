@@ -35,6 +35,22 @@ export interface ValidatorResult {
   message: string
 }
 
+export interface LLMCallInfo {
+  model_name: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  cost_usd: number | null
+}
+
+export interface LLMUsage {
+  calls: LLMCallInfo[]
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  total_tokens: number
+  total_cost_usd: number | null
+}
+
 export interface NodeEvent {
   step_index: number
   node_name: string
@@ -49,6 +65,7 @@ export interface NodeEvent {
   validator_results: ValidatorResult[]
   is_subgraph_entry: boolean
   subgraph_run_id: string | null
+  llm_usage?: LLMUsage | null
 }
 
 export interface RunRecord {
@@ -70,6 +87,9 @@ export interface RunRecord {
   subgraph_run_ids: string[]
   interrupted: boolean
   interrupt_node: string | null
+  total_llm_calls?: number
+  total_tokens?: number
+  total_cost_usd?: number | null
 }
 
 export interface RunSummary {

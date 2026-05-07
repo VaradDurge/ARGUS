@@ -33,7 +33,8 @@ from typing import Any, Callable
 
 from argus import __version__
 from argus.inspector import build_root_cause_chain, inspect_transition
-from argus.models import NodeEvent, RunRecord, ValidatorResult
+from argus.llm_tracker import create_tracker, extract_usage, install_handler, remove_handler
+from argus.models import LLMUsage, NodeEvent, RunRecord, ValidatorResult
 from argus.storage import save_run
 from argus.utils.cycle_detection import has_cycles
 from argus.utils.ids import generate_run_id
@@ -182,6 +183,8 @@ class ArgusSession:
         def _wrapped(state: Any) -> Any:
             input_snap = self.capture_state(state)
             self.on_node_start(node_name, input_snap)
+            tracker = create_tracker()
+            handler_token = install_handler(tracker) if tracker else None
             t0 = time.perf_counter()
             try:
                 frozen_out = self._pop_frozen_output(node_name)
@@ -190,21 +193,31 @@ class ArgusSession:
                 else:
                     output = original_fn(state)
                 duration = (time.perf_counter() - t0) * 1000
+                if tracker:
+                    remove_handler(tracker, handler_token)
                 output_snap = self.capture_output(output)
+                llm_usage = extract_usage(tracker, output_snap)
                 self.on_node_end(
                     node_name, input_snap, output_snap, duration, exc=None,
+                    llm_usage=llm_usage,
                 )
                 return output
             except Exception as exc:
                 duration = (time.perf_counter() - t0) * 1000
+                if tracker:
+                    remove_handler(tracker, handler_token)
+                llm_usage = extract_usage(tracker, None)
                 # Detect GraphInterrupt before treating as crash
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
                     self.on_node_end(
                         node_name, input_snap, None, duration,
-                        exc=None, is_interrupt=True,
+                        exc=None, is_interrupt=True, llm_usage=llm_usage,
                     )
                     raise
-                self.on_node_end(node_name, input_snap, None, duration, exc=exc)
+                self.on_node_end(
+                    node_name, input_snap, None, duration, exc=exc,
+                    llm_usage=llm_usage,
+                )
                 raise
 
         return _wrapped
@@ -214,6 +227,8 @@ class ArgusSession:
         async def _wrapped(state: Any) -> Any:
             input_snap = self.capture_state(state)
             self.on_node_start(node_name, input_snap)
+            tracker = create_tracker()
+            handler_token = install_handler(tracker) if tracker else None
             t0 = time.perf_counter()
             try:
                 frozen_out = self._pop_frozen_output(node_name)
@@ -222,20 +237,30 @@ class ArgusSession:
                 else:
                     output = await original_fn(state)
                 duration = (time.perf_counter() - t0) * 1000
+                if tracker:
+                    remove_handler(tracker, handler_token)
                 output_snap = self.capture_output(output)
+                llm_usage = extract_usage(tracker, output_snap)
                 self.on_node_end(
                     node_name, input_snap, output_snap, duration, exc=None,
+                    llm_usage=llm_usage,
                 )
                 return output
             except Exception as exc:
                 duration = (time.perf_counter() - t0) * 1000
+                if tracker:
+                    remove_handler(tracker, handler_token)
+                llm_usage = extract_usage(tracker, None)
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
                     self.on_node_end(
                         node_name, input_snap, None, duration,
-                        exc=None, is_interrupt=True,
+                        exc=None, is_interrupt=True, llm_usage=llm_usage,
                     )
                     raise
-                self.on_node_end(node_name, input_snap, None, duration, exc=exc)
+                self.on_node_end(
+                    node_name, input_snap, None, duration, exc=exc,
+                    llm_usage=llm_usage,
+                )
                 raise
 
         return _wrapped
@@ -266,6 +291,7 @@ class ArgusSession:
         duration_ms: float,
         exc: Exception | None,
         is_interrupt: bool = False,
+        llm_usage: LLMUsage | None = None,
     ) -> None:
         with self._lock:
             step_idx = self._step_index
@@ -330,6 +356,7 @@ class ArgusSession:
                 inspection=inspection,
                 attempt_index=attempt_idx,
                 validator_results=validator_results,
+                llm_usage=llm_usage,
             )
 
             self._events.append(event)
@@ -425,6 +452,20 @@ class ArgusSession:
 
         root_cause_chain = build_root_cause_chain(events_snapshot)
 
+        # aggregate LLM metrics
+        total_llm_calls = sum(
+            len(e.llm_usage.calls) for e in events_snapshot if e.llm_usage
+        )
+        total_tokens = sum(
+            e.llm_usage.total_tokens for e in events_snapshot if e.llm_usage
+        )
+        costs = [
+            e.llm_usage.total_cost_usd
+            for e in events_snapshot
+            if e.llm_usage and e.llm_usage.total_cost_usd is not None
+        ]
+        total_cost_usd = round(sum(costs), 6) if costs else None
+
         record = RunRecord(
             run_id=self.run_id,
             argus_version=__version__,
@@ -443,6 +484,9 @@ class ArgusSession:
             replay_from_step=self.replay_from_step,
             interrupted=has_interrupt,
             interrupt_node=interrupt_node,
+            total_llm_calls=total_llm_calls,
+            total_tokens=total_tokens,
+            total_cost_usd=total_cost_usd,
         )
 
         try:
