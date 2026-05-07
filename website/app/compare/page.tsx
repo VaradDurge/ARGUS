@@ -119,29 +119,20 @@ function CompareContent() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1400px]">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight font-mono" style={{ color: 'var(--text-primary)' }}>
-          argus diff
-        </h1>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Side-by-side pipeline comparison
-        </p>
-      </div>
-
+    <div className="space-y-8 max-w-3xl mx-auto">
       <CompareSelector runs={allRuns} selectedA={idA} selectedB={idB} />
 
       {runA && runB && <DiffView runA={runA} runB={runB} />}
 
       {(!runA || !runB) && idA && idB && (
-        <div className="text-center py-16 text-[#4a4a4a] text-sm">
+        <div className="text-center py-16 text-sm font-mono" style={{ color: 'var(--text-faint)' }}>
           Could not load one or both runs.
         </div>
       )}
 
       {(!idA || !idB) && (
-        <div className="text-center py-20 text-[#3a3a3a] text-xs font-mono">
-          Select two runs above to compare them.
+        <div className="text-center py-24 font-mono text-[12px]" style={{ color: 'var(--text-faint)' }}>
+          select two runs to compare
         </div>
       )}
     </div>

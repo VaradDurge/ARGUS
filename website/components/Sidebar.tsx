@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
@@ -12,6 +13,15 @@ function IconRuns() {
       <rect x="1" y="1" width="5" height="3.5" rx="0.6" stroke="currentColor" strokeWidth="1.1" fill="none"/>
       <rect x="1" y="6.5" width="5" height="3.5" rx="0.6" stroke="currentColor" strokeWidth="1.1" fill="none"/>
       <rect x="8" y="1" width="5" height="12" rx="0.6" stroke="currentColor" strokeWidth="1.1" fill="none"/>
+    </svg>
+  )
+}
+
+function IconReplay() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 2.5a4.5 4.5 0 1 1-3.18 1.32" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+      <path d="M3 2.5V5.5H6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }
@@ -62,43 +72,86 @@ function IconLogout() {
   )
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Sub-components ──────────────────────────────────────────────────────────
 
-interface NavItem {
-  label: string
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="px-3 pt-3 pb-1">
+      <span
+        className="text-[9px] uppercase tracking-[0.14em] font-semibold"
+        style={{ color: 'var(--text-faint)' }}
+      >
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function NavLink({
+  href,
+  icon,
+  label,
+  exact,
+}: {
   href: string
   icon: React.ReactNode
-  exact: boolean
-}
-
-interface PlaceholderItem {
   label: string
-  icon: React.ReactNode
+  exact: boolean
+}) {
+  const pathname = usePathname()
+  const active = exact ? pathname === href : pathname.startsWith(href)
+
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className="nav-item flex items-center gap-2.5 px-3 py-2 rounded-md text-xs relative group border"
+      style={{
+        background: active ? 'rgba(59,130,246,0.10)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+        borderColor: active ? 'rgba(59,130,246,0.22)' : 'transparent',
+      }}
+    >
+      {active && (
+        <span
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
+          style={{ background: '#3b82f6' }}
+        />
+      )}
+      <span className="pl-1 shrink-0" style={{ color: active ? '#3b82f6' : 'var(--text-muted)' }}>
+        {icon}
+      </span>
+      <span className="font-medium">{label}</span>
+    </Link>
+  )
 }
 
-// ── Data ───────────────────────────────────────────────────────────────────
+function SoonItem({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md text-xs cursor-not-allowed select-none">
+      <div className="flex items-center gap-2.5">
+        <span className="pl-1 shrink-0" style={{ color: '#2a2a30' }}>{icon}</span>
+        <span style={{ color: '#333339' }}>{label}</span>
+      </div>
+      <span
+        className="text-[9px] px-1 py-0.5 rounded"
+        style={{ color: '#3a3a40', border: '1px solid var(--border-subtle)', letterSpacing: '0.05em' }}
+      >
+        soon
+      </span>
+    </div>
+  )
+}
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Runs',    href: '/',        icon: <IconRuns />,    exact: true  },
-  { label: 'Compare', href: '/compare', icon: <IconCompare />, exact: false },
-]
-
-const PLACEHOLDER_ITEMS: PlaceholderItem[] = [
-  { label: 'Settings', icon: <IconSettings /> },
-]
+function Divider() {
+  return <div className="my-1 mx-3" style={{ height: '1px', background: 'var(--border-subtle)' }} />
+}
 
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  const pathname = usePathname()
   const { user, signOut } = useAuth()
 
-  function isActive(href: string, exact: boolean) {
-    if (exact) return pathname === href
-    return pathname.startsWith(href)
-  }
-
-  // Get user initials for avatar
   const initials = user?.user_metadata?.full_name
     ? (user.user_metadata.full_name as string)
         .split(' ')
@@ -112,165 +165,68 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="w-56 shrink-0 flex flex-col h-screen sticky top-0"
+      className="w-52 shrink-0 flex flex-col h-screen sticky top-0"
       style={{
-        background: 'rgba(13,13,13,0.95)',
-        borderRight: '1px solid var(--border-default)',
-        backdropFilter: 'blur(10px)',
+        background: 'rgba(11,11,13,0.97)',
+        borderRight: '1px solid var(--border-subtle)',
       }}
     >
-      {/* ── Brand ── */}
+      {/* Brand */}
       <div
-        className="px-4 py-4 flex items-center gap-2.5"
+        className="px-4 py-3.5 flex items-center gap-2.5"
         style={{ borderBottom: '1px solid var(--border-subtle)' }}
       >
         <IconArgus />
-        <div className="flex flex-col leading-none">
-          <span className="text-[13px] font-semibold tracking-tight text-white">ARGUS</span>
-          <span className="text-[10px] mt-0.5" style={{ color: 'var(--text-faint)' }}>monitor</span>
-        </div>
+        <span className="text-[13px] font-semibold tracking-tight text-white">ARGUS</span>
       </div>
 
-      {/* ── Nav ── */}
-      <nav className="flex flex-col gap-0 p-2.5 flex-1 overflow-y-auto">
+      {/* Nav */}
+      <nav className="flex flex-col p-2 flex-1 overflow-y-auto">
 
-        {/* Observe section */}
-        <div className="px-2 py-2 mt-1">
-          <span
-            className="text-[9px] uppercase tracking-[0.12em] font-medium"
-            style={{ color: 'var(--text-faint)' }}
-          >
-            Observe
-          </span>
-        </div>
+        <SectionLabel label="Observe" />
+        <NavLink href="/" icon={<IconRuns />} label="Runs" exact={true} />
+        <SoonItem icon={<IconReplay />} label="Replay" />
 
-        {NAV_ITEMS.map((item) => {
-          const active = isActive(item.href, item.exact)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className="nav-item flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs relative group border hover:bg-white/[0.03]"
-              style={{
-                background: active ? 'rgba(59,130,246,0.12)' : 'transparent',
-                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                borderColor: active ? 'rgba(59,130,246,0.28)' : 'transparent',
-                boxShadow: active ? '0 0 18px rgba(59,130,246,0.12)' : 'none',
-              }}
-            >
-              {/* Active bar */}
-              {active && (
-                <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
-                  style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59,130,246,0.5)' }}
-                />
-              )}
-              <span
-                className="pl-1 shrink-0 transition-colors"
-                style={{ color: active ? '#3b82f6' : 'var(--text-muted)' }}
-              >
-                {item.icon}
-              </span>
-              <span className="font-medium">{item.label}</span>
-            </Link>
-          )
-        })}
+        <Divider />
 
-        {/* Divider */}
-        <div
-          className="mx-2 my-3"
-          style={{ height: '1px', background: 'var(--border-subtle)' }}
-        />
+        <SectionLabel label="Analyze" />
+        <NavLink href="/compare" icon={<IconCompare />} label="Compare" exact={false} />
+        <SoonItem icon={<IconEval />} label="Evaluation" />
 
-        {/* Eval hint */}
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border hover:bg-white/[0.03] transition-colors"
-          style={{ color: 'var(--text-secondary)', borderColor: 'transparent' }}
-        >
-          <span className="pl-1 shrink-0" style={{ color: 'var(--text-muted)' }}>
-            <IconEval />
-          </span>
-          <span>Evaluation</span>
-          <span
-            className="ml-auto text-[9px] px-1.5 py-0.5 rounded"
-            style={{
-              color: '#3b82f6',
-              border: '1px solid rgba(59,130,246,0.25)',
-              letterSpacing: '0.05em',
-            }}
-          >
-            on runs
-          </span>
-        </Link>
+        <div className="flex-1" />
 
-        {/* Analyze section */}
-        <div className="px-2 py-1 mt-2 mb-1">
-          <span
-            className="text-[9px] uppercase tracking-[0.12em] font-medium"
-            style={{ color: 'var(--text-faint)' }}
-          >
-            Analyze
-          </span>
-        </div>
+        <Divider />
 
-        {PLACEHOLDER_ITEMS.map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-xs cursor-not-allowed select-none border"
-            style={{ color: '#3a3a3a', borderColor: 'transparent' }}
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="pl-1 shrink-0" style={{ color: '#333333' }}>{item.icon}</span>
-              <span>{item.label}</span>
-            </div>
-            <span
-              className="text-[9px] px-1.5 py-0.5 rounded"
-              style={{
-                color: '#4a4a4a',
-                border: '1px solid var(--border-subtle)',
-                letterSpacing: '0.05em',
-              }}
-            >
-              soon
-            </span>
-          </div>
-        ))}
+        <SectionLabel label="Settings" />
+        <SoonItem icon={<IconSettings />} label="Settings" />
+
       </nav>
 
-      {/* ── User footer ── */}
+      {/* User footer */}
       <div
-        className="px-3 py-3 flex items-center justify-between gap-2"
+        className="px-3 py-2.5 flex items-center justify-between gap-2"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
         {user ? (
           <>
             <div className="flex items-center gap-2 min-w-0">
               {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  className="w-6 h-6 rounded-full shrink-0"
-                />
+                <Image src={avatarUrl} alt="" width={20} height={20} className="rounded-full shrink-0" />
               ) : (
                 <div
-                  className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold"
+                  className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold"
                   style={{ background: '#3b82f6', color: '#fff' }}
                 >
                   {initials}
                 </div>
               )}
-              <span
-                className="text-[11px] truncate"
-                style={{ color: 'var(--text-secondary)' }}
-              >
+              <span className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
                 {user.user_metadata?.full_name ?? user.email}
               </span>
             </div>
             <button
               onClick={signOut}
-              className="shrink-0 p-1.5 rounded-md hover:bg-white/5 transition-colors"
+              className="shrink-0 p-1.5 rounded hover:bg-white/5 transition-colors"
               style={{ color: 'var(--text-faint)' }}
               title="Sign out"
             >
@@ -278,16 +234,13 @@ export default function Sidebar() {
             </button>
           </>
         ) : (
-          <>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: '#22c55e', boxShadow: '0 0 5px rgba(34,197,94,0.5)' }}
-              />
-              <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>connected</span>
-            </div>
-            <span className="text-[10px] font-mono" style={{ color: '#3a3a3a' }}>v0.3.3</span>
-          </>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: '#22c55e', boxShadow: '0 0 4px rgba(34,197,94,0.4)' }}
+            />
+            <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>connected</span>
+          </div>
         )}
       </div>
     </aside>
