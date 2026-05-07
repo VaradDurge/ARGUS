@@ -1,7 +1,7 @@
 """Smoke tests — verify core imports and basic session behaviour."""
+from argus.llm_tracker import extract_usage, scan_output_for_tokens
 from argus.models import LLMCallInfo, LLMUsage, NodeEvent, RunRecord
 from argus.pricing import calculate_cost
-from argus.llm_tracker import create_tracker, extract_usage, scan_output_for_tokens
 from argus.session import ArgusSession
 
 
