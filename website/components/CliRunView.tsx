@@ -848,13 +848,13 @@ export default function CliRunView({ run }: { run: RunRecord }) {
               <>
                 <span style={{ color: '#22c55e' }}>✓ replay complete</span>
                 {replayState.newRunId && (
-                  <Link
+                  <a
                     href={`/runs/${replayState.newRunId}`}
                     className="ml-2 hover:underline"
                     style={{ color: '#22c55e' }}
                   >
                     → view run
-                  </Link>
+                  </a>
                 )}
               </>
             )}
@@ -891,9 +891,9 @@ export default function CliRunView({ run }: { run: RunRecord }) {
           {run.parent_run_id && (
             <div className="px-4 leading-7">
               <span className="text-[#52525e] italic">replay of</span>
-              <Link href={`/runs/${run.parent_run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors ml-2">
+              <a href={`/runs/${run.parent_run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors ml-2">
                 {run.parent_run_id}
-              </Link>
+              </a>
               {run.replay_from_step && (
                 <>
                   <span className="text-[#52525e] italic ml-2">from</span>

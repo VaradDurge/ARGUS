@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import type { RunRecord, NodeEvent, StepStatus, RunStatus } from '@/lib/types'
 
 /* ── Status styling ──────────────────────────────────────────────── */
@@ -751,7 +750,7 @@ export default function DiffView({ runA, runB }: { runA: RunRecord; runB: RunRec
           {/* A header */}
           <div className="flex items-center gap-2 py-1.5 px-2 text-[11px]">
             <span className="text-[#52525e] font-semibold uppercase tracking-wider text-[10px]">A</span>
-            <Link href={`/runs/${runA.run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors">{runA.run_id.slice(0, 8)}</Link>
+            <a href={`/runs/${runA.run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors">{runA.run_id.slice(0, 8)}</a>
             <span className="text-[#2a2a30]">{formatTs(runA.started_at)}</span>
             <span style={{ color: aInfo.color }} className="text-[10px]">{aInfo.dot}</span>
             <span className={`${OVERALL_STYLE[runA.overall_status] ?? 'text-[#52525e]'} text-[11px]`}>{runA.overall_status}</span>
@@ -762,7 +761,7 @@ export default function DiffView({ runA, runB }: { runA: RunRecord; runB: RunRec
           {/* B header */}
           <div className="flex items-center gap-2 py-1.5 px-2 text-[11px]">
             <span className="text-[#52525e] font-semibold uppercase tracking-wider text-[10px]">B</span>
-            <Link href={`/runs/${runB.run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors">{runB.run_id.slice(0, 8)}</Link>
+            <a href={`/runs/${runB.run_id}`} className="text-[#52525e] hover:text-blue-400 transition-colors">{runB.run_id.slice(0, 8)}</a>
             <span className="text-[#2a2a30]">{formatTs(runB.started_at)}</span>
             <span style={{ color: bInfo.color }} className="text-[10px]">{bInfo.dot}</span>
             <span className={`${OVERALL_STYLE[runB.overall_status] ?? 'text-[#52525e]'} text-[11px]`}>{runB.overall_status}</span>

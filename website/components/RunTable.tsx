@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import type { RunSummary } from '@/lib/types'
 import { RunStatusBadge } from './StatusBadge'
 import EvalBadge from './EvalBadge'
@@ -126,7 +125,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
               >
                 {/* Run ID */}
                 <td className="py-3.5 pr-6 pl-4">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
                       {run.run_id.slice(0, 14)}
                       {run.run_id.length > 14 && (
@@ -136,58 +135,58 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                     {run.parent_run_id && (
                       <div className="text-[10px] mt-0.5" style={{ color: '#3f3f46' }}>↩ compare</div>
                     )}
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Status */}
                 <td className="py-3.5 pr-6">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     <RunStatusBadge status={run.overall_status} />
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Graph */}
                 <td className="py-3.5 pr-6 hidden lg:table-cell max-w-xs">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     <span
                       className="text-xs truncate block font-mono"
                       style={{ color: '#3f3f46', maxWidth: '200px' }}
                     >
                       {truncateNodes(run.graph_node_names)}
                     </span>
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Steps */}
                 <td className="py-3.5 pr-6 text-right">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {run.step_count}
                     </span>
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Started */}
                 <td className="py-3.5 pr-6">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     <span className="text-xs" style={{ color: 'var(--text-secondary)' }} title={run.started_at}>
                       {relativeTime(run.started_at)}
                     </span>
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Duration */}
                 <td className="py-3.5 pr-6 text-right">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {formatDuration(run.duration_ms)}
                     </span>
-                  </Link>
+                  </a>
                 </td>
 
                 {/* First failure */}
                 <td className="py-3.5 pr-6">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     {run.first_failure_step ? (
                       <span
                         className="text-xs font-mono"
@@ -198,12 +197,12 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                     ) : (
                       <span style={{ color: '#27272a' }}>—</span>
                     )}
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Shape */}
                 <td className="py-3.5 text-right">
-                  <Link href={`/runs/${run.run_id}`} className="block">
+                  <a href={`/runs/${run.run_id}`} className="block">
                     {shape ? (
                       <span
                         className="text-xs font-mono"
@@ -214,7 +213,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                     ) : (
                       <span style={{ color: '#27272a' }}>—</span>
                     )}
-                  </Link>
+                  </a>
                 </td>
 
                 {/* Eval */}
