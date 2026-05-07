@@ -116,6 +116,12 @@ def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) ->
         def log_message(self, *args: object) -> None:  # suppress access logs
             pass
 
+        def handle_one_request(self) -> None:
+            try:
+                super().handle_one_request()
+            except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                self.close_connection = True
+
         def _send_json(self, data: object, status: int = 200) -> None:
             body = json.dumps(data).encode()
             self.send_response(status)
