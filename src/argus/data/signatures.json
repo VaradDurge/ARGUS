@@ -1,0 +1,770 @@
+{
+  "version": "1.0.0",
+  "signatures": [
+    {
+      "id": "CM-001",
+      "category": "corrupted_markers",
+      "pattern": "<\\/(?![a-zA-Z])",
+      "match_strategy": "regex",
+      "severity": "critical",
+      "description": "Lone </ with no closing tag name — truncated HTML/XML delimiter",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-002",
+      "category": "corrupted_markers",
+      "pattern": "\\\\[nrtbf]$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "String ends with a raw escape sequence — probable truncation",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-003",
+      "category": "corrupted_markers",
+      "pattern": "\\{\\s*$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "String ends with unclosed brace — truncated JSON or template",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-004",
+      "category": "corrupted_markers",
+      "pattern": "\\[\\s*$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "String ends with unclosed bracket — truncated JSON array",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-005",
+      "category": "corrupted_markers",
+      "pattern": "&(?!(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);)",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Unterminated HTML entity — e.g. &amp without semicolon",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-006",
+      "category": "corrupted_markers",
+      "pattern": "(?i)<[a-z]+\\s[^>]*$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Unclosed opening HTML tag at end of string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-007",
+      "category": "corrupted_markers",
+      "pattern": "\\\\u[0-9a-fA-F]{0,3}$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Truncated unicode escape sequence at end of string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "CM-008",
+      "category": "corrupted_markers",
+      "pattern": "={2,}\\s*$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "String ends with only equals signs — probable base64 padding artifact",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-001",
+      "category": "placeholder_outputs",
+      "pattern": "TODO",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "Field contains TODO placeholder text",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-002",
+      "category": "placeholder_outputs",
+      "pattern": "PLACEHOLDER",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "Field is a literal PLACEHOLDER string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-003",
+      "category": "placeholder_outputs",
+      "pattern": "...",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "Ellipsis-only field — content not provided",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-004",
+      "category": "placeholder_outputs",
+      "pattern": "<value>",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "Template angle-bracket placeholder not substituted",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-005",
+      "category": "placeholder_outputs",
+      "pattern": "INSERT_HERE",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "Literal INSERT_HERE marker left in output",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-006",
+      "category": "placeholder_outputs",
+      "pattern": "FIXME",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "FIXME marker in output field",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-007",
+      "category": "placeholder_outputs",
+      "pattern": "TBD",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "To-be-determined placeholder",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-008",
+      "category": "placeholder_outputs",
+      "pattern": "<YOUR_",
+      "match_strategy": "prefix_ci",
+      "severity": "warning",
+      "description": "Unfilled template variable starting with <YOUR_",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-009",
+      "category": "placeholder_outputs",
+      "pattern": "REPLACE_ME",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "Literal REPLACE_ME text in output",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-001",
+      "category": "null_like_semantic",
+      "pattern": "null",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String literal 'null' — semantically absent value",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-002",
+      "category": "null_like_semantic",
+      "pattern": "none",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String literal 'None' — Python null serialized as string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-003",
+      "category": "null_like_semantic",
+      "pattern": "undefined",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String 'undefined' — JavaScript null serialized as string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-004",
+      "category": "null_like_semantic",
+      "pattern": "n/a",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "N/A — not applicable, data absent",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-005",
+      "category": "null_like_semantic",
+      "pattern": "nil",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String 'nil' — Ruby/Go null serialized as string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-006",
+      "category": "null_like_semantic",
+      "pattern": "nan",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String 'nan' — numeric not-a-number serialized as string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-007",
+      "category": "null_like_semantic",
+      "pattern": "na",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String 'na' — common abbreviation for absent value",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "NL-008",
+      "category": "null_like_semantic",
+      "pattern": "void",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "String 'void' — semantic absence marker",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-001",
+      "category": "suspicious_phrases",
+      "pattern": "As an AI",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM self-identification phrase — possible refusal or capability gap",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-002",
+      "category": "suspicious_phrases",
+      "pattern": "I cannot",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM refusal phrase",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-003",
+      "category": "suspicious_phrases",
+      "pattern": "I'm sorry but",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM apology-prefixed refusal",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-004",
+      "category": "suspicious_phrases",
+      "pattern": "I don't have access",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM capability gap phrase — tool may not have executed",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-005",
+      "category": "suspicious_phrases",
+      "pattern": "I am unable to",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM inability statement",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-006",
+      "category": "suspicious_phrases",
+      "pattern": "I apologize",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM apology — often precedes a refusal or failure",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-007",
+      "category": "suspicious_phrases",
+      "pattern": "my knowledge cutoff",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM knowledge cutoff disclaimer in tool output field",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-008",
+      "category": "suspicious_phrases",
+      "pattern": "I don't have the ability",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM capability denial phrase",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-001",
+      "category": "malformed_payload",
+      "pattern": "^\\{\\s*\\}$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Empty JSON object literal as string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-002",
+      "category": "malformed_payload",
+      "pattern": "^\\[\\s*\\]$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Empty JSON array literal as string",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-003",
+      "category": "malformed_payload",
+      "pattern": "^\\{$",
+      "match_strategy": "regex",
+      "severity": "critical",
+      "description": "Lone open brace — truncated JSON object",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-004",
+      "category": "malformed_payload",
+      "pattern": "^\\[$",
+      "match_strategy": "regex",
+      "severity": "critical",
+      "description": "Lone open bracket — truncated JSON array",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-005",
+      "category": "malformed_payload",
+      "pattern": "^\\}$",
+      "match_strategy": "regex",
+      "severity": "critical",
+      "description": "Lone close brace — out-of-context JSON fragment",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-006",
+      "category": "malformed_payload",
+      "pattern": "\"[^\"]*$",
+      "match_strategy": "regex",
+      "severity": "critical",
+      "description": "Unterminated JSON string — truncated mid-value",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "MP-007",
+      "category": "malformed_payload",
+      "pattern": "^null$|^true$|^false$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Raw JSON primitive literal as a string field value",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "RF-001",
+      "category": "repeated_filler",
+      "pattern": "",
+      "match_strategy": "repetition",
+      "severity": "warning",
+      "description": "Any single word or phrase repeated 3+ times — filler content",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "RF-002",
+      "category": "repeated_filler",
+      "pattern": "(?:etc[., ]+){3,}",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "'etc' repeated 3+ times — degenerate enumeration",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "RF-003",
+      "category": "repeated_filler",
+      "pattern": "(?:\\.{3,}\\s*){2,}",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Multiple ellipsis clusters — filler padding",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "RF-004",
+      "category": "repeated_filler",
+      "pattern": "(?:blah\\s*){3,}",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "'blah' repeated 3+ times — explicit nonsense filler",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "RF-005",
+      "category": "repeated_filler",
+      "pattern": "(?:lorem ipsum\\s*){2,}",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Lorem ipsum repeated — unfilled template text",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "ES-001",
+      "category": "empty_semantic_state",
+      "pattern": "^-+$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "String of only dashes — empty semantic content",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "ES-002",
+      "category": "empty_semantic_state",
+      "pattern": "^_+$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "String of only underscores — empty semantic content",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "ES-003",
+      "category": "empty_semantic_state",
+      "pattern": "^\\s+$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Whitespace-only string — passes structural checks but is semantically empty",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "ES-004",
+      "category": "empty_semantic_state",
+      "pattern": "^0+$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "All-zeros string — likely a default or unfilled numeric value",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "ES-005",
+      "category": "empty_semantic_state",
+      "pattern": "no data",
+      "match_strategy": "exact_ci",
+      "severity": "warning",
+      "description": "Literal 'no data' string — semantic absence marker",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "ES-006",
+      "category": "empty_semantic_state",
+      "pattern": "^n/?a$",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "n/a or na as sole content — semantically empty field",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    }
+  ]
+}
