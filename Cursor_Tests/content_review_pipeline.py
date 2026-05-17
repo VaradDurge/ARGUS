@@ -18,9 +18,10 @@ except ImportError:
     def load_dotenv() -> bool:
         return False
 
-from argus import ArgusWatcher
 from langgraph.graph import END, StateGraph
 from openai import OpenAI
+
+from argus import ArgusWatcher
 
 load_dotenv()
 
