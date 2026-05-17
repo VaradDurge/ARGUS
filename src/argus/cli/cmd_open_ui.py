@@ -91,19 +91,17 @@ def _import_factory_for_ui(spec: str):
     return fn
 
 
-def _run_replay_worker(job_id: str, run_id: str, from_node: str, app_module_str: str) -> None:
+def _run_replay_worker(
+    job_id: str, run_id: str, from_node: str, app_module_str: str | None,
+) -> None:
     """Background thread: runs ReplayEngine and updates _replay_jobs on completion."""
     from argus.replay import ReplayEngine  # noqa: PLC0415
-    from argus.storage import list_runs  # noqa: PLC0415
     try:
-        factory = _import_factory_for_ui(app_module_str)
-        known_ids = {r["run_id"] for r in list_runs()}
+        factory = _import_factory_for_ui(app_module_str) if app_module_str else None
         engine = ReplayEngine()
-        engine.replay(run_id=run_id, from_node=from_node, app_factory=factory)
-        new_ids = {r["run_id"] for r in list_runs()} - known_ids
-        if not new_ids:
-            raise RuntimeError("Replay completed but new run ID could not be located.")
-        new_run_id = next(iter(new_ids))
+        new_run_id = engine.replay(
+            run_id=run_id, from_node=from_node, app_factory=factory,
+        )
         with _replay_lock:
             _replay_jobs[job_id] = {"status": "done", "run_id": new_run_id, "error": None}
     except Exception as exc:
@@ -111,7 +109,25 @@ def _run_replay_worker(job_id: str, run_id: str, from_node: str, app_module_str:
             _replay_jobs[job_id] = {"status": "error", "run_id": None, "error": str(exc)}
 
 
-def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) -> type:
+def _all_run_files(project_dir: Path) -> list[Path]:
+    """Collect all *.json run files from every .argus/runs/ directory under project_dir."""
+    files: list[Path] = []
+    for runs_path in project_dir.rglob(".argus/runs"):
+        if runs_path.is_dir():
+            files.extend(runs_path.glob("*.json"))
+    return files
+
+
+def _all_log_dirs(project_dir: Path) -> list[Path]:
+    return [p for p in project_dir.rglob(".argus/logs") if p.is_dir()]
+
+
+def _make_handler(
+    runs_dir: Path, logs_dir: Path,
+    app_module_str: str | None, project_dir: Path | None = None,
+) -> type:
+    _project_dir = project_dir or runs_dir.parent.parent
+
     class ArgusHandler(BaseHTTPRequestHandler):
         def log_message(self, *args: object) -> None:  # suppress access logs
             pass
@@ -151,15 +167,21 @@ def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) ->
             self.wfile.write(body)
 
         def _list_runs(self) -> None:
-            if not runs_dir.exists():
+            all_files = _all_run_files(_project_dir)
+            if not all_files:
                 self._send_json([])
                 return
+            seen: set[str] = set()
             summaries = []
-            for f in runs_dir.glob("*.json"):
+            for f in all_files:
                 try:
                     run = json.loads(f.read_text())
+                    rid = run["run_id"]
+                    if rid in seen:
+                        continue
+                    seen.add(rid)
                     summaries.append({
-                        "run_id": run["run_id"],
+                        "run_id": rid,
                         "overall_status": run["overall_status"],
                         "started_at": run["started_at"],
                         "duration_ms": run.get("duration_ms"),
@@ -175,10 +197,7 @@ def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) ->
             self._send_json(summaries)
 
         def _get_run(self, run_id: str) -> None:
-            if not runs_dir.exists():
-                self._send_json({"error": "not found"}, 404)
-                return
-            for f in runs_dir.glob("*.json"):
+            for f in _all_run_files(_project_dir):
                 if f.stem == run_id or f.stem.startswith(run_id):
                     try:
                         self._send_json(json.loads(f.read_text()))
@@ -188,25 +207,20 @@ def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) ->
             self._send_json({"error": "not found"}, 404)
 
         def _get_log(self, run_id: str) -> None:
-            if not logs_dir.exists():
-                self.send_response(404)
-                self.end_headers()
-                return
-            for f in logs_dir.glob("*.log"):
-                if f.stem == run_id or f.stem.startswith(run_id):
-                    try:
-                        self._send_text(f.read_text().strip())
-                        return
-                    except Exception:
-                        pass
+            for log_dir in _all_log_dirs(_project_dir):
+                for f in log_dir.glob("*.log"):
+                    if f.stem == run_id or f.stem.startswith(run_id):
+                        try:
+                            self._send_text(f.read_text().strip())
+                            return
+                        except Exception:
+                            pass
             self.send_response(404)
             self.end_headers()
 
         def _compare(self, a: str, b: str) -> None:
             def read_run(run_id: str) -> object:
-                if not runs_dir.exists():
-                    return None
-                for f in runs_dir.glob("*.json"):
+                for f in _all_run_files(_project_dir):
                     if f.stem == run_id or f.stem.startswith(run_id):
                         try:
                             return json.loads(f.read_text())
@@ -319,24 +333,30 @@ def _make_handler(runs_dir: Path, logs_dir: Path, app_module_str: str | None) ->
                     self._send_json({"error": "run_id and from_step are required"}, 400)
                     return
 
-                # Resolve factory: startup flag → config file → none
-                effective_app = app_module_str or _load_config_app_factory()
-                if not effective_app:
-                    self._send_json({
-                        "error": "no_app_factory",
-                        "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
-                    }, 422)
-                    return
-
-                # Validate that the run exists
-                run_files = list(runs_dir.glob("*.json")) if runs_dir.exists() else []
-                run_exists = any(
-                    f.stem == run_id or f.stem.startswith(run_id)
-                    for f in run_files
-                )
-                if not run_exists:
+                # Load the run to check existence and stored node refs
+                from argus.storage import load_run as _load_run  # noqa: PLC0415
+                try:
+                    run_record = _load_run(run_id)
+                except (FileNotFoundError, ValueError):
                     self._send_json({"error": "run not found"}, 404)
                     return
+
+                # If run has node_fn_refs, no factory needed at all.
+                # Otherwise fall back to factory resolution chain.
+                has_node_refs = bool(run_record.node_fn_refs)
+                effective_app: str | None = None
+                if not has_node_refs:
+                    effective_app = (
+                        app_module_str
+                        or _load_config_app_factory()
+                        or run_record.app_factory_ref
+                    )
+                    if not effective_app:
+                        self._send_json({
+                            "error": "no_app_factory",
+                            "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
+                        }, 422)
+                        return
 
                 job_id = str(uuid.uuid4())
                 with _replay_lock:
@@ -376,7 +396,7 @@ def open_ui(app_module_str: str | None = None) -> None:
     runs_dir = project_dir / ".argus" / "runs"
     logs_dir = project_dir / ".argus" / "logs"
 
-    handler = _make_handler(runs_dir, logs_dir, effective)
+    handler = _make_handler(runs_dir, logs_dir, effective, project_dir)
     server = ThreadingHTTPServer(("localhost", _UI_PORT), handler)
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -384,8 +404,7 @@ def open_ui(app_module_str: str | None = None) -> None:
 
     _console.print(f"Argus UI running at [bold]{_UI_URL}[/bold]")
     _console.print(f"  [dim]serving runs from[/dim] {runs_dir}")
-    if effective:
-        _console.print(f"  [dim]replay enabled via[/dim] {effective}")
+    _console.print("  [dim]replay[/dim] [bold]auto-detect[/bold] [dim](zero-config)[/dim]")
     webbrowser.open(_UI_URL)
 
     # Keep the process alive while the server runs

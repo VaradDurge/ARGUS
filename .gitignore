@@ -1,3 +1,8 @@
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
 # Logs
 log.txt
 *.log
@@ -43,6 +48,7 @@ test_workflow/
 real_world_demo/
 ultimatum/
 TESTER/
+heuristics/
 
 # macOS
 .DS_Store

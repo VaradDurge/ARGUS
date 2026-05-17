@@ -7,10 +7,22 @@ from pathlib import Path
 from typing import Any
 
 from argus.models import (
+    AnomalySignal,
+    BehaviorConfig,
+    CorrelationReport,
+    DegradationOrigin,
     FieldMismatch,
     InspectionResult,
+    LLMInvestigationResult,
     NodeEvent,
+    PropagationChain,
+    PropagationLink,
+    ReplayImpact,
     RunRecord,
+    SemanticHypothesis,
+    SemanticSignal,
+    SuggestedSignature,
+    TimelineEvent,
     ToolFailure,
     ValidatorResult,
 )
@@ -61,11 +73,32 @@ def save_run(record: RunRecord) -> Path:
 
 
 def load_run(run_id: str) -> RunRecord:
-    """Load a RunRecord by run-id (or 8-char prefix)."""
+    """Load a RunRecord by run-id (or 8-char prefix).
+
+    Searches the CWD-level .argus/runs/ first, then recurses into
+    subdirectories so runs recorded from child folders are found.
+    """
     runs_dir = _runs_path()
-    path = _resolve_run_path(run_id, runs_dir)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return _deserialize_run(data)
+    try:
+        path = _resolve_run_path(run_id, runs_dir)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return _deserialize_run(data)
+    except FileNotFoundError:
+        pass
+
+    # Search all .argus/runs/ directories under CWD
+    cwd = Path(os.getcwd())
+    for sub_runs in cwd.rglob(".argus/runs"):
+        if sub_runs == runs_dir or not sub_runs.is_dir():
+            continue
+        try:
+            path = _resolve_run_path(run_id, sub_runs)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return _deserialize_run(data)
+        except (FileNotFoundError, ValueError):
+            continue
+
+    raise FileNotFoundError(f"No run found for id '{run_id}' under {cwd}")
 
 
 def _run_json_files_newest_first(runs_dir: Path) -> list[Path]:
@@ -137,6 +170,12 @@ def _resolve_run_path(run_id: str, runs_dir: Path) -> Path:
 
 def _deserialize_run(data: dict[str, Any]) -> RunRecord:
     steps = [_deserialize_event(s) for s in data.get("steps", [])]
+    bc_data = data.get("behavior_config")
+    behavior_config = BehaviorConfig(**bc_data) if bc_data else None
+    corr_data = data.get("correlation")
+    correlation = _deserialize_correlation(corr_data) if corr_data else None
+    llm_inv_data = data.get("llm_investigation")
+    llm_investigation = _deserialize_llm_investigation(llm_inv_data) if llm_inv_data else None
     return RunRecord(
         run_id=data["run_id"],
         argus_version=data.get("argus_version", "unknown"),
@@ -153,9 +192,114 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         parent_run_id=data.get("parent_run_id"),
         replay_from_step=data.get("replay_from_step"),
         is_cyclic=data.get("is_cyclic", False),
+        app_factory_ref=data.get("app_factory_ref"),
+        node_fn_refs=data.get("node_fn_refs"),
         subgraph_run_ids=data.get("subgraph_run_ids", []),
         interrupted=data.get("interrupted", False),
         interrupt_node=data.get("interrupt_node"),
+        behavior_config=behavior_config,
+        correlation=correlation,
+        llm_investigation=llm_investigation,
+    )
+
+
+def _deserialize_correlation(data: dict[str, Any]) -> CorrelationReport:
+    origins = [
+        DegradationOrigin(
+            node_name=o["node_name"],
+            step_index=o["step_index"],
+            signal_types=tuple(o.get("signal_types", [])),
+            confidence=o["confidence"],
+            reason=o["reason"],
+        )
+        for o in data.get("degradation_origins", [])
+    ]
+    chains = [
+        PropagationChain(
+            chain_type=c["chain_type"],
+            nodes=tuple(c.get("nodes", [])),
+            links=tuple(
+                PropagationLink(
+                    source_node=lnk["source_node"],
+                    target_node=lnk["target_node"],
+                    signal_type=lnk["signal_type"],
+                    confidence=lnk["confidence"],
+                    evidence=lnk["evidence"],
+                )
+                for lnk in c.get("links", [])
+            ),
+            summary=c["summary"],
+        )
+        for c in data.get("propagation_chains", [])
+    ]
+    timeline = [
+        TimelineEvent(
+            step_index=t["step_index"],
+            node_name=t["node_name"],
+            event_type=t["event_type"],
+            label=t["label"],
+            signal_summary=t["signal_summary"],
+        )
+        for t in data.get("timeline", [])
+    ]
+    ri_data = data.get("replay_impact")
+    replay_impact: ReplayImpact | None = None
+    if ri_data:
+        replay_impact = ReplayImpact(
+            improved_nodes=ri_data.get("improved_nodes", []),
+            regressed_nodes=ri_data.get("regressed_nodes", []),
+            key_fix_node=ri_data.get("key_fix_node"),
+            downstream_improvement_count=ri_data.get("downstream_improvement_count", 0),
+            summary=ri_data.get("summary", ""),
+        )
+    return CorrelationReport(
+        run_id=data["run_id"],
+        degradation_origins=origins,
+        propagation_chains=chains,
+        causal_summary=data.get("causal_summary", ""),
+        timeline=timeline,
+        replay_impact=replay_impact,
+    )
+
+
+def _deserialize_llm_investigation(data: dict[str, Any]) -> LLMInvestigationResult:
+    hypotheses = [
+        SemanticHypothesis(
+            hypothesis=h["hypothesis"],
+            confidence=h["confidence"],
+            supporting_evidence=tuple(h.get("supporting_evidence", [])),
+            category=h.get("category", "other"),
+        )
+        for h in data.get("causal_hypotheses", [])
+    ]
+    suggested_sigs = [
+        SuggestedSignature(
+            pattern=s["pattern"],
+            match_strategy=s.get("match_strategy", "contains_ci"),
+            proposed_category=s.get("proposed_category", "unknown"),
+            severity=s.get("severity", "warning"),
+            description=s.get("description", ""),
+            evidence=tuple(s.get("evidence", [])),
+            confidence=s.get("confidence", 0.0),
+            reasoning=s.get("reasoning", ""),
+        )
+        for s in data.get("suggested_signatures", [])
+    ]
+    return LLMInvestigationResult(
+        triggered=data.get("triggered", False),
+        trigger_reasons=data.get("trigger_reasons", []),
+        root_cause_explanation=data.get("root_cause_explanation", ""),
+        causal_hypotheses=hypotheses,
+        degradation_narrative=data.get("degradation_narrative", ""),
+        observations=data.get("observations", []),
+        debugging_suggestions=data.get("debugging_suggestions", []),
+        confidence=data.get("confidence", 0.0),
+        suggested_signatures=suggested_sigs,
+        model_used=data.get("model_used", ""),
+        prompt_tokens=data.get("prompt_tokens", 0),
+        completion_tokens=data.get("completion_tokens", 0),
+        investigation_duration_ms=data.get("investigation_duration_ms", 0.0),
+        error=data.get("error"),
     )
 
 
@@ -169,6 +313,17 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
         tool_failures = [
             ToolFailure(**tf) for tf in insp_data.get("tool_failures", [])
         ]
+        semantic_signals = [
+            SemanticSignal(
+                sig_id=s["sig_id"],
+                category=s["category"],
+                severity=s["severity"],
+                description=s["description"],
+                field_path=tuple(s["field_path"]),
+                evidence=s["evidence"],
+            )
+            for s in insp_data.get("semantic_signals", [])
+        ]
         inspection = InspectionResult(
             is_silent_failure=insp_data.get("is_silent_failure", False),
             missing_fields=insp_data.get("missing_fields", []),
@@ -180,9 +335,15 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
             suspicious_empty_keys=insp_data.get("suspicious_empty_keys", []),
             tool_failures=tool_failures,
             has_tool_failure=insp_data.get("has_tool_failure", False),
+            semantic_signals=semantic_signals,
+            degraded_fields=insp_data.get("degraded_fields", []),
+            degraded_upstream_node=insp_data.get("degraded_upstream_node"),
         )
     validator_results = [
         ValidatorResult(**v) for v in data.get("validator_results", [])
+    ]
+    anomaly_signals = [
+        AnomalySignal(**a) for a in data.get("anomaly_signals", [])
     ]
     return NodeEvent(
         step_index=data.get("step_index", 0),
@@ -198,4 +359,6 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
         validator_results=validator_results,
         is_subgraph_entry=data.get("is_subgraph_entry", False),
         subgraph_run_id=data.get("subgraph_run_id"),
+        behavior_type=data.get("behavior_type"),
+        anomaly_signals=anomaly_signals,
     )

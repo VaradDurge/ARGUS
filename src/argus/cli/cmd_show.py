@@ -490,10 +490,76 @@ def _print_run(record: RunRecord) -> None:
         rc.append(chain_str, style="bold red")
         console.print(rc)
 
+    # ── Correlation ───────────────────────────────────────────────────────
+    _print_correlation_panel(record)
+
     # ── Replay suggestion ─────────────────────────────────────────────────
     _print_replay_suggestion(record)
 
     console.print()
+
+
+def _print_correlation_panel(record: RunRecord) -> None:
+    """Print the Correlation panel when degradation is detected."""
+    corr = record.correlation
+    if corr is None:
+        return
+    if not corr.degradation_origins and not corr.propagation_chains:
+        return
+
+    lines: list[str] = []
+    primary = corr.degradation_origins[0] if corr.degradation_origins else None
+
+    if primary:
+        conf_pct = f"{primary.confidence:.0%}"
+        conf_color = (
+            "bold red" if primary.confidence >= 0.8
+            else "bold yellow" if primary.confidence >= 0.5
+            else "dim"
+        )
+        lines.append(
+            f"  [dim]Origin:[/dim]   [{conf_color}]{primary.node_name}[/{conf_color}]"
+            f"  [dim](step {primary.step_index})[/dim]"
+            f"  confidence: [bold]{conf_pct}[/bold]"
+        )
+        if primary.signal_types:
+            lines.append(f"  [dim]Signals:[/dim]  {', '.join(primary.signal_types)}")
+
+    if corr.propagation_chains:
+        lines.append("")
+        lines.append("  [dim]Propagation:[/dim]")
+        for chain in corr.propagation_chains[:2]:
+            chain_str = " → ".join(chain.nodes)
+            lines.append(f"    [bold]{chain_str}[/bold]")
+            lines.append(f"    [italic dim]type: {chain.chain_type}[/italic dim]")
+
+    lines.append("")
+    lines.append("  [dim]Summary:[/dim]")
+    lines.append(f'  [italic]"{corr.causal_summary}"[/italic]')
+
+    if corr.replay_impact:
+        ri = corr.replay_impact
+        lines.append("")
+        lines.append("  [dim]Replay impact:[/dim]")
+        if ri.improved_nodes:
+            lines.append(
+                f"    [bold green]improved:[/bold green] {', '.join(ri.improved_nodes)}"
+            )
+        if ri.regressed_nodes:
+            lines.append(
+                f"    [bold red]regressed:[/bold red] {', '.join(ri.regressed_nodes)}"
+            )
+        lines.append(f"    [dim]{ri.summary}[/dim]")
+
+    panel = Panel(
+        "\n".join(lines),
+        title="[dim]Correlation[/dim]",
+        title_align="left",
+        border_style="dim",
+        padding=(0, 1),
+    )
+    console.print()
+    console.print(panel)
 
 
 def _print_replay_suggestion(record: RunRecord) -> None:
@@ -572,6 +638,9 @@ def _print_cycle_group(
             elif status == "pass":
                 icon  = "[bold green]✓[/bold green]"
                 label = "[bold green]pass[/bold green]"
+            elif status == "degraded_input":
+                icon  = "[bold yellow]⬇[/bold yellow]"
+                label = "[bold yellow]degraded input[/bold yellow]"
             elif status == "fail":
                 icon  = "[bold yellow]⚠[/bold yellow]"
                 label = "[bold yellow]silent failure[/bold yellow]"
@@ -717,6 +786,9 @@ def _print_node(
     elif event.status == "pass":
         icon   = "[bold green]✓[/bold green]"
         label  = "[bold green]pass[/bold green]"
+    elif event.status == "degraded_input":
+        icon   = "[bold yellow]⬇[/bold yellow]"
+        label  = "[bold yellow]degraded input[/bold yellow]"
     elif event.status == "fail":
         icon   = "[bold yellow]⚠[/bold yellow]"
         label  = "[bold yellow]silent failure[/bold yellow]"
@@ -737,14 +809,14 @@ def _print_node(
 
     console.print(f"  [dim]{number:>2}[/dim]  {name}{pad}  {dur}   {icon}  {label}")
 
-    # ── Failure type tag — aligned to label column, one per row ────────────
+    # ── Failure type tag — shown as └─ lines directly below node ──────────
     if event.status == "fail" and insp:
-        dur_len = len(f"{event.duration_ms:.0f} ms")
-        label_col = 14 + name_col + dur_len
         if insp.is_silent_failure:
-            console.print(" " * label_col + "[yellow underline]context error[/yellow underline]")
+            msg = "[yellow underline]context error[/yellow underline]"
+            console.print(f"  {indent}[dim]└─[/dim]  {msg}")
         if insp.has_tool_failure:
-            console.print(" " * label_col + "[yellow underline]tool failure[/yellow underline]")
+            msg = "[yellow underline]tool failure[/yellow underline]"
+            console.print(f"  {indent}[dim]└─[/dim]  {msg}")
 
     # ── Detail lines ───────────────────────────────────────────────────────
     if event.status == "interrupted":
@@ -763,6 +835,21 @@ def _print_node(
                     f"[bold magenta]{vr.validator_name}[/bold magenta]"
                     f"[italic]  {vr.message}[/italic]"
                 )
+        console.print()
+        return
+
+    if event.status == "degraded_input" and insp:
+        upstream = insp.degraded_upstream_node or "upstream"
+        for field in insp.degraded_fields:
+            console.print(
+                f"  {indent}[dim]└─[/dim]  "
+                f'[italic]Field [bold]"{field}"[/bold] missing from input[/italic]'
+            )
+        console.print(
+            f"  {indent}[dim]└─[/dim]  "
+            f"[italic dim]upstream node [bold]{upstream}[/bold] "
+            f"failed to produce it[/italic dim]"
+        )
         console.print()
         return
 
@@ -834,36 +921,35 @@ def _print_node(
     )
 
     if event.exception:
-        console.print(
-            f"  {indent}[dim]└─  exception[/dim]"
-        )
+        console.print(f"  {indent}[dim]└─  exception[/dim]")
         first_line = event.exception.splitlines()[0]
-        console.print(
-            f"  {indent}[dim]   [/dim]  [italic]{first_line}[/italic]"
-        )
         location = _extract_crash_location(event.exception)
-        if location:
-            console.print(
-                f"  {indent}[dim]   [/dim]  [italic dim]{location}[/italic dim]"
-            )
         diagnosis = _diagnose_crash(event.exception, event.input_state or {})
+        # use │ for continuation lines, └─ for the last one
+        lines_remaining = bool(location) + bool(diagnosis)
+        connector = "[dim]   │[/dim]" if lines_remaining else "[dim]   └─[/dim]"
+        console.print(f"  {indent}{connector}  [italic]{first_line}[/italic]")
+        if location:
+            lines_remaining -= 1
+            connector = "[dim]   │[/dim]" if lines_remaining else "[dim]   └─[/dim]"
+            console.print(f"  {indent}{connector}  [italic dim]{location}[/italic dim]")
         if diagnosis:
-            console.print(
-                f"  {indent}[dim]   [/dim]  [italic dim]{diagnosis}[/italic dim]"
-            )
+            console.print(f"  {indent}[dim]   └─[/dim]  [italic dim]{diagnosis}[/italic dim]")
 
     if insp and insp.tool_failures:
         console.print(
             f"  {indent}[dim]└─  tool failures[/dim]"
         )
-        for tf in insp.tool_failures:
+        last_tf = len(insp.tool_failures) - 1
+        for i, tf in enumerate(insp.tool_failures):
             tf_icon = (
                 "[bold red]⚠[/bold red]"
                 if tf.severity == "critical"
                 else "[bold yellow]~[/bold yellow]"
             )
+            connector = "[dim]   └─[/dim]" if i == last_tf else "[dim]   │[/dim]"
             console.print(
-                f"  {indent}[dim]   [/dim]  "
+                f"  {indent}{connector}  "
                 f'{tf_icon} [dim]Tool {tf.failure_type}: '
                 f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
             )
@@ -875,11 +961,11 @@ def _print_node(
             )
             for field in insp.missing_fields:
                 console.print(
-                    f"  {indent}[dim]   [/dim]  "
+                    f"  {indent}[dim]   │[/dim]  "
                     f'[italic]Field [bold]"{field}"[/bold] is missing[/italic]'
                 )
             console.print(
-                f"  {indent}[dim]   [/dim]  "
+                f"  {indent}[dim]   └─[/dim]  "
                 f"[italic dim]{successor} received bad state[/italic dim]"
             )
         elif insp.empty_fields:
@@ -888,20 +974,22 @@ def _print_node(
             )
             for field in insp.empty_fields:
                 console.print(
-                    f"  {indent}[dim]   [/dim]  "
+                    f"  {indent}[dim]   │[/dim]  "
                     f'[italic]Field [bold]"{field}"[/bold] is empty[/italic]'
                 )
             console.print(
-                f"  {indent}[dim]   [/dim]  "
+                f"  {indent}[dim]   └─[/dim]  "
                 f"[italic dim]{successor} received bad state[/italic dim]"
             )
         elif insp.type_mismatches:
             console.print(
                 f"  {indent}[dim]└─  missing fields[/dim]"
             )
-            for m in insp.type_mismatches:
+            last_mm = len(insp.type_mismatches) - 1
+            for i, m in enumerate(insp.type_mismatches):
+                connector = "[dim]   └─[/dim]" if i == last_mm else "[dim]   │[/dim]"
                 console.print(
-                    f"  {indent}[dim]   [/dim]  "
+                    f"  {indent}{connector}  "
                     f'[italic]Field [bold]"{m.field_name}"[/bold] '
                     f"expected {m.expected_type}, got {m.actual_type}[/italic]"
                 )

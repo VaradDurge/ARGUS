@@ -37,21 +37,25 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
         console.print(msg)
         return
 
-    if app_module_str is None:
-        console.print()
-        hint = Text()
-        hint.append("  argus replay ", style="dim")
-        hint.append(run_id, style="italic dim")
-        hint.append(f" {from_step}", style="bold")
-        hint.append(" --app ", style="dim")
-        hint.append("module:factory_fn", style="italic dim")
-        console.print(hint)
-        console.print()
-        return
-
-    factory = _import_factory(app_module_str)
-    if factory is None:
-        return
+    # If run has stored node_fn_refs, no factory needed at all
+    has_node_refs = bool(record.node_fn_refs)
+    factory = None
+    if not has_node_refs:
+        effective_app = app_module_str or record.app_factory_ref
+        if effective_app is None:
+            console.print()
+            hint = Text()
+            hint.append("  argus replay ", style="dim")
+            hint.append(run_id, style="italic dim")
+            hint.append(f" {from_step}", style="bold")
+            hint.append(" --app ", style="dim")
+            hint.append("module:factory_fn", style="italic dim")
+            console.print(hint)
+            console.print()
+            return
+        factory = _import_factory(effective_app)
+        if factory is None:
+            return
 
     # ── Header ────────────────────────────────────────────────────────────
     console.print()
@@ -70,22 +74,18 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
     console.print()
 
     # ── Run replay ────────────────────────────────────────────────────────
-    from argus.storage import list_runs
-    known_ids = {r["run_id"] for r in list_runs()}
-
     engine = ReplayEngine()
     try:
-        engine.replay(run_id=run_id, from_node=from_step, app_factory=factory)
+        new_run_id = engine.replay(
+            run_id=run_id, from_node=from_step, app_factory=factory,
+        )
     except Exception as e:
         console.print(f"[red]Replay failed:[/red] {e}")
         return
 
-    new_ids = {r["run_id"] for r in list_runs()} - known_ids
-    if not new_ids:
+    if not new_run_id:
         console.print("[yellow]Warning:[/yellow] Could not locate the new replay run.")
         return
-
-    new_run_id = next(iter(new_ids))
     new_record = load_run(new_run_id)
     name_col   = max(len(s.node_name) for s in new_record.steps) + 2
 

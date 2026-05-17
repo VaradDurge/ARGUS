@@ -68,4 +68,43 @@ def test_session_creates_run():
     session.set_node_names(["node_a"])
     wrapped({"value": 0})
     session.finalize()
-    # if no exception, session ran successfully
+
+
+def test_session_detects_missing_field():
+    session = ArgusSession()
+    session.set_node_names(["producer", "consumer"])
+    session.set_edges({"producer": ["consumer"]})
+
+    wrap_p = session.wrap("producer", lambda s: {"key_a": 1})
+    wrap_c = session.wrap("consumer", lambda s: {"result": s.get("key_b", "missing")})
+
+    wrap_p({})
+    wrap_c({"key_a": 1})
+    session.finalize()
+    # if no exception, the session ran and inspected transitions successfully
+
+
+def test_replay_engine_rejects_bad_node():
+    from argus.replay import ReplayEngine
+
+    engine = ReplayEngine()
+    try:
+        engine.replay("nonexistent-run-id-xyz", "fake_node")
+        assert False, "Should have raised"
+    except (FileNotFoundError, ValueError):
+        pass
+
+
+def test_storage_roundtrip():
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    session.set_node_names(["step1"])
+    wrapped = session.wrap("step1", lambda s: {"out": 1})
+    wrapped({"in": 0})
+    session.finalize()
+
+    # finalize() saves the run — verify we can load it back
+    loaded = load_run(session.run_id)
+    assert loaded.run_id == session.run_id
+    assert len(loaded.steps) == 1

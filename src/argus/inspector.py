@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from argus.models import FieldMismatch, InspectionResult, ToolFailure
+from argus.heuristic_engine import scan_execution_output as _scan_execution_output
+from argus.models import FieldMismatch, InspectionResult, SemanticSignal, ToolFailure
 from argus.utils.type_introspection import extract_fields, get_node_state_type
 
 _EMPTY_VALUES = (None, "", [], {})
@@ -29,8 +30,24 @@ _ERROR_STR_RE = re.compile(
 
 _SEVERITY_RANK = {"critical": 2, "warning": 1}
 
+# ── Semantic registry failure-type mapping ────────────────────────────────────
 
-def inspect_tool_outputs(output_dict: dict[str, Any], strict: bool = False) -> list[ToolFailure]:
+_CATEGORY_TO_FAILURE: dict[str, str] = {
+    "placeholder_outputs": "placeholder_detected",
+    "null_like_semantic":  "placeholder_detected",
+    "suspicious_phrases":  "semantic_degradation",
+    "corrupted_markers":   "semantic_degradation",
+    "malformed_payload":   "semantic_degradation",
+    "repeated_filler":     "semantic_degradation",
+    "empty_semantic_state": "structural_anomaly",
+}
+
+
+def inspect_tool_outputs(
+    output_dict: dict[str, Any],
+    strict: bool = False,
+    _precomputed_signals: list[SemanticSignal] | None = None,
+) -> list[ToolFailure]:
     """Scan a node's output dict for tool call failure patterns.
 
     Detects: error keys, HTTP error codes, empty result fields, error strings
@@ -39,6 +56,9 @@ def inspect_tool_outputs(output_dict: dict[str, Any], strict: bool = False) -> l
     Returns a deduplicated list of ToolFailure — one per field, highest severity wins.
 
     strict: if True, all warning-severity failures are promoted to critical.
+    _precomputed_signals: if provided, reuse these SemanticSignals for Rule 7
+        instead of re-scanning. Avoids double-scan when called from
+        inspect_transition which already ran the heuristic scan.
     """
     # field_name → best ToolFailure so far (highest severity)
     by_field: dict[str, ToolFailure] = {}
@@ -154,6 +174,21 @@ def inspect_tool_outputs(output_dict: dict[str, Any], strict: bool = False) -> l
                         evidence=f"nested HTTP {inner_value} error",
                     ))
 
+    # Rule 7 — deep recursive semantic heuristic scan
+    # Use pre-computed signals if available (avoids double-scan)
+    signals = (
+        _precomputed_signals
+        if _precomputed_signals is not None
+        else _scan_execution_output(output_dict)
+    )
+    for signal in signals:
+        _add(ToolFailure(
+            failure_type=_CATEGORY_TO_FAILURE.get(signal.category, "semantic_degradation"),
+            field_name=signal.dotted_path,
+            severity=signal.severity,
+            evidence=f"[{signal.sig_id}] {signal.description}: {signal.evidence}",
+        ))
+
     # Strict mode: promote all warnings to critical
     if strict:
         for field_name, tf in list(by_field.items()):
@@ -174,6 +209,8 @@ def inspect_transition(
     merged_state: dict[str, Any],
     successor_fns: list[Any],
     strict: bool = False,
+    input_state: dict[str, Any] | None = None,
+    current_node_fn: Any = None,
 ) -> InspectionResult:
     """Check if the output of current_node will cause a silent failure in any successor.
 
@@ -186,8 +223,20 @@ def inspect_transition(
         merged_state: the full state after merging the output (what successor sees)
         successor_fns: list of callable node functions that may run next
     """
-    # Tool output inspection runs regardless of successors
-    tool_failures = inspect_tool_outputs(output_dict, strict=strict) if output_dict else []
+    # Scan heuristic signals ONCE, then pass to both tool failure conversion
+    # and semantic_signals storage. Previously _scan_execution_output was
+    # called twice (once inside inspect_tool_outputs Rule 7, once here),
+    # causing double-counting in correlator weight calculations.
+    semantic_signals: list[SemanticSignal] = (
+        _scan_execution_output(output_dict) if output_dict else []
+    )
+    tool_failures = (
+        inspect_tool_outputs(
+            output_dict, strict=strict,
+            _precomputed_signals=semantic_signals,
+        )
+        if output_dict else []
+    )
     has_tool_failure = any(tf.severity == "critical" for tf in tool_failures)
 
     if output_dict is None:
@@ -217,6 +266,7 @@ def inspect_transition(
             message=message,
             tool_failures=tool_failures,
             has_tool_failure=has_tool_failure,
+            semantic_signals=semantic_signals,
         )
 
     all_missing: list[str] = []
@@ -244,7 +294,8 @@ def inspect_transition(
 
         annotated_count += 1
         missing, empty, mismatches = _check_fields(
-            fields, merged_state, node_provided_keys, strict=strict
+            fields, merged_state, node_provided_keys, strict=strict,
+            input_state=input_state,
         )
 
         for f in missing:
@@ -256,6 +307,77 @@ def inspect_transition(
         for m in mismatches:
             if m not in all_mismatches:
                 all_mismatches.append(m)
+
+    # Unknown key detection: if a node writes keys that do NOT exist in any
+    # successor's schema, no downstream node will ever read them.  This is
+    # always a bug — typo, wrong prefix, completely wrong name, etc.
+    #
+    # When unknown keys are found, check which schema fields are NEWLY
+    # missing — i.e. not in merged state AND not in the node's input either
+    # (meaning THIS node was supposed to produce them but wrote the wrong key).
+    if annotated_count > 0 and output_dict:
+        all_schema_fields: set[str] = set()
+        for fn in successor_fns:
+            st = get_node_state_type(fn)
+            if st is not None:
+                all_schema_fields.update(extract_fields(st).keys())
+        # Find keys the node NEWLY added (not inherited from input).
+        # LangGraph nodes return {**state, "new_key": val}, so output
+        # contains input keys plus new ones.  Compare against input_state
+        # to find what this node actually contributed.
+        _input_keys = set(input_state.keys()) if input_state else set()
+        novel_keys = {k for k in output_dict if k not in _input_keys}
+
+        # Unknown novel keys: new keys that aren't in any successor schema
+        unknown_novel = [k for k in novel_keys if k not in all_schema_fields]
+
+        if unknown_novel:
+            # The node produced N unknown keys — it was probably supposed
+            # to write N schema keys instead.  Find the best-matching
+            # missing schema fields (at most one per unknown key).
+            candidates: list[str] = []
+            for field_name in all_schema_fields:
+                if field_name in _input_keys:
+                    continue  # existed before this node — not our job
+                if field_name in merged_state and not _is_empty(merged_state.get(field_name)):
+                    continue  # present and non-empty — fine
+                candidates.append(field_name)
+
+            # Match unknown keys to candidates by edit distance (best
+            # matches first), capped at len(unknown_novel) total flags.
+            matched: list[str] = []
+            for uk in unknown_novel:
+                best_field = None
+                best_dist = 999
+                for c in candidates:
+                    if c in matched:
+                        continue
+                    d = _edit_distance(uk, c)
+                    if d < best_dist:
+                        best_dist = d
+                        best_field = c
+                if best_field is not None:
+                    matched.append(best_field)
+
+            for field_name in matched:
+                if field_name not in all_missing:
+                    all_missing.append(field_name)
+
+    # Upstream propagation: if this node's own schema expects a field that
+    # is missing from its input, an upstream node failed to produce it.
+    # We detect this by checking: the node's output contains a field with
+    # a fallback/empty value that matches a schema field the node tried to
+    # read from state (e.g. state.get("draft") returned "" because draft
+    # was never set).  The output is technically valid but degraded.
+    #
+    # Simple reliable heuristic: if a schema field was NOT in the input
+    # AND this node wrote an empty/fallback value for a DIFFERENT field
+    # that depends on it, the output is degraded.  But we can't know
+    # inter-field dependencies statically.
+    #
+    # Instead, delegate to build_root_cause_chain() which walks the event
+    # history and has full context.  The per-node inspector focuses on
+    # what THIS node did wrong, not what upstream broke.
 
     # Fallback heuristic: when ALL successors lack annotations, check if the
     # current node's output contains None/empty values — these are suspicious
@@ -292,6 +414,7 @@ def inspect_transition(
         suspicious_empty_keys=suspicious_empty,
         tool_failures=tool_failures,
         has_tool_failure=has_tool_failure,
+        semantic_signals=semantic_signals,
     )
 
 
@@ -300,39 +423,44 @@ def _check_fields(
     actual_state: dict[str, Any],
     node_provided_keys: set[str] | None = None,
     strict: bool = False,
+    input_state: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[str], list[FieldMismatch]]:
     """Check successor field requirements against actual state.
 
     node_provided_keys: keys the current node actually wrote to output_dict.
     When supplied, fields absent from this set are treated as "another node's
-    responsibility" (parallel sibling pattern) and are not flagged as missing.
-    When None (legacy callers), the old behaviour is preserved.
+    responsibility" (parallel sibling pattern) and are not flagged as missing
+    UNLESS the field was also absent from input_state (upstream propagation).
+
+    input_state: the state BEFORE this node ran.  Used to detect upstream
+    propagation — if a field is missing from both input and merged state,
+    an upstream node failed to produce it and this node is operating on
+    degraded input.
 
     strict: when True, fields absent from node_provided_keys are still checked
     if they are also absent from actual_state (BS-01: silent field drop detection).
-    Fields already in actual_state (set by a parallel sibling) are still skipped.
     """
     missing = []
     empty = []
     mismatches = []
+
+    _input = input_state or {}
 
     for field_name, meta in expected_fields.items():
         required = meta.get("required", True)
         expected_type = meta.get("type")
 
         if field_name not in actual_state or _is_empty(actual_state.get(field_name)):
-            # If the current node didn't write this field, it is not our
-            # responsibility — a parallel sibling or later node will provide it.
             if node_provided_keys is not None and field_name not in node_provided_keys:
-                if strict and field_name not in actual_state:
-                    # BS-01: field completely absent from accumulated state —
-                    # a sequential node silently dropped it (not a parallel sibling,
-                    # because a sibling would have written it to actual_state).
-                    # Use missing (not empty) so is_silent_failure=True is triggered.
-                    if required:
-                        missing.append(field_name)
-                    else:
-                        empty.append(field_name)
+                # This node didn't write this field.
+                if field_name in _input and not _is_empty(_input.get(field_name)):
+                    # Field WAS in input with a value but is now gone/empty
+                    # in merged state → this node dropped it
+                    missing.append(field_name)
+                elif field_name in actual_state and _is_empty(actual_state.get(field_name)):
+                    empty.append(field_name)
+                # else: field not in input, not in output → downstream
+                # will produce it.  Skip.
                 continue
             if field_name not in actual_state:
                 if required:
@@ -377,6 +505,35 @@ def _check_fields(
                         ))
 
     return missing, empty, mismatches
+
+
+def _is_likely_typo(unknown_keys: list[str], schema_field: str) -> bool:
+    """Check if any unknown key looks like a typo of schema_field.
+
+    Uses Levenshtein edit distance: if an unknown key is within 2 edits
+    of the schema field, it's likely a typo (e.g. "sumary" vs "summary",
+    "compresd" vs "compressed").
+    """
+    for key in unknown_keys:
+        if abs(len(key) - len(schema_field)) > 3:
+            continue
+        if _edit_distance(key, schema_field) <= 2:
+            return True
+    return False
+
+
+def _edit_distance(a: str, b: str) -> int:
+    """Levenshtein edit distance between two strings."""
+    if len(a) > len(b):
+        a, b = b, a
+    prev = list(range(len(a) + 1))
+    for j in range(1, len(b) + 1):
+        curr = [j] + [0] * len(a)
+        for i in range(1, len(a) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            curr[i] = min(curr[i - 1] + 1, prev[i] + 1, prev[i - 1] + cost)
+        prev = curr
+    return prev[len(a)]
 
 
 def _is_empty(value: Any) -> bool:
@@ -458,7 +615,35 @@ def _extract_missing_key_from_exception(exc_str: str) -> str | None:
     return None
 
 
-def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
+def _build_predecessor_map(
+    edge_map: dict[str, list[str]],
+) -> dict[str, set[str]]:
+    """Build transitive predecessor sets: {node: set of all upstream nodes}."""
+    # Invert edges: child → set of parents
+    parents: dict[str, set[str]] = {}
+    for src, dests in edge_map.items():
+        for dst in dests:
+            parents.setdefault(dst, set()).add(src)
+
+    # BFS transitive closure
+    result: dict[str, set[str]] = {}
+    for node in set(edge_map.keys()) | {d for ds in edge_map.values() for d in ds}:
+        visited: set[str] = set()
+        queue = list(parents.get(node, set()))
+        while queue:
+            nxt = queue.pop()
+            if nxt in visited:
+                continue
+            visited.add(nxt)
+            queue.extend(parents.get(nxt, set()))
+        result[node] = visited
+    return result
+
+
+def build_root_cause_chain(
+    steps_so_far: list[Any],
+    edge_map: dict[str, list[str]] | None = None,
+) -> list[str]:
     """Walk backward through NodeEvents to find where a failure first originated.
 
     Each node name appears at most once in the result (deduplicated), preserving
@@ -470,14 +655,30 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
     root cause if analyst_b actually provided it — they ran simultaneously.
 
     Crash-trace: when a node crashes with a KeyError/AttributeError, the chain
-    traces back to the nearest predecessor that should have produced the missing
-    field but didn't.
+    traces back to the nearest *graph predecessor* that should have produced the
+    missing field but didn't. Requires edge_map to identify actual predecessors;
+    without it, falls back to step-order heuristic (legacy behavior).
+
+    Args:
+        steps_so_far: list of NodeEvent objects from the run.
+        edge_map: graph topology {node: [successor_nodes]}.
     """
     # Fields actually produced by any node across the entire run
     all_provided: set[str] = set()
     for event in steps_so_far:
         if event.output_dict:
             all_provided.update(event.output_dict.keys())
+
+    # Build predecessor map for topology-aware crash tracing
+    predecessor_map = _build_predecessor_map(edge_map) if edge_map else {}
+
+    # Index: which fields each node produced (for crash-trace)
+    fields_by_node: dict[str, set[str]] = {}
+    for event in steps_so_far:
+        if event.output_dict and event.status != "crashed":
+            existing = fields_by_node.get(event.node_name, set())
+            existing.update(event.output_dict.keys())
+            fields_by_node[event.node_name] = existing
 
     chain: list[str] = []
     seen_nodes: set[str] = set()
@@ -491,15 +692,38 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
         missing_key = _extract_missing_key_from_exception(event.exception)
         if not missing_key:
             continue
-        # Walk backward to find the closest predecessor that ran but didn't
-        # produce the missing key.
+
+        # If the key was already provided by ANY node that ran before the
+        # crash, the crashed node had it available — this is a
+        # self-contained crash, not an upstream omission.
+        key_was_available = any(
+            prev.output_dict is not None
+            and missing_key in prev.output_dict
+            and prev.step_index < event.step_index
+            and prev.status != "crashed"
+            for prev in steps_so_far
+        )
+        if key_was_available:
+            continue
+
+        # Determine actual graph predecessors of the crashed node
+        upstream = predecessor_map.get(event.node_name, set())
+
+        # Walk backward — only consider actual graph predecessors
         for prev in reversed(steps_so_far):
             if prev.step_index >= event.step_index:
                 continue
             if prev.status == "crashed":
                 continue
+            # Skip nodes that are not graph predecessors (when we have
+            # topology). Without edge_map, fall back to step-order.
+            if upstream and prev.node_name not in upstream:
+                continue
             # This predecessor ran successfully but didn't output the key
-            if prev.output_dict is not None and missing_key not in prev.output_dict:
+            if (
+                prev.output_dict is not None
+                and missing_key not in prev.output_dict
+            ):
                 if prev.node_name not in seen_nodes:
                     chain.append(prev.node_name)
                     seen_nodes.add(prev.node_name)
@@ -510,7 +734,7 @@ def build_root_cause_chain(steps_so_far: list[Any]) -> list[str]:
         insp = event.inspection
         if insp is None:
             continue
-        if not insp.is_silent_failure and insp.severity not in ("critical", "warning"):
+        if not insp.is_silent_failure and not insp.has_tool_failure:
             continue
         bad_fields = set(insp.missing_fields + insp.empty_fields)
         # Remove fields that were actually provided elsewhere — parallel siblings

@@ -9,65 +9,85 @@ import { useAuth } from '@/lib/auth'
 
 function IconRuns() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1" y="1" width="5" height="3.5" rx="0.6" stroke="currentColor" strokeWidth="1.1" fill="none"/>
-      <rect x="1" y="6.5" width="5" height="3.5" rx="0.6" stroke="currentColor" strokeWidth="1.1" fill="none"/>
-      <rect x="8" y="1" width="5" height="12" rx="0.6" stroke="currentColor" strokeWidth="1.1" fill="none"/>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="2" width="5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+      <rect x="1.5" y="7.5" width="5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+      <rect x="9" y="2" width="5.5" height="12" rx="0.8" stroke="currentColor" strokeWidth="1.2" fill="none"/>
     </svg>
   )
 }
 
-function IconReplay() {
+function IconTraces() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 2.5a4.5 4.5 0 1 1-3.18 1.32" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
-      <path d="M3 2.5V5.5H6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 4h10M3 8h7M3 12h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <circle cx="13" cy="8" r="1.2" fill="currentColor"/>
+      <circle cx="10" cy="12" r="1.2" fill="currentColor"/>
     </svg>
   )
 }
 
 function IconCompare() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 2v10M10 2v10" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
-      <path d="M1 7h12" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="1.5 1.5"/>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 2v12M11 2v12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M1.5 8h13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="2 2"/>
     </svg>
   )
 }
 
 function IconEval() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.1"/>
-      <path d="M4.5 7l1.5 1.5 3-3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M5.5 8l1.5 1.5 3.5-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function IconGuide() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 2.5h8a1.5 1.5 0 011.5 1.5v8a1.5 1.5 0 01-1.5 1.5H3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3 2.5v11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M6 6h3.5M6 8.5h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function IconChangelog() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M8 4.5v4l2.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function IconReport() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 2.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M8 5.5v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      <circle cx="8" cy="10.5" r="0.7" fill="currentColor"/>
     </svg>
   )
 }
 
 function IconSettings() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="7" cy="7" r="1.8" stroke="currentColor" strokeWidth="1.1"/>
-      <path d="M7 1.5v1.2M7 11.3v1.2M1.5 7h1.2M11.3 7h1.2M3.2 3.2l.85.85M9.95 9.95l.85.85M3.2 10.8l.85-.85M9.95 4.05l.85-.85" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function IconArgus() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#3b82f6" strokeWidth="1.2" fill="none"/>
-      <circle cx="9" cy="9" r="2.2" fill="#3b82f6" fillOpacity="0.3" stroke="#3b82f6" strokeWidth="1.1"/>
-      <circle cx="9" cy="9" r="0.9" fill="#3b82f6"/>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.8 3.8l1.06 1.06M11.14 11.14l1.06 1.06M3.8 12.2l1.06-1.06M11.14 4.86l1.06-1.06" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
     </svg>
   )
 }
 
 function IconLogout() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
-      <path d="M9 4l3 3-3 3M5.5 7H12" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 2.5H4a1.5 1.5 0 00-1.5 1.5v8A1.5 1.5 0 004 13.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M10.5 5L13.5 8l-3 3M6.5 8H13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }
@@ -76,10 +96,10 @@ function IconLogout() {
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <div className="px-3 pt-3 pb-1">
+    <div className="px-3 pt-5 pb-1.5">
       <span
-        className="text-[9px] uppercase tracking-[0.14em] font-semibold"
-        style={{ color: 'var(--text-faint)' }}
+        className="text-[10px] uppercase tracking-[0.12em] font-semibold"
+        style={{ color: 'var(--sidebar-muted)' }}
       >
         {label}
       </span>
@@ -105,37 +125,37 @@ function NavLink({
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className="nav-item flex items-center gap-2.5 px-3 py-2 rounded-md text-xs relative group border"
+      className="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] relative group"
       style={{
-        background: active ? 'rgba(59,130,246,0.10)' : 'transparent',
-        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-        borderColor: active ? 'rgba(59,130,246,0.22)' : 'transparent',
+        background: active ? 'var(--sidebar-active)' : 'transparent',
+        color: active ? '#6366f1' : 'var(--sidebar-text)',
+        fontWeight: active ? 600 : 500,
       }}
     >
       {active && (
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
-          style={{ background: '#3b82f6' }}
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+          style={{ background: '#6366f1' }}
         />
       )}
-      <span className="pl-1 shrink-0" style={{ color: active ? '#3b82f6' : 'var(--text-muted)' }}>
+      <span className="shrink-0" style={{ color: active ? '#6366f1' : 'var(--sidebar-muted)' }}>
         {icon}
       </span>
-      <span className="font-medium">{label}</span>
+      <span>{label}</span>
     </Link>
   )
 }
 
 function SoonItem({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md text-xs cursor-not-allowed select-none">
-      <div className="flex items-center gap-2.5">
-        <span className="pl-1 shrink-0" style={{ color: '#2a2a30' }}>{icon}</span>
-        <span style={{ color: '#333339' }}>{label}</span>
+    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[13px] cursor-not-allowed select-none">
+      <div className="flex items-center gap-3">
+        <span className="shrink-0" style={{ color: '#d1d5db' }}>{icon}</span>
+        <span style={{ color: '#d1d5db' }}>{label}</span>
       </div>
       <span
-        className="text-[9px] px-1 py-0.5 rounded"
-        style={{ color: '#3a3a40', border: '1px solid var(--border-subtle)', letterSpacing: '0.05em' }}
+        className="text-[9px] px-1.5 py-0.5 rounded-md font-medium"
+        style={{ color: '#9ca3af', background: '#f3f4f6', letterSpacing: '0.05em' }}
       >
         soon
       </span>
@@ -144,7 +164,7 @@ function SoonItem({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 function Divider() {
-  return <div className="my-1 mx-3" style={{ height: '1px', background: 'var(--border-subtle)' }} />
+  return <div className="my-1.5 mx-3" style={{ height: '1px', background: 'var(--border-subtle)' }} />
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -165,19 +185,31 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="w-52 shrink-0 flex flex-col h-screen sticky top-0"
+      className="w-56 shrink-0 flex flex-col h-screen sticky top-0"
       style={{
-        background: 'rgba(11,11,13,0.97)',
+        background: 'var(--sidebar-bg)',
         borderRight: '1px solid var(--border-subtle)',
       }}
     >
       {/* Brand */}
       <div
-        className="px-4 py-3.5 flex items-center gap-2.5"
+        className="px-4 py-4 flex items-center gap-2.5"
         style={{ borderBottom: '1px solid var(--border-subtle)' }}
       >
-        <IconArgus />
-        <span className="text-[13px] font-semibold tracking-tight text-white">ARGUS</span>
+        <svg width="20" height="20" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#6366f1" strokeWidth="1.2" fill="none"/>
+          <circle cx="9" cy="9" r="2.2" fill="rgba(99,102,241,0.15)" stroke="#6366f1" strokeWidth="1.1"/>
+          <circle cx="9" cy="9" r="0.9" fill="#6366f1"/>
+        </svg>
+        <span className="text-[15px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          ARGUS
+        </span>
+        <span
+          className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md ml-0.5"
+          style={{ color: '#6366f1', background: 'rgba(99,102,241,0.08)', letterSpacing: '0.05em' }}
+        >
+          BETA
+        </span>
       </div>
 
       {/* Nav */}
@@ -185,7 +217,7 @@ export default function Sidebar() {
 
         <SectionLabel label="Observe" />
         <NavLink href="/" icon={<IconRuns />} label="Runs" exact={true} />
-        <SoonItem icon={<IconReplay />} label="Replay" />
+        <SoonItem icon={<IconTraces />} label="Traces" />
 
         <Divider />
 
@@ -197,49 +229,51 @@ export default function Sidebar() {
 
         <Divider />
 
-        <SectionLabel label="Settings" />
+        <NavLink href="/guide" icon={<IconGuide />} label="Guide" exact={true} />
+        <NavLink href="/changelog" icon={<IconChangelog />} label="Changelog" exact={true} />
+        <NavLink href="/report" icon={<IconReport />} label="Report the Dev" exact={true} />
         <SoonItem icon={<IconSettings />} label="Settings" />
 
       </nav>
 
       {/* User footer */}
       <div
-        className="px-3 py-2.5 flex items-center justify-between gap-2"
+        className="px-3 py-3 flex items-center justify-between gap-2"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
         {user ? (
           <>
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               {avatarUrl ? (
-                <Image src={avatarUrl} alt="" width={20} height={20} className="rounded-full shrink-0" />
+                <Image src={avatarUrl} alt="" width={24} height={24} className="rounded-full shrink-0" />
               ) : (
                 <div
-                  className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold"
-                  style={{ background: '#3b82f6', color: '#fff' }}
+                  className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold"
+                  style={{ background: '#6366f1', color: '#fff' }}
                 >
                   {initials}
                 </div>
               )}
-              <span className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              <span className="text-[12px] truncate" style={{ color: 'var(--text-secondary)' }}>
                 {user.user_metadata?.full_name ?? user.email}
               </span>
             </div>
             <button
               onClick={signOut}
-              className="shrink-0 p-1.5 rounded hover:bg-white/5 transition-colors"
-              style={{ color: 'var(--text-faint)' }}
+              className="shrink-0 p-1.5 rounded-md transition-colors"
+              style={{ color: 'var(--text-muted)' }}
               title="Sign out"
             >
               <IconLogout />
             </button>
           </>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: '#22c55e', boxShadow: '0 0 4px rgba(34,197,94,0.4)' }}
+              className="w-2 h-2 rounded-full"
+              style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.4)' }}
             />
-            <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>connected</span>
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Connected</span>
           </div>
         )}
       </div>
