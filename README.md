@@ -1,5 +1,9 @@
 # ARGUS
 
+[![PyPI version](https://img.shields.io/pypi/v/argus-agents)](https://pypi.org/project/argus-agents/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/argus-agents/)
+[![Beta](https://img.shields.io/badge/status-beta-6366f1)](https://github.com/VaradDurge/ARGUS/releases/tag/v0.4.0)
+
 Your LangGraph pipeline runs. No exception. But three nodes later something crashes with a `KeyError`. The node that crashed didn't cause it — some node upstream returned a dict with a missing field, and nothing caught it.
 
 ARGUS sits between your nodes and tells you exactly where it went wrong.
@@ -158,6 +162,12 @@ Winner is determined by: fewer failures → lower severity → later first failu
 
 **Cloud sync** — run `argus login` to sign in with Google and sync runs to the cloud dashboard. The web UI works fully offline without logging in.
 
+**LLM cost tracking** — auto-extracts token usage from node outputs and shows cost per node and total across the run.
+
+**Changelog** — version history visible in the UI at `/changelog`.
+
+**Report the Dev** — bug reports and feature requests from inside the UI.
+
 ---
 
 ## Node statuses
@@ -196,3 +206,7 @@ Works with Prefect, Temporal, or plain Python functions.
 ---
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
+
+---
+
+**v0.4.0** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.4.0)
