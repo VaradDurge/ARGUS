@@ -74,10 +74,10 @@ export default function RunListPage() {
   return (
     <div>
       {/* Page header */}
-      <div className="flex items-start justify-between mb-9">
+      <div className="flex items-start justify-between mb-8">
         <div>
           <h1
-            className="text-2xl font-semibold tracking-tight"
+            className="text-2xl font-bold tracking-tight"
             style={{ color: 'var(--text-primary)' }}
           >
             Runs
@@ -92,16 +92,16 @@ export default function RunListPage() {
 
         <Link
           href="/compare"
-          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 text-[13px] font-medium px-4 py-2 rounded-lg transition-all"
           style={{
             color: 'var(--text-secondary)',
             border: '1px solid var(--border-default)',
             background: 'var(--bg-surface)',
           }}
         >
-          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 5.5a3.5 3.5 0 1 1 1.05 2.45" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-            <path d="M2 7.5V5.5h2" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 7a4 4 0 1 1 1.2 2.8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+            <path d="M3 9.5V7h2.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           Compare
         </Link>
@@ -109,35 +109,39 @@ export default function RunListPage() {
 
       {/* Stat cards */}
       {counts.total > 0 && (
-        <div className="grid grid-cols-4 gap-3.5 mb-9">
-          <StatCard label="Total" value={counts.total} />
+        <div className="grid grid-cols-4 gap-4 mb-8">
           <StatCard
+            icon={<IconTotal />}
+            label="Total Runs"
+            value={counts.total}
+          />
+          <StatCard
+            icon={<IconClean />}
             label="Clean"
             value={counts.clean}
-            valueColor="#22c55e"
+            valueColor="#10b981"
             dimmed={counts.clean === 0}
           />
           <StatCard
+            icon={<IconFailed />}
             label="Failed"
             value={counts.failed}
             valueColor={counts.failed > 0 ? '#ef4444' : undefined}
             dimmed={counts.failed === 0}
           />
           <StatCard
-            label="Pass rate"
+            icon={<IconRate />}
+            label="Pass Rate"
             value={passRate !== null ? `${passRate}%` : '\u2014'}
             valueColor={
               passRate === null ? undefined :
-              passRate === 100 ? '#22c55e' :
+              passRate === 100 ? '#10b981' :
               passRate >= 70 ? '#f59e0b' :
               '#ef4444'
             }
           />
         </div>
       )}
-
-      {/* Divider */}
-      <div className="mb-7" style={{ height: '1px', background: 'var(--border-default)' }} />
 
       {/* Evaluation builder */}
       <EvaluationBuilder onEval={setEvalState} currentEval={evalState} />
@@ -147,12 +151,59 @@ export default function RunListPage() {
   )
 }
 
+// ── Stat card icons ──────────────────────────────────────────────────
+
+function IconTotal() {
+  return (
+    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M3 5h12M3 9h8M3 13h5" stroke="#6366f1" strokeWidth="1.3" strokeLinecap="round"/>
+      </svg>
+    </div>
+  )
+}
+
+function IconClean() {
+  return (
+    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.08)' }}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M5 9l3 3 5-5" stroke="#10b981" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
+  )
+}
+
+function IconFailed() {
+  return (
+    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.08)' }}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M9 6v3.5M9 12h.01" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round"/>
+        <path d="M9 3L16 15H2L9 3Z" stroke="#ef4444" strokeWidth="1.2" fill="none" strokeLinejoin="round"/>
+      </svg>
+    </div>
+  )
+}
+
+function IconRate() {
+  return (
+    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.08)' }}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M3 13l4-4 3 2 5-6" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
+  )
+}
+
+// ── Stat card ──────────────────────────────────────────────────────
+
 function StatCard({
+  icon,
   label,
   value,
   valueColor,
   dimmed = false,
 }: {
+  icon: React.ReactNode
   label: string
   value: string | number
   valueColor?: string
@@ -160,23 +211,23 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-lg px-4 py-3 flex flex-col gap-1.5 transition-all hover:-translate-y-[1px]"
+      className="card rounded-xl px-5 py-4 flex items-center gap-4 transition-all"
       style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border-default)',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-        opacity: dimmed ? 0.4 : 1,
+        opacity: dimmed ? 0.5 : 1,
       }}
     >
-      <span className="text-[10px] uppercase tracking-widest font-medium text-[var(--text-secondary)]">
-        {label}
-      </span>
-      <span
-        className="text-xl font-semibold tracking-tight font-mono"
-        style={{ color: valueColor ?? 'var(--text-primary)' }}
-      >
-        {value}
-      </span>
+      {icon}
+      <div>
+        <div className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </div>
+        <div
+          className="text-2xl font-bold tabular-nums tracking-tight"
+          style={{ color: valueColor ?? 'var(--text-primary)' }}
+        >
+          {value}
+        </div>
+      </div>
     </div>
   )
 }

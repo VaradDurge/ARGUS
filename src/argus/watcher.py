@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+import os
 from typing import Any, Callable
 
 from argus.checkpoints import mark_checkpoint_resumed
@@ -41,10 +43,16 @@ class ArgusWatcher:
         max_field_size: int = 50_000,
         validators: dict[str, Callable[[dict], tuple[bool, str]]] | None = None,
         strict: bool = False,
+        investigate: bool | str = True,
+        redact_keys: set[str] | list[str] | None = None,
+        persist_state: bool = True,
     ) -> None:
         self._max_field_size = max_field_size
         self._validators = validators or {}
         self._strict = strict
+        self._investigate = investigate  # True | False | "always"
+        self._redact_keys = redact_keys
+        self._persist_state = persist_state
         self._session: ArgusSession | None = None
 
     def watch(self, graph: Any) -> None:
@@ -63,10 +71,29 @@ class ArgusWatcher:
         node_names = list(graph.nodes.keys())
         edge_map = extract_edge_map(graph)
 
+        # Load .env early so OPENAI_API_KEY is available for auto-detection
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
+        # Auto-enable LLM investigation if key is available
+        llm_inv_config = None
+        if self._investigate and os.environ.get("OPENAI_API_KEY"):
+            from argus.models import LLMInvestigationConfig
+            always = (self._investigate == "always")
+            llm_inv_config = LLMInvestigationConfig(
+                enabled=True, always_investigate=always,
+            )
+
         self._session = ArgusSession(
             max_field_size=self._max_field_size,
             validators=self._validators,
             strict=self._strict,
+            llm_investigation=llm_inv_config,
+            redact_keys=self._redact_keys,
+            persist_state=self._persist_state,
         )
         self._session.set_node_names(node_names)
         self._session.set_edges(edge_map)
@@ -75,6 +102,14 @@ class ArgusWatcher:
         self._session.node_fn_registry = {
             name: extract_fn(graph.nodes[name]) for name in node_names
         }
+
+        # Auto-capture each node function's import path for factory-free replay
+        self._session.node_fn_refs = _capture_node_fn_refs(
+            self._session.node_fn_registry
+        )
+
+        # Auto-capture the caller's module:function as fallback
+        self._session.app_factory_ref = _detect_caller_factory()
 
         patch_graph(graph, self._session)
 
@@ -103,3 +138,79 @@ class ArgusWatcher:
             self._session.reset_for_resume(checkpoint_run_id)
         app.invoke(resume_input)
         self.finalize()
+
+
+def _detect_caller_factory() -> str | None:
+    """Walk the call stack to find the user function that called watch().
+
+    Uses the frame's __name__ (the real Python module name) so the result
+    works regardless of cwd or project layout — pip-installed packages,
+    src/ layouts, nested folders all resolve correctly.
+
+    Returns "module:function" string suitable for importlib, or None.
+    """
+    for frame_info in inspect.stack()[2:]:  # skip _detect_caller_factory + watch
+        func_name = frame_info.function
+        filename = frame_info.filename
+
+        # Skip argus internals, stdlib, site-packages
+        if "site-packages" in filename or "argus/" in filename:
+            continue
+        # Must be inside a named function (not module-level <module>)
+        if func_name == "<module>":
+            continue
+
+        # Use the real Python module name from the frame globals
+        module_name = frame_info.frame.f_globals.get("__name__")
+        if not module_name or module_name == "__main__":
+            # __main__ isn't importable — fall back to file-path heuristic
+            module_name = _module_from_filepath(filename)
+            if not module_name:
+                continue
+
+        return f"{module_name}:{func_name}"
+
+    return None
+
+
+def _capture_node_fn_refs(
+    fn_registry: dict[str, Any],
+) -> dict[str, str]:
+    """Build a {node_name: "module:qualname"} map from the live function registry.
+
+    At replay time, each function can be re-imported with importlib — no factory needed.
+    """
+    refs: dict[str, str] = {}
+    for name, fn in fn_registry.items():
+        module = getattr(fn, "__module__", None)
+        qualname = getattr(fn, "__qualname__", None)
+        if not module or not qualname:
+            continue
+        if module == "__main__":
+            # __main__ isn't importable — try to resolve from source file
+            src_file = getattr(fn, "__code__", None)
+            if src_file:
+                resolved = _module_from_filepath(src_file.co_filename)
+                if resolved:
+                    module = resolved
+                else:
+                    continue
+            else:
+                continue
+        refs[name] = f"{module}:{qualname}"
+    return refs
+
+
+def _module_from_filepath(filepath: str) -> str | None:
+    """Convert an absolute .py path to a dotted module name relative to cwd.
+
+    Fallback used when the frame's __name__ is '__main__'.
+    """
+    cwd = os.getcwd()
+    try:
+        rel = os.path.relpath(filepath, cwd)
+    except ValueError:
+        return None
+    if rel.startswith(".."):
+        return None
+    return rel.removesuffix(".py").replace(os.sep, ".")

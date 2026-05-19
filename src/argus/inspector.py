@@ -12,10 +12,14 @@ _PRIMITIVE_TYPES = (str, int, float, bool)
 
 # ── Tool output detection patterns ───────────────────────────────────────────
 
-_ERROR_KEYS = {"error", "error_message", "err", "errors", "exception"}
+_ERROR_KEYS = {"error", "error_message", "err", "errors", "exception", "error_detail"}
 _STATUS_KEYS = {"status_code", "status", "http_status", "code", "response_code"}
+# Boolean fields whose False/True value indicates an error condition
+_SUCCESS_KEYS = {"success", "ok", "succeeded", "is_valid", "is_ok"}
+_FAILURE_KEYS = {"failed", "is_error", "has_error", "errored", "is_failed"}
 _RESULT_NAME_RE = re.compile(
-    r"(results?|items?|documents?|records?|rows?|hits?|entries?|matches?|findings?)$",
+    r"(results?|items?|documents?|records?|rows?|hits?|entries?|matches?"
+    r"|findings?|output|content|data|response|answer|text|body|payload)$",
     re.IGNORECASE,
 )
 _RATE_LIMIT_RE = re.compile(
@@ -107,9 +111,29 @@ def inspect_tool_outputs(
                 ))
             continue
 
+        # Rule 2b — boolean success field set to False
+        if key.lower() in _SUCCESS_KEYS and isinstance(value, bool) and not value:
+            _add(ToolFailure(
+                failure_type="error_response",
+                field_name=key,
+                severity="critical",
+                evidence=f"success indicator '{key}' is False",
+            ))
+            continue
+
+        # Rule 2c — boolean failure field set to True
+        if key.lower() in _FAILURE_KEYS and isinstance(value, bool) and value:
+            _add(ToolFailure(
+                failure_type="error_response",
+                field_name=key,
+                severity="critical",
+                evidence=f"failure indicator '{key}' is True",
+            ))
+            continue
+
         # Rule 3 — empty result field with results-like name
         if _RESULT_NAME_RE.search(key):
-            if value is None or value == [] or value == {}:
+            if value is None or value == [] or value == {} or value == "":
                 _add(ToolFailure(
                     failure_type="empty_result",
                     field_name=key,
@@ -172,6 +196,28 @@ def inspect_tool_outputs(
                         field_name=field_path,
                         severity="warning",
                         evidence=f"nested HTTP {inner_value} error",
+                    ))
+                elif (
+                    inner_key.lower() in _SUCCESS_KEYS
+                    and isinstance(inner_value, bool)
+                    and not inner_value
+                ):
+                    _add(ToolFailure(
+                        failure_type="error_response",
+                        field_name=field_path,
+                        severity="warning",
+                        evidence=f"nested success indicator '{inner_key}' is False",
+                    ))
+                elif (
+                    inner_key.lower() in _FAILURE_KEYS
+                    and isinstance(inner_value, bool)
+                    and inner_value
+                ):
+                    _add(ToolFailure(
+                        failure_type="error_response",
+                        field_name=field_path,
+                        severity="warning",
+                        evidence=f"nested failure indicator '{inner_key}' is True",
                     ))
 
     # Rule 7 — deep recursive semantic heuristic scan

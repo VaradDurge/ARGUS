@@ -32,9 +32,18 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from argus import __version__
+from argus.anomaly_detector import detect_anomalies
 from argus.inspector import build_root_cause_chain, inspect_transition
 from argus.llm_tracker import create_tracker, extract_usage, install_handler, remove_handler
-from argus.models import LLMUsage, NodeEvent, RunRecord, ValidatorResult
+from argus.models import (
+    AnomalySignal,
+    BehaviorConfig,
+    LLMInvestigationConfig,
+    LLMUsage,
+    NodeEvent,
+    RunRecord,
+    ValidatorResult,
+)
 from argus.storage import save_run
 from argus.utils.cycle_detection import has_cycles
 from argus.utils.ids import generate_run_id
@@ -48,6 +57,37 @@ except ImportError:
 
 # Sentinel for _pop_frozen_output — distinct from any real output value
 _MISSING = object()
+
+_REDACTED = "__REDACTED__"
+
+
+def _redact_dict(d: dict[str, Any], keys: frozenset[str]) -> dict[str, Any]:
+    """Recursively replace values of sensitive keys with a redaction marker."""
+    out: dict[str, Any] = {}
+    for k, v in d.items():
+        if k in keys:
+            out[k] = _REDACTED
+        elif isinstance(v, dict):
+            out[k] = _redact_dict(v, keys)
+        elif isinstance(v, list):
+            out[k] = [
+                _redact_dict(item, keys) if isinstance(item, dict) else item
+                for item in v
+            ]
+        else:
+            out[k] = v
+    return out
+
+
+def _is_empty_value(value: Any) -> bool:
+    """Check if a value is semantically empty (None, empty string, empty collection)."""
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    if isinstance(value, (list, tuple, dict, set)) and len(value) == 0:
+        return True
+    return False
 
 
 class ArgusSession:
@@ -64,6 +104,11 @@ class ArgusSession:
         validators: dict[str, Callable[[dict], tuple[bool, str]]] | None = None,
         parent_run_id: str | None = None,
         strict: bool = False,
+        behavior_type: str | None = None,
+        node_behaviors: dict[str, str] | None = None,
+        llm_investigation: LLMInvestigationConfig | None = None,
+        redact_keys: set[str] | list[str] | None = None,
+        persist_state: bool = True,
     ) -> None:
         self.run_id: str = run_id or generate_run_id()
         self.max_field_size = max_field_size
@@ -72,6 +117,19 @@ class ArgusSession:
         self.node_fn_registry: dict[str, Any] = {}
 
         self._strict = strict
+        self._redact_keys: frozenset[str] = frozenset(redact_keys or ())
+        self._persist_state = persist_state
+
+        # Behavior anomaly detection config
+        self._behavior_config: BehaviorConfig | None = None
+        if behavior_type or node_behaviors:
+            self._behavior_config = BehaviorConfig(
+                default_behavior_type=behavior_type,
+                node_behaviors=node_behaviors or {},
+            )
+
+        # LLM semantic investigator config
+        self._llm_investigation_config = llm_investigation
 
         # validator map: key is node name or "*" (wildcard)
         self._validators: dict[str, Callable[[dict], tuple[bool, str]]] = validators or {}
@@ -91,6 +149,10 @@ class ArgusSession:
 
         # frozen outputs for replay — maps node_name → list of saved output dicts (FIFO)
         self.frozen_outputs: dict[str, list[Any]] | None = None
+
+        # auto-captured for zero-config replay (set by ArgusWatcher)
+        self.app_factory_ref: str | None = None
+        self.node_fn_refs: dict[str, str] | None = None
 
     # ── Public configuration ─────────────────────────────────────────────────
 
@@ -180,7 +242,7 @@ class ArgusSession:
 
     def _make_sync_wrapper(self, node_name: str, original_fn: Callable) -> Callable:
         @functools.wraps(original_fn)
-        def _wrapped(state: Any) -> Any:
+        def _wrapped(state: Any, **kwargs: Any) -> Any:
             input_snap = self.capture_state(state)
             self.on_node_start(node_name, input_snap)
             tracker = create_tracker()
@@ -191,7 +253,7 @@ class ArgusSession:
                 if frozen_out is not _MISSING:
                     output = frozen_out
                 else:
-                    output = original_fn(state)
+                    output = original_fn(state, **kwargs)
                 duration = (time.perf_counter() - t0) * 1000
                 if tracker:
                     remove_handler(tracker, handler_token)
@@ -224,7 +286,7 @@ class ArgusSession:
 
     def _make_async_wrapper(self, node_name: str, original_fn: Callable) -> Callable:
         @functools.wraps(original_fn)
-        async def _wrapped(state: Any) -> Any:
+        async def _wrapped(state: Any, **kwargs: Any) -> Any:
             input_snap = self.capture_state(state)
             self.on_node_start(node_name, input_snap)
             tracker = create_tracker()
@@ -235,7 +297,7 @@ class ArgusSession:
                 if frozen_out is not _MISSING:
                     output = frozen_out
                 else:
-                    output = await original_fn(state)
+                    output = await original_fn(state, **kwargs)
                 duration = (time.perf_counter() - t0) * 1000
                 if tracker:
                     remove_handler(tracker, handler_token)
@@ -267,12 +329,23 @@ class ArgusSession:
 
     # ── State capture ─────────────────────────────────────────────────────────
 
+    def _redact(self, snap: dict[str, Any]) -> dict[str, Any]:
+        """Replace values of sensitive keys with a redaction marker.
+
+        Recurses into nested dicts and list items. Only modifies the
+        serialized snapshot — the original state passed to the node is
+        never touched.
+        """
+        if not self._redact_keys:
+            return snap
+        return _redact_dict(snap, self._redact_keys)
+
     def capture_state(self, state: Any) -> dict[str, Any]:
         snap = safe_serialize(state, self.max_field_size)
         if not self._initial_state and snap:
             with self._lock:
                 if not self._initial_state:
-                    self._initial_state = snap
+                    self._initial_state = self._redact(snap)
         return snap
 
     def capture_output(self, output: Any) -> dict[str, Any]:
@@ -322,15 +395,33 @@ class ArgusSession:
             inspection = None
             if status == "pass" and output_snap is not None:
                 successor_fns = self._get_successor_fns(node_name)
+                current_fn = self.node_fn_registry.get(node_name)
                 inspection = inspect_transition(
                     current_node=node_name,
                     output_dict=output_snap,
                     merged_state=merged,
                     successor_fns=successor_fns,
                     strict=self._strict,
+                    input_state=input_snap,
+                    current_node_fn=current_fn,
                 )
                 if inspection.is_silent_failure or inspection.has_tool_failure:
                     status = "fail"
+                elif inspection.semantic_signals:
+                    status = "semantic_fail"
+
+                # Upstream propagation: if this node passed but an upstream
+                # node was flagged as `fail` with missing fields, and those
+                # fields are also absent from THIS node's input, this node
+                # is operating on degraded upstream context.
+                if status == "pass":
+                    degraded_fields, upstream_node = self._check_degraded_input(
+                        input_snap,
+                    )
+                    if degraded_fields:
+                        status = "degraded_input"
+                        inspection.degraded_fields = degraded_fields
+                        inspection.degraded_upstream_node = upstream_node
 
             # semantic validation (skip on crash/interrupt)
             validator_results: list[ValidatorResult] = []
@@ -340,6 +431,19 @@ class ArgusSession:
                 )
                 if (
                     any(not r.is_valid for r in validator_results)
+                    and status == "pass"
+                ):
+                    status = "semantic_fail"
+
+            # behavioral anomaly detection (runs after heuristic/inspection)
+            behavior_type_val: str | None = None
+            anomaly_signals: list[AnomalySignal] = []
+            if status in ("pass", "fail", "semantic_fail") and output_snap is not None:
+                behavior_type_val, anomaly_signals = detect_anomalies(
+                    node_name, output_snap, self._behavior_config,
+                )
+                if (
+                    any(a.severity == "critical" for a in anomaly_signals)
                     and status == "pass"
                 ):
                     status = "semantic_fail"
@@ -357,6 +461,8 @@ class ArgusSession:
                 attempt_index=attempt_idx,
                 validator_results=validator_results,
                 llm_usage=llm_usage,
+                behavior_type=behavior_type_val,
+                anomaly_signals=anomaly_signals,
             )
 
             self._events.append(event)
@@ -391,6 +497,31 @@ class ArgusSession:
                 ValidatorResult(validator_name=vname, is_valid=is_valid, message=message)
             )
         return results
+
+    def _check_degraded_input(
+        self,
+        input_snap: dict[str, Any],
+    ) -> tuple[list[str], str | None]:
+        """Check if any upstream node failed and left fields missing from input.
+
+        Returns (degraded_fields, upstream_node_name) or ([], None).
+        Evidence-based: only flags fields that a failed upstream node explicitly
+        reported as missing AND are also absent/empty in this node's input.
+        """
+        for event in self._events:
+            if event.status != "fail" or event.inspection is None:
+                continue
+            missing_from_upstream = event.inspection.missing_fields
+            if not missing_from_upstream:
+                continue
+            # Check which of those missing fields are STILL absent in our input
+            propagated = [
+                f for f in missing_from_upstream
+                if f not in input_snap or _is_empty_value(input_snap.get(f))
+            ]
+            if propagated:
+                return propagated, event.node_name
+        return [], None
 
     def _get_successor_fns(self, node_name: str) -> list[Any]:
         successors = self.graph_edge_map.get(node_name, [])
@@ -429,17 +560,20 @@ class ArgusSession:
         has_semantic_fail = any(
             e.status == "semantic_fail" for e in events_snapshot
         )
+        has_degraded = any(
+            e.status == "degraded_input" for e in events_snapshot
+        )
 
         if has_crash:
             overall_status = "crashed"
         elif has_interrupt:
             overall_status = "interrupted"
-        elif has_silent_failure or has_semantic_fail:
+        elif has_silent_failure or has_semantic_fail or has_degraded:
             overall_status = "silent_failure"
         else:
             overall_status = "clean"
 
-        _fail_statuses = ("fail", "crashed", "semantic_fail")
+        _fail_statuses = ("fail", "crashed", "semantic_fail", "degraded_input")
         first_failure = next(
             (e.node_name for e in events_snapshot if e.status in _fail_statuses),
             None,
@@ -450,7 +584,9 @@ class ArgusSession:
             None,
         )
 
-        root_cause_chain = build_root_cause_chain(events_snapshot)
+        root_cause_chain = build_root_cause_chain(
+            events_snapshot, self.graph_edge_map,
+        )
 
         # aggregate LLM metrics
         total_llm_calls = sum(
@@ -480,6 +616,8 @@ class ArgusSession:
             initial_state=self._initial_state,
             steps=events_snapshot,
             is_cyclic=self._is_cyclic,
+            app_factory_ref=self.app_factory_ref,
+            node_fn_refs=self.node_fn_refs,
             parent_run_id=self.parent_run_id,
             replay_from_step=self.replay_from_step,
             interrupted=has_interrupt,
@@ -487,11 +625,55 @@ class ArgusSession:
             total_llm_calls=total_llm_calls,
             total_tokens=total_tokens,
             total_cost_usd=total_cost_usd,
+            behavior_config=self._behavior_config,
         )
+
+        # Correlation analysis (non-critical — never blocks persistence)
+        try:
+            from argus.correlator import compare_replay, correlate
+            correlation = correlate(record)
+            if record.parent_run_id:
+                try:
+                    from argus.storage import load_run
+                    parent = load_run(record.parent_run_id)
+                    correlation.replay_impact = compare_replay(record, parent)
+                except Exception:
+                    pass
+            record.correlation = correlation
+        except Exception:
+            pass
+
+        # LLM semantic investigation (non-critical — never blocks persistence)
+        if self._llm_investigation_config and self._llm_investigation_config.enabled:
+            try:
+                from argus.llm_investigator import investigate
+                record.llm_investigation = investigate(
+                    record, self._llm_investigation_config,
+                )
+            except Exception:
+                pass
+
+        # Apply redaction / state stripping before persisting to disk
+        if not self._persist_state:
+            record.initial_state = {}
+            for step in record.steps:
+                step.input_state = {}
+                step.output_dict = None
+        elif self._redact_keys:
+            record.initial_state = self._redact(record.initial_state)
+            for step in record.steps:
+                step.input_state = self._redact(step.input_state)
+                if step.output_dict is not None:
+                    step.output_dict = self._redact(step.output_dict)
 
         try:
             save_run(record)
-        except Exception:
+        except Exception as exc:
+            import sys
+            print(
+                f"[argus] WARNING: failed to save run {record.run_id}: {exc}",
+                file=sys.stderr,
+            )
             with self._lock:
                 self._completed = False
 

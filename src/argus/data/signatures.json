@@ -64,10 +64,10 @@
     {
       "id": "CM-005",
       "category": "corrupted_markers",
-      "pattern": "&(?!(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);)",
+      "pattern": "<[a-zA-Z][^>]*>.*&(?!(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);)",
       "match_strategy": "regex",
       "severity": "warning",
-      "description": "Unterminated HTML entity — e.g. &amp without semicolon",
+      "description": "Unterminated HTML entity in HTML content — e.g. &amp without semicolon",
       "source": "builtin",
       "metadata": {
         "confidence": null,
@@ -574,10 +574,10 @@
     {
       "id": "MP-006",
       "category": "malformed_payload",
-      "pattern": "\"[^\"]*$",
+      "pattern": "^\\s*[{\\[].*\"[^\"]*$",
       "match_strategy": "regex",
       "severity": "critical",
-      "description": "Unterminated JSON string — truncated mid-value",
+      "description": "Unterminated JSON string in JSON-like payload — truncated mid-value",
       "source": "builtin",
       "metadata": {
         "confidence": null,

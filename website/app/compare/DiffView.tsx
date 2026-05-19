@@ -5,34 +5,36 @@ import type { RunRecord, NodeEvent } from '@/lib/types'
 // ── Status maps ───────────────────────────────────────────────────────────
 
 const STEP_ICON: Record<string, { icon: string; color: string }> = {
-  pass:          { icon: '✓', color: '#22c55e' },
-  fail:          { icon: '⚠', color: '#f59e0b' },
-  crashed:       { icon: '✗', color: '#ef4444' },
-  semantic_fail: { icon: '⊗', color: '#d946ef' },
-  interrupted:   { icon: '⏸', color: '#f59e0b' },
+  pass:           { icon: '\u2713', color: '#10b981' },
+  degraded_input: { icon: '\u2B07', color: '#f59e0b' },
+  fail:           { icon: '\u26A0', color: '#f59e0b' },
+  crashed:        { icon: '\u2717', color: '#ef4444' },
+  semantic_fail:  { icon: '\u2298', color: '#a855f7' },
+  interrupted:    { icon: '\u23F8', color: '#f59e0b' },
 }
 
 const STEP_LABEL: Record<string, { label: string; cls: string }> = {
-  pass:          { label: 'pass',           cls: 'text-green-400' },
-  fail:          { label: 'silent failure', cls: 'text-amber-400' },
-  crashed:       { label: 'crashed',        cls: 'text-red-400' },
-  semantic_fail: { label: 'semantic fail',  cls: 'text-purple-400' },
-  interrupted:   { label: 'interrupted',    cls: 'text-amber-400' },
+  pass:           { label: 'pass',           cls: 'text-emerald-600' },
+  degraded_input: { label: 'degraded input', cls: 'text-amber-600' },
+  fail:           { label: 'silent failure', cls: 'text-amber-600' },
+  crashed:        { label: 'crashed',        cls: 'text-red-600' },
+  semantic_fail:  { label: 'semantic fail',  cls: 'text-purple-600' },
+  interrupted:    { label: 'interrupted',    cls: 'text-amber-600' },
 }
 
 const OVERALL_STYLE: Record<string, string> = {
-  clean:          'text-green-400',
-  silent_failure: 'text-amber-400',
-  crashed:        'text-red-400',
-  semantic_fail:  'text-purple-400',
-  interrupted:    'text-amber-400',
+  clean:          'text-emerald-600',
+  silent_failure: 'text-amber-600',
+  crashed:        'text-red-600',
+  semantic_fail:  'text-purple-600',
+  interrupted:    'text-amber-600',
 }
 
 const STATUS_DOT: Record<string, { color: string }> = {
-  clean:          { color: '#22c55e' },
+  clean:          { color: '#10b981' },
   silent_failure: { color: '#f59e0b' },
   crashed:        { color: '#ef4444' },
-  semantic_fail:  { color: '#d946ef' },
+  semantic_fail:  { color: '#a855f7' },
   interrupted:    { color: '#f59e0b' },
 }
 
@@ -49,7 +51,7 @@ function formatTs(iso: string): string {
 }
 
 function getEventColor(event: NodeEvent): string {
-  return STEP_ICON[event.status]?.color ?? '#52525e'
+  return STEP_ICON[event.status]?.color ?? '#9ca3af'
 }
 
 function getEventIcon(event: NodeEvent): string {
@@ -134,7 +136,7 @@ function diffInspection(before: NodeEvent | undefined, after: NodeEvent | undefi
   const aMissing = new Set(aInsp?.missing_fields ?? [])
 
   bMissing.forEach((f) => {
-    if (!aMissing.has(f)) diffs.push({ text: `missing "${f}" resolved`, icon: '✓', iconColor: '#22c55e' })
+    if (!aMissing.has(f)) diffs.push({ text: `missing "${f}" resolved`, icon: '✓', iconColor: '#10b981' })
   })
   aMissing.forEach((f) => {
     if (!bMissing.has(f)) diffs.push({ text: `"${f}" now missing`, icon: '✗', iconColor: '#ef4444' })
@@ -148,7 +150,7 @@ function diffInspection(before: NodeEvent | undefined, after: NodeEvent | undefi
     diffs.push({
       text: `severity ${bSev} → ${aSev}`,
       icon: improved ? '✓' : '~',
-      iconColor: improved ? '#22c55e' : '#f59e0b',
+      iconColor: improved ? '#10b981' : '#f59e0b',
     })
   }
 
@@ -165,12 +167,12 @@ function diffValidators(before: NodeEvent | undefined, after: NodeEvent | undefi
     const b = bMap.get(name)
     const a = aMap.get(name)
     if (b === undefined && a !== undefined) {
-      diffs.push({ name, change: 'new', icon: a ? '✓' : '⊗', iconColor: a ? '#22c55e' : '#d946ef' })
+      diffs.push({ name, change: 'new', icon: a ? '✓' : '⊗', iconColor: a ? '#10b981' : '#a855f7' })
     } else if (b !== undefined && a === undefined) {
-      diffs.push({ name, change: 'removed', icon: '−', iconColor: '#52525e' })
+      diffs.push({ name, change: 'removed', icon: '−', iconColor: '#9ca3af' })
     } else if (b !== a) {
-      if (!b && a) diffs.push({ name, change: 'fail → pass', icon: '✓', iconColor: '#22c55e' })
-      else diffs.push({ name, change: 'pass → fail', icon: '⊗', iconColor: '#d946ef' })
+      if (!b && a) diffs.push({ name, change: 'fail → pass', icon: '✓', iconColor: '#10b981' })
+      else diffs.push({ name, change: 'pass → fail', icon: '⊗', iconColor: '#a855f7' })
     }
   })
 
@@ -340,7 +342,7 @@ function WinnerBanner({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
       <div className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: 'var(--text-faint)' }}>
         winner
       </div>
-      <div className="text-3xl font-mono font-bold mb-1" style={{ color: '#22c55e' }}>
+      <div className="text-3xl font-mono font-bold mb-1" style={{ color: '#10b981' }}>
         Run {winner}
         <span className="ml-3 text-lg" style={{ color: 'var(--text-faint)' }}>
           {winnerRun.run_id.slice(0, 8)}
@@ -410,8 +412,8 @@ function MetricsTable({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
     })
   }
 
-  const aStatus = STATUS_DOT[runA.overall_status] ?? { color: '#52525e' }
-  const bStatus = STATUS_DOT[runB.overall_status] ?? { color: '#52525e' }
+  const aStatus = STATUS_DOT[runA.overall_status] ?? { color: '#9ca3af' }
+  const bStatus = STATUS_DOT[runB.overall_status] ?? { color: '#9ca3af' }
 
   return (
     <div className="font-mono text-sm max-w-lg mx-auto">
@@ -461,17 +463,17 @@ function MetricsTable({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
             <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{row.label}</span>
             <span
               className="text-[13px] tabular-nums"
-              style={{ color: checkA ? '#22c55e' : 'var(--text-secondary)' }}
+              style={{ color: checkA ? '#10b981' : 'var(--text-secondary)' }}
             >
               {row.aVal}
             </span>
             <span
               className="text-[13px] tabular-nums"
-              style={{ color: checkB ? '#22c55e' : 'var(--text-secondary)' }}
+              style={{ color: checkB ? '#10b981' : 'var(--text-secondary)' }}
             >
               {row.bVal}
             </span>
-            <span className="text-[10px] text-right" style={{ color: '#22c55e' }}>
+            <span className="text-[10px] text-right" style={{ color: '#10b981' }}>
               {row.rowWinner !== 'tie' ? `${row.rowWinner} ✓` : ''}
             </span>
           </div>
@@ -484,6 +486,74 @@ function MetricsTable({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
 }
 
 // ── Diff Flow Row ──────────────────────────────────────────────────────────
+
+interface DetailItem {
+  text: string
+  color?: string
+}
+
+function getDetailItems(event: NodeEvent | undefined): DetailItem[] {
+  if (!event || event.status === 'pass' || event.status === 'interrupted') return []
+  const items: DetailItem[] = []
+  const baseColor = getEventColor(event)
+
+  if (event.status === 'crashed' && event.exception) {
+    items.push({ text: event.exception.split('\n')[0].slice(0, 100), color: '#ef4444' })
+  }
+
+  const insp = event.inspection
+  if (insp?.missing_fields?.length) {
+    const shown = insp.missing_fields.slice(0, 4)
+    const extra = insp.missing_fields.length - shown.length
+    items.push({
+      text: `missing: ${shown.join(', ')}${extra > 0 ? ` +${extra}` : ''}`,
+      color: baseColor,
+    })
+  }
+
+  if (insp?.tool_failures?.length) {
+    for (const tf of insp.tool_failures.slice(0, 2)) {
+      items.push({
+        text: `${tf.failure_type}${tf.field_name ? ` on '${tf.field_name}'` : ''}${tf.evidence ? `: ${tf.evidence.slice(0, 60)}` : ''}`,
+        color: tf.severity === 'critical' ? '#ef4444' : '#f59e0b',
+      })
+    }
+    if (insp.tool_failures.length > 2) {
+      items.push({ text: `+${insp.tool_failures.length - 2} more failures`, color: baseColor })
+    }
+  }
+
+  if (!items.length && insp?.message) {
+    items.push({ text: insp.message.slice(0, 100), color: baseColor })
+  }
+
+  if (!items.length) {
+    const failedValidator = event.validator_results?.find((v) => !v.is_valid)
+    if (failedValidator?.message) {
+      items.push({ text: failedValidator.message.slice(0, 100), color: baseColor })
+    }
+  }
+
+  return items
+}
+
+function NodeSideDetail({ items, align }: { items: DetailItem[]; align: 'left' | 'right' }) {
+  if (!items.length) return null
+  return (
+    <div className={`space-y-0.5 ${align === 'right' ? 'text-left' : 'text-right'}`}>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className="text-[11px] font-mono truncate"
+          style={{ color: item.color ?? 'var(--text-secondary)', opacity: 0.8 }}
+          title={item.text}
+        >
+          {item.text}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 type DiffCategory = 'only-a' | 'only-b' | 'changed' | 'unchanged'
 
@@ -503,56 +573,91 @@ function DiffRow({ diff }: { diff: NodeDiff }) {
   const beforeIcon = diff.before ? getEventIcon(diff.before) : null
   const afterIcon = diff.after ? getEventIcon(diff.after) : null
 
+  const beforeItems = getDetailItems(diff.before)
+  const afterItems = getDetailItems(diff.after)
+  const hasDetail = beforeItems.length > 0 || afterItems.length > 0
+
   return (
-    <div
-      className="flex items-center font-mono py-1.5 text-[13px]"
-      style={{ opacity: isChanged ? 1 : 0.22 }}
-    >
-      {/* A side — right aligned */}
-      <div className="flex-1 flex items-center justify-end gap-2.5 pr-5">
-        {diff.before ? (
-          <>
-            <span style={{ color: isChanged ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-              {diff.before.node_name}
-            </span>
-            <span style={{ color: beforeColor }}>{beforeIcon}</span>
-          </>
-        ) : (
-          <span style={{ color: '#2a2a30' }}>—</span>
-        )}
+    <div className="mb-1" style={{ opacity: isChanged ? 1 : 0.22 }}>
+      {/* Node name + status row */}
+      <div className="flex items-center font-mono py-1.5 text-[13px]">
+        {/* A side — right aligned */}
+        <div className="flex-1 flex items-center justify-end gap-2.5 pr-5">
+          {diff.before ? (
+            <>
+              <span style={{ color: isChanged ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                {diff.before.node_name}
+              </span>
+              <span style={{ color: beforeColor }}>{beforeIcon}</span>
+            </>
+          ) : (
+            <span style={{ color: '#2a2a30' }}>—</span>
+          )}
+        </div>
+
+        {/* Pipe separator */}
+        <div
+          className="shrink-0 self-stretch"
+          style={{ width: '1px', background: isChanged ? 'var(--border-default)' : 'var(--border-subtle)' }}
+        />
+
+        {/* B side — left aligned */}
+        <div className="flex-1 flex items-center gap-2.5 pl-5">
+          {diff.after ? (
+            <>
+              <span style={{ color: isChanged ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                {diff.after.node_name}
+              </span>
+              <span style={{ color: afterColor }}>{afterIcon}</span>
+              {diff.isFixed && (
+                <span className="text-[10px] font-bold tracking-widest text-green-400">FIXED</span>
+              )}
+              {diff.isRegression && (
+                <span className="text-[10px] font-bold tracking-widest text-red-400">REGRESSED</span>
+              )}
+              {diff.isNew && (
+                <span className="text-[10px] font-bold tracking-widest text-blue-400">NEW</span>
+              )}
+              {diff.durDiff && !diff.isFixed && !diff.isRegression && (
+                <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{diff.durDiff}</span>
+              )}
+              {(() => {
+                const sigs = diff.after?.inspection?.semantic_signals
+                if (!sigs?.length) return null
+                const hasCritical = sigs.some((s) => s.severity === 'critical')
+                return (
+                  <span
+                    className="text-[10px] font-mono"
+                    style={{ color: hasCritical ? '#ef4444' : '#f59e0b' }}
+                  >
+                    ⚑ {sigs.length} signal{sigs.length > 1 ? 's' : ''}
+                  </span>
+                )
+              })()}
+            </>
+          ) : (
+            <span style={{ color: '#2a2a30' }}>{diff.frozenNote || '—'}</span>
+          )}
+        </div>
       </div>
 
-      {/* Pipe separator */}
-      <div
-        className="shrink-0 self-stretch"
-        style={{ width: '1px', background: isChanged ? 'var(--border-default)' : 'var(--border-subtle)' }}
-      />
+      {/* Per-side detail rows — split by the same center pipe */}
+      {hasDetail && (
+        <div className="flex pb-2">
+          {/* A detail — right aligned */}
+          <div className="flex-1 flex justify-end pr-5 overflow-hidden">
+            <NodeSideDetail items={beforeItems} align="right" />
+          </div>
 
-      {/* B side — left aligned */}
-      <div className="flex-1 flex items-center gap-2.5 pl-5">
-        {diff.after ? (
-          <>
-            <span style={{ color: isChanged ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-              {diff.after.node_name}
-            </span>
-            <span style={{ color: afterColor }}>{afterIcon}</span>
-            {diff.isFixed && (
-              <span className="text-[10px] font-bold tracking-widest text-green-400">FIXED</span>
-            )}
-            {diff.isRegression && (
-              <span className="text-[10px] font-bold tracking-widest text-red-400">REGRESSED</span>
-            )}
-            {diff.isNew && (
-              <span className="text-[10px] font-bold tracking-widest text-blue-400">NEW</span>
-            )}
-            {diff.durDiff && !diff.isFixed && !diff.isRegression && (
-              <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{diff.durDiff}</span>
-            )}
-          </>
-        ) : (
-          <span style={{ color: '#2a2a30' }}>{diff.frozenNote || '—'}</span>
-        )}
-      </div>
+          {/* Center pipe (matches node row pipe width) */}
+          <div className="shrink-0" style={{ width: '1px' }} />
+
+          {/* B detail — left aligned */}
+          <div className="flex-1 pl-5 overflow-hidden">
+            <NodeSideDetail items={afterItems} align="left" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -601,7 +706,7 @@ function DiffFlow({
           {runB.root_cause_chain?.length > 0 ? (
             <span style={{ color: '#ef4444', fontWeight: 700 }}>{runB.root_cause_chain.join(' → ')}</span>
           ) : (
-            <span style={{ color: '#22c55e', fontWeight: 700 }}>resolved</span>
+            <span style={{ color: '#10b981', fontWeight: 700 }}>resolved</span>
           )}
         </div>
       )}

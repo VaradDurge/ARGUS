@@ -275,7 +275,7 @@ class LLMInvestigationConfig:
     """Configuration for the LLM semantic investigator."""
 
     enabled: bool = False
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-4o"
     api_key: str | None = None               # if None, reads OPENAI_API_KEY env var
     max_tokens: int = 2048
     temperature: float = 0.2

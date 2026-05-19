@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
-import { DM_Mono } from 'next/font/google'
+import { DM_Mono, Inter } from 'next/font/google'
 import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
 import { AuthProvider } from '@/lib/auth'
 import './globals.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
 
 const dmMono = DM_Mono({
   subsets: ['latin'],
@@ -19,8 +25,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${dmMono.variable}`}>
-      <body className="min-h-screen text-[var(--text-primary)] flex">
+    <html lang="en" className={`${inter.variable} ${dmMono.variable}`}>
+      <body className="min-h-screen text-[var(--text-primary)] flex" style={{ background: 'var(--bg-base)' }}>
         <AuthProvider>
           <Sidebar />
 

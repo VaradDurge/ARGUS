@@ -95,7 +95,7 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
       style={{
         border: '1px solid var(--border-default)',
         background: 'var(--bg-surface)',
-        boxShadow: '0 10px 24px rgba(0,0,0,0.24)',
+        boxShadow: '0 10px 24px rgba(0,0,0,0.06)',
       }}
     >
       {/* Terminal titlebar */}
@@ -128,7 +128,7 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
           type="button"
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
-          className="text-[10px] text-[var(--text-secondary)] hover:text-white transition-colors font-mono"
+          className="text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors font-mono"
         >
           {collapsed ? 'expand' : 'collapse'}
         </button>

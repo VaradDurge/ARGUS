@@ -1,0 +1,151 @@
+'use client'
+
+import { useState } from 'react'
+import type { RunRecord } from '@/lib/types'
+import { C_GREEN, C_AMBER, C_RED } from '@/lib/run-utils'
+
+const BEHAVIOR_LABELS: Record<string, string> = {
+  structured_json: 'Structured JSON',
+  retrieval_result: 'Retrieval Result',
+  classification: 'Classification',
+  detailed_text: 'Detailed Text',
+  tool_output: 'Tool Output',
+  reasoning_chain: 'Reasoning Chain',
+}
+
+export default function BehaviorPanel({ run }: { run: RunRecord }) {
+  const steps = run.steps ?? []
+  const hasAnomalies = steps.some((s) => s.anomaly_signals && s.anomaly_signals.length > 0)
+  const hasBehaviorTypes = steps.some((s) => s.behavior_type)
+  const [expanded, setExpanded] = useState(false)
+
+  if (!hasBehaviorTypes && !hasAnomalies) return null
+
+  const totalAnomalies = steps.reduce((sum, s) => sum + (s.anomaly_signals?.length ?? 0), 0)
+  const criticalAnomalies = steps.reduce(
+    (sum, s) => sum + (s.anomaly_signals?.filter((a) => a.severity === 'critical').length ?? 0), 0,
+  )
+  const maxSuspicion = steps.reduce((max, s) => {
+    const stepMax = Math.max(0, ...(s.anomaly_signals?.map((a) => a.suspicion_score) ?? []))
+    return Math.max(max, stepMax)
+  }, 0)
+
+  const nodeRows = steps
+    .filter((s) => s.behavior_type)
+    .map((s) => ({
+      name: s.node_name,
+      behaviorType: s.behavior_type!,
+      isOverride: run.behavior_config?.node_behaviors?.[s.node_name] != null,
+      isPipelineDefault: run.behavior_config?.default_behavior_type === s.behavior_type,
+      anomalyCount: s.anomaly_signals?.length ?? 0,
+      maxScore: Math.max(0, ...(s.anomaly_signals?.map((a) => a.suspicion_score) ?? [])),
+    }))
+
+  return (
+    <div>
+      {/* Collapsible header */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 py-2 hover:opacity-80 transition-opacity"
+      >
+        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>
+          Behavior
+        </span>
+        <div className="ml-auto flex items-center gap-3 text-[11px]">
+          {totalAnomalies > 0 && (
+            <span
+              className="px-2 py-0.5 rounded-full font-medium"
+              style={{
+                color: criticalAnomalies > 0 ? C_RED : C_AMBER,
+                background: criticalAnomalies > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
+              }}
+            >
+              {totalAnomalies} anomal{totalAnomalies === 1 ? 'y' : 'ies'}
+            </span>
+          )}
+          {maxSuspicion > 0 && (
+            <span className="font-mono" style={{ color: maxSuspicion > 0.7 ? C_RED : maxSuspicion > 0.3 ? C_AMBER : C_GREEN }}>
+              {(maxSuspicion * 100).toFixed(0)}% peak
+            </span>
+          )}
+          <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>{expanded ? '▾' : '▸'}</span>
+        </div>
+      </button>
+
+      {expanded && (
+        <div
+          className="rounded-xl overflow-hidden mt-1"
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+        >
+          <div className="p-4 space-y-4">
+            {/* Pipeline config */}
+            {run.behavior_config && (
+              <div>
+                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Configuration</div>
+                <div className="flex items-baseline gap-4 flex-wrap text-[12px]">
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    pipeline default:{' '}
+                    <span className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                      {run.behavior_config.default_behavior_type
+                        ? BEHAVIOR_LABELS[run.behavior_config.default_behavior_type] ?? run.behavior_config.default_behavior_type
+                        : 'auto-infer'}
+                    </span>
+                  </span>
+                  {Object.keys(run.behavior_config.node_behaviors ?? {}).length > 0 && (
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      overrides:{' '}
+                      <span className="font-mono" style={{ color: 'var(--text-primary)' }}>
+                        {Object.entries(run.behavior_config.node_behaviors)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(', ')}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Per-node table */}
+            <div>
+              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Per-Node Behavior</div>
+              <div>
+                {nodeRows.map((row, i) => (
+                  <div
+                    key={i}
+                    className="flex items-baseline gap-0 py-2 text-[12px]"
+                    style={{
+                      borderBottom: i < nodeRows.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                    }}
+                  >
+                    <span className="font-mono w-[140px] truncate shrink-0" style={{ color: 'var(--text-secondary)' }}>{row.name}</span>
+                    <span
+                      className="w-[130px] shrink-0"
+                      style={{
+                        color: row.isOverride ? 'var(--text-primary)' : 'var(--text-muted)',
+                        fontWeight: row.isOverride ? 600 : 400,
+                      }}
+                    >
+                      {BEHAVIOR_LABELS[row.behaviorType] ?? row.behaviorType}
+                    </span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}>
+                      {row.isOverride ? 'override' : row.isPipelineDefault ? 'pipeline' : 'inferred'}
+                    </span>
+                    {row.anomalyCount > 0 && (
+                      <span
+                        className="ml-3 font-mono"
+                        style={{ color: row.maxScore > 0.7 ? C_RED : row.maxScore > 0.3 ? C_AMBER : C_GREEN }}
+                      >
+                        {row.anomalyCount} · {(row.maxScore * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

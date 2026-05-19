@@ -44,7 +44,7 @@ export default function JsonViewer({ data, label, defaultCollapsed = true, maxLi
           <span className="text-[var(--text-secondary)] uppercase tracking-wider text-[10px]">{label}</span>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-[var(--text-secondary)] hover:text-white transition-colors text-[10px]"
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[10px]"
           >
             {collapsed ? '▶ expand' : '▼ collapse'}
           </button>
@@ -54,14 +54,14 @@ export default function JsonViewer({ data, label, defaultCollapsed = true, maxLi
         <div className="flex justify-end px-3 py-1.5 border-b" style={{ background: 'var(--bg-overlay)', borderColor: 'var(--border-default)' }}>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-[var(--text-secondary)] hover:text-white transition-colors text-[10px]"
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[10px]"
           >
             {collapsed ? `▶ ${lines.length} lines` : '▼ collapse'}
           </button>
         </div>
       )}
       <pre
-        className="p-3 overflow-x-auto text-[11px] leading-5 text-white"
+        className="p-3 overflow-x-auto text-[11px] leading-5 text-[var(--text-primary)]"
         style={{ background: 'var(--bg-base)' }}
         dangerouslySetInnerHTML={{ __html: highlighted }}
       />

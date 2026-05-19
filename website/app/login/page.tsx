@@ -33,7 +33,7 @@ export default function LoginPage() {
         style={{
           background: 'var(--bg-surface)',
           border: '1px solid var(--border-default)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
           minWidth: '360px',
         }}
       >
@@ -48,7 +48,7 @@ export default function LoginPage() {
           >
             <path
               d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z"
-              stroke="#3b82f6"
+              stroke="#6366f1"
               strokeWidth="1.2"
               fill="none"
             />
@@ -56,12 +56,12 @@ export default function LoginPage() {
               cx="9"
               cy="9"
               r="2.2"
-              fill="#3b82f6"
+              fill="#6366f1"
               fillOpacity="0.3"
-              stroke="#3b82f6"
+              stroke="#6366f1"
               strokeWidth="1.1"
             />
-            <circle cx="9" cy="9" r="0.9" fill="#3b82f6" />
+            <circle cx="9" cy="9" r="0.9" fill="#6366f1" />
           </svg>
           <h1
             className="text-lg font-semibold tracking-tight"
@@ -91,7 +91,7 @@ export default function LoginPage() {
           >
             <span
               className="font-mono text-sm"
-              style={{ color: '#3b82f6' }}
+              style={{ color: '#6366f1' }}
             >
               argus login
             </span>

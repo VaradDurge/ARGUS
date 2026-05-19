@@ -7,7 +7,7 @@ import type { EvalState } from './EvaluationBuilder'
 
 function getRunShape(run: RunSummary): { label: string; color: string } | null {
   if (run.overall_status === 'clean' && !run.first_failure_step) {
-    return { label: 'clean', color: '#22c55e' }
+    return { label: 'clean', color: '#10b981' }
   }
   if (!run.first_failure_step) return null
   const firstNode = run.graph_node_names.find((n) => !n.startsWith('__'))
@@ -30,15 +30,15 @@ function relativeTime(iso: string): string {
 }
 
 function formatDuration(ms: number | null): string {
-  if (ms === null || ms === undefined) return '—'
+  if (ms === null || ms === undefined) return '\u2014'
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(2)}s`
 }
 
 function truncateNodes(names: string[]): string {
   const filtered = names.filter((n) => !n.startsWith('__'))
-  if (filtered.length <= 4) return filtered.join(' → ')
-  return filtered.slice(0, 3).join(' → ') + ` +${filtered.length - 3}`
+  if (filtered.length <= 4) return filtered.join(' \u2192 ')
+  return filtered.slice(0, 3).join(' \u2192 ') + ` +${filtered.length - 3}`
 }
 
 interface RunTableProps {
@@ -47,31 +47,31 @@ interface RunTableProps {
 }
 
 const COL_HEADER_STYLE: React.CSSProperties = {
-  fontSize: '9px',
+  fontSize: '11px',
   textTransform: 'uppercase',
-  letterSpacing: '0.1em',
-  color: 'var(--text-secondary)',
+  letterSpacing: '0.06em',
+  color: 'var(--text-muted)',
   fontWeight: 600,
   paddingBottom: '12px',
-  paddingTop: '4px',
+  paddingTop: '12px',
 }
 
 export default function RunTable({ runs, evalState }: RunTableProps) {
   if (runs.length === 0) {
     return (
-      <div className="text-center py-24" style={{ color: '#3f3f46' }}>
+      <div className="text-center py-24" style={{ color: 'var(--text-muted)' }}>
         <div
-          className="mx-auto mb-5 w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}
+          className="mx-auto mb-5 w-12 h-12 rounded-xl flex items-center justify-center"
+          style={{ background: 'var(--bg-elevated)' }}
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#27272a" strokeWidth="1.2" fill="none"/>
-            <circle cx="9" cy="9" r="2" stroke="#27272a" strokeWidth="1"/>
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#d1d5db" strokeWidth="1.2" fill="none"/>
+            <circle cx="9" cy="9" r="2" stroke="#d1d5db" strokeWidth="1"/>
           </svg>
         </div>
-        <div className="text-xs" style={{ color: '#52525b' }}>No runs found</div>
-        <div className="text-[11px] mt-1.5" style={{ color: '#3f3f46' }}>
-          Run a LangGraph pipeline with ARGUS watching to see results here.
+        <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No runs found</div>
+        <div className="text-[13px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+          Run a pipeline with ARGUS watching to see results here.
         </div>
       </div>
     )
@@ -79,26 +79,21 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
 
   return (
     <div
-      className="overflow-x-auto rounded-lg"
-      style={{
-        border: '1px solid var(--border-default)',
-        background: 'var(--bg-surface)',
-        boxShadow: '0 10px 26px rgba(0,0,0,0.25)',
-      }}
+      className="card overflow-x-auto rounded-xl"
     >
-      <table className="w-full border-collapse" style={{ fontSize: '12px' }}>
+      <table className="w-full border-collapse" style={{ fontSize: '13px' }}>
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-elevated)' }}>
-            <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingLeft: '16px', paddingRight: '24px' }}>Run ID</th>
+          <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
+            <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingLeft: '20px', paddingRight: '24px' }}>Run ID</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingRight: '24px' }}>Status</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingRight: '24px' }} className="hidden lg:table-cell">Graph</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '24px' }}>Steps</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingRight: '24px' }}>Started</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '24px' }}>Duration</th>
             <th style={{ ...COL_HEADER_STYLE, textAlign: 'left', paddingRight: '24px' }}>First Failure</th>
-            <th style={{ ...COL_HEADER_STYLE, textAlign: 'right' }}>Shape</th>
+            <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '20px' }}>Shape</th>
             {evalState && (
-              <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '16px' }}>Eval</th>
+              <th style={{ ...COL_HEADER_STYLE, textAlign: 'right', paddingRight: '20px' }}>Eval</th>
             )}
           </tr>
         </thead>
@@ -111,12 +106,12 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 key={run.run_id}
                 className="group transition-colors"
                 style={{
-                  borderBottom: `1px solid ${isFailed ? 'rgba(239,68,68,0.24)' : 'var(--border-subtle)'}`,
+                  borderBottom: '1px solid var(--border-subtle)',
                   cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLTableRowElement
-                  el.style.background = isFailed ? 'rgba(239,68,68,0.09)' : 'rgba(255,255,255,0.03)'
+                  el.style.background = isFailed ? 'rgba(239,68,68,0.03)' : 'rgba(99,102,241,0.03)'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLTableRowElement
@@ -124,17 +119,14 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 }}
               >
                 {/* Run ID */}
-                <td className="py-3.5 pr-6 pl-4">
+                <td className="py-3.5 pr-6 pl-5">
                   <a href={`/runs/${run.run_id}`} className="block">
-                    <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-mono text-[12px]" style={{ color: 'var(--text-primary)' }}>
                       {run.run_id.slice(0, 14)}
                       {run.run_id.length > 14 && (
-                        <span style={{ color: '#3f3f46' }}>…</span>
+                        <span style={{ color: 'var(--text-muted)' }}>&hellip;</span>
                       )}
                     </span>
-                    {run.parent_run_id && (
-                      <div className="text-[10px] mt-0.5" style={{ color: '#3f3f46' }}>↩ compare</div>
-                    )}
                   </a>
                 </td>
 
@@ -149,8 +141,8 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 <td className="py-3.5 pr-6 hidden lg:table-cell max-w-xs">
                   <a href={`/runs/${run.run_id}`} className="block">
                     <span
-                      className="text-xs truncate block font-mono"
-                      style={{ color: '#3f3f46', maxWidth: '200px' }}
+                      className="text-[12px] truncate block font-mono"
+                      style={{ color: 'var(--text-muted)', maxWidth: '200px' }}
                     >
                       {truncateNodes(run.graph_node_names)}
                     </span>
@@ -160,7 +152,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 {/* Steps */}
                 <td className="py-3.5 pr-6 text-right">
                   <a href={`/runs/${run.run_id}`} className="block">
-                    <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="text-[12px] font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {run.step_count}
                     </span>
                   </a>
@@ -169,7 +161,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 {/* Started */}
                 <td className="py-3.5 pr-6">
                   <a href={`/runs/${run.run_id}`} className="block">
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }} title={run.started_at}>
+                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }} title={run.started_at}>
                       {relativeTime(run.started_at)}
                     </span>
                   </a>
@@ -178,7 +170,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 {/* Duration */}
                 <td className="py-3.5 pr-6 text-right">
                   <a href={`/runs/${run.run_id}`} className="block">
-                    <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="text-[12px] font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {formatDuration(run.duration_ms)}
                     </span>
                   </a>
@@ -189,36 +181,36 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                   <a href={`/runs/${run.run_id}`} className="block">
                     {run.first_failure_step ? (
                       <span
-                        className="text-xs font-mono"
+                        className="text-[12px] font-mono font-medium"
                         style={{ color: '#ef4444' }}
                       >
                         {run.first_failure_step}
                       </span>
                     ) : (
-                      <span style={{ color: '#27272a' }}>—</span>
+                      <span style={{ color: 'var(--text-faint)' }}>&mdash;</span>
                     )}
                   </a>
                 </td>
 
                 {/* Shape */}
-                <td className="py-3.5 text-right">
+                <td className="py-3.5 text-right pr-5">
                   <a href={`/runs/${run.run_id}`} className="block">
                     {shape ? (
                       <span
-                        className="text-xs font-mono"
-                        style={{ color: shape.color }}
+                        className="text-[11px] font-medium px-2 py-0.5 rounded-md"
+                        style={{ color: shape.color, background: `${shape.color}10` }}
                       >
                         {shape.label}
                       </span>
                     ) : (
-                      <span style={{ color: '#27272a' }}>—</span>
+                      <span style={{ color: 'var(--text-faint)' }}>&mdash;</span>
                     )}
                   </a>
                 </td>
 
                 {/* Eval */}
                 {evalState && (
-                  <td className="py-3.5 text-right pr-4">
+                  <td className="py-3.5 text-right pr-5">
                     <EvalBadge run={run} evalState={evalState} />
                   </td>
                 )}

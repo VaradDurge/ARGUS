@@ -42,7 +42,7 @@ export default function StepCard({ step, defaultOpen = false, isBreakpoint = fal
         style={{
           border: `1px solid ${borderColor}`,
           background: bgColor,
-          boxShadow: isBreakpoint ? '0 0 28px rgba(239,68,68,0.18)' : '0 8px 18px rgba(0,0,0,0.2)',
+          boxShadow: isBreakpoint ? '0 0 28px rgba(239,68,68,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
         }}
       >
         {/* Breakpoint accent */}

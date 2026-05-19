@@ -1,0 +1,207 @@
+'use client'
+
+import type { RunRecord } from '@/lib/types'
+import { formatDur, fmtCost, fmtTokens } from '@/lib/run-utils'
+
+const C_GREEN = '#10b981'
+const C_AMBER = '#f59e0b'
+const C_RED = '#ef4444'
+
+interface MetricCardProps {
+  icon: React.ReactNode
+  label: string
+  value: string
+  color?: string
+  mono?: boolean
+}
+
+function MetricCard({ icon, label, value, color, mono = true }: MetricCardProps) {
+  return (
+    <div className="card rounded-xl px-4 py-3.5 flex items-center gap-3.5">
+      {icon}
+      <div>
+        <div className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </div>
+        <div
+          className={`text-lg font-bold tabular-nums tracking-tight ${mono ? 'font-mono' : ''}`}
+          style={{ color: color ?? 'var(--text-primary)' }}
+        >
+          {value}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MetricIcon({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}12` }}>
+      {children}
+    </div>
+  )
+}
+
+export default function MetricsGrid({ run }: { run: RunRecord }) {
+  const steps = run.steps ?? []
+  const totalNodes = steps.length
+  const passedNodes = steps.filter((s) => s.status === 'pass').length
+  const failedNodes = steps.filter((s) => s.status !== 'pass').length
+  const successRate = totalNodes > 0 ? Math.round((passedNodes / totalNodes) * 100) : null
+
+  const completed = run.completed_at != null
+
+  const severityOrder = ['critical', 'warning', 'info', 'ok']
+  const worstSeverity = steps.reduce((worst, s) => {
+    const sev = s.inspection?.severity
+    if (!sev) return worst
+    return severityOrder.indexOf(sev) < severityOrder.indexOf(worst) ? sev : worst
+  }, 'ok' as string)
+
+  const severityColor: Record<string, string> = {
+    critical: C_RED,
+    warning: C_AMBER,
+    info: '#6366f1',
+    ok: C_GREEN,
+  }
+
+  const totalLLMCalls = run.total_llm_calls ?? 0
+  const totalTokens = run.total_tokens ?? 0
+  const totalCost = run.total_cost_usd ?? null
+  const hasLLMData = totalLLMCalls > 0 || totalTokens > 0
+
+  const nodeCosts = steps
+    .filter((s) => s.llm_usage?.total_cost_usd != null && s.llm_usage.total_cost_usd > 0)
+    .map((s) => ({
+      name: s.node_name,
+      cost: s.llm_usage!.total_cost_usd!,
+      tokens: s.llm_usage!.total_tokens,
+      calls: s.llm_usage!.calls.length,
+    }))
+    .sort((a, b) => b.cost - a.cost)
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[12px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>
+          Metrics
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard
+          icon={<MetricIcon color="#6366f1"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="#6366f1" strokeWidth="1.2"/><path d="M7 4v3.5l2 1.5" stroke="#6366f1" strokeWidth="1.2" strokeLinecap="round"/></svg></MetricIcon>}
+          label="Duration"
+          value={formatDur(run.duration_ms)}
+        />
+        <MetricCard
+          icon={<MetricIcon color={successRate === 100 ? C_GREEN : C_AMBER}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10l3-3 2.5 1.5L12 4" stroke={successRate === 100 ? C_GREEN : C_AMBER} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg></MetricIcon>}
+          label="Success Rate"
+          value={successRate !== null ? `${successRate}%` : '\u2014'}
+          color={successRate === 100 ? C_GREEN : successRate === null ? '#9ca3af' : C_AMBER}
+        />
+        <MetricCard
+          icon={<MetricIcon color={failedNodes > 0 ? C_RED : C_GREEN}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 4v3M7 9h.01" stroke={failedNodes > 0 ? C_RED : C_GREEN} strokeWidth="1.3" strokeLinecap="round"/></svg></MetricIcon>}
+          label="Failures"
+          value={`${failedNodes}`}
+          color={failedNodes > 0 ? C_RED : C_GREEN}
+        />
+        <MetricCard
+          icon={<MetricIcon color={severityColor[worstSeverity] ?? '#9ca3af'}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2l5.5 9H1.5L7 2Z" stroke={severityColor[worstSeverity] ?? '#9ca3af'} strokeWidth="1.2" fill="none"/></svg></MetricIcon>}
+          label="Severity"
+          value={worstSeverity}
+          color={severityColor[worstSeverity] ?? '#9ca3af'}
+          mono={false}
+        />
+        {hasLLMData && (
+          <>
+            <MetricCard
+              icon={<MetricIcon color="#6366f1"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="8" rx="1.5" stroke="#6366f1" strokeWidth="1.2"/><path d="M5 7h4M5 9h2" stroke="#6366f1" strokeWidth="1" strokeLinecap="round"/></svg></MetricIcon>}
+              label="LLM Calls"
+              value={`${totalLLMCalls}`}
+            />
+            <MetricCard
+              icon={<MetricIcon color="#06b6d4"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5h8M3 7h5M3 9h3" stroke="#06b6d4" strokeWidth="1.2" strokeLinecap="round"/></svg></MetricIcon>}
+              label="Tokens"
+              value={fmtTokens(totalTokens)}
+            />
+            {totalCost !== null && (
+              <MetricCard
+                icon={<MetricIcon color={C_GREEN}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke={C_GREEN} strokeWidth="1.2"/><path d="M7 4.5v5M5.5 6h3a1 1 0 010 2h-3" stroke={C_GREEN} strokeWidth="1" strokeLinecap="round"/></svg></MetricIcon>}
+                label="Cost"
+                value={fmtCost(totalCost)}
+                color={C_GREEN}
+              />
+            )}
+            <MetricCard
+              icon={<MetricIcon color={completed ? C_GREEN : C_AMBER}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7l2.5 2.5L10 5" stroke={completed ? C_GREEN : C_AMBER} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg></MetricIcon>}
+              label="Completed"
+              value={completed ? 'Yes' : 'No'}
+              color={completed ? C_GREEN : C_AMBER}
+              mono={false}
+            />
+          </>
+        )}
+        {!hasLLMData && (
+          <MetricCard
+            icon={<MetricIcon color={completed ? C_GREEN : C_AMBER}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7l2.5 2.5L10 5" stroke={completed ? C_GREEN : C_AMBER} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg></MetricIcon>}
+            label="Completed"
+            value={completed ? 'Yes' : 'No'}
+            color={completed ? C_GREEN : C_AMBER}
+            mono={false}
+          />
+        )}
+      </div>
+
+      {/* Failure breakdown */}
+      {failedNodes > 0 && (
+        <div className="mt-3 px-4 py-2.5 rounded-xl text-[12px] card">
+          <div className="flex items-center gap-4 flex-wrap" style={{ color: 'var(--text-secondary)' }}>
+            {steps.filter((s) => s.inspection?.has_tool_failure).length > 0 && (
+              <span>tool: <span className="font-mono font-semibold" style={{ color: C_AMBER }}>{steps.filter((s) => s.inspection?.has_tool_failure).length}</span></span>
+            )}
+            {steps.filter((s) => s.status === 'fail' && s.inspection?.is_silent_failure).length > 0 && (
+              <span>context: <span className="font-mono font-semibold" style={{ color: C_AMBER }}>{steps.filter((s) => s.status === 'fail' && s.inspection?.is_silent_failure).length}</span></span>
+            )}
+            {steps.filter((s) => s.status === 'semantic_fail').length > 0 && (
+              <span>semantic: <span className="font-mono font-semibold" style={{ color: '#a855f7' }}>{steps.filter((s) => s.status === 'semantic_fail').length}</span></span>
+            )}
+            {steps.filter((s) => s.status === 'crashed').length > 0 && (
+              <span>crash: <span className="font-mono font-semibold" style={{ color: C_RED }}>{steps.filter((s) => s.status === 'crashed').length}</span></span>
+            )}
+            {run.first_failure_step && (
+              <>
+                <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+                <span>first failure: <span className="font-mono font-semibold" style={{ color: C_RED }}>{run.first_failure_step}</span></span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Per-node cost */}
+      {nodeCosts.length >= 2 && (
+        <div className="mt-3 card rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5" style={{ background: 'var(--bg-elevated)' }}>
+            <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>Per-Node Cost</span>
+          </div>
+          <div className="px-4 py-2">
+            {nodeCosts.map((nc, i) => (
+              <div
+                key={i}
+                className="flex items-baseline gap-0 py-2 text-[12px]"
+                style={{ borderBottom: i < nodeCosts.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
+              >
+                <span className="font-mono w-[140px] truncate shrink-0" style={{ color: 'var(--text-secondary)' }}>{nc.name}</span>
+                <span className="font-mono w-[60px] text-right shrink-0" style={{ color: C_GREEN }}>{fmtCost(nc.cost)}</span>
+                <span className="font-mono ml-4" style={{ color: 'var(--text-muted)' }}>
+                  {fmtTokens(nc.tokens)} tok &middot; {nc.calls} call{nc.calls !== 1 ? 's' : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

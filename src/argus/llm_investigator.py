@@ -41,42 +41,64 @@ def should_investigate(
     cfg = config or _DEFAULT_CONFIG
     if not cfg.enabled:
         return False, []
-    if cfg.always_investigate:
-        return True, ["always_investigate enabled"]
-    if record.overall_status == "clean":
-        return False, []
 
-    # Trigger on ANY non-clean run — provide insights for all failures,
-    # degraded inputs, warnings, and anomalies.
+    # Always collect detailed evidence — even for always_investigate or clean runs.
+    # The LLM needs specific pointers to reason about the execution.
     reasons: list[str] = []
 
-    # Collect evidence about what went wrong
     for event in record.steps:
         if event.status == "fail":
             fields = event.inspection.missing_fields if event.inspection else []
-            reasons.append(
-                f"silent failure at '{event.node_name}'"
-                + (f" (missing: {', '.join(fields)})" if fields else "")
+            tf_types = (
+                [tf.failure_type for tf in event.inspection.tool_failures]
+                if event.inspection else []
             )
+            detail = f"silent failure at '{event.node_name}'"
+            if fields:
+                detail += f" (missing: {', '.join(fields)})"
+            if tf_types:
+                detail += f" (tool failures: {', '.join(tf_types)})"
+            reasons.append(detail)
         elif event.status == "degraded_input":
             upstream = (
                 event.inspection.degraded_upstream_node if event.inspection else None
             )
-            reasons.append(
-                f"degraded input at '{event.node_name}'"
-                + (f" (from: {upstream})" if upstream else "")
+            degraded_fields = (
+                event.inspection.degraded_fields if event.inspection else []
             )
+            detail = f"degraded input at '{event.node_name}'"
+            if upstream:
+                detail += f" (from: {upstream})"
+            if degraded_fields:
+                detail += f" (fields: {', '.join(degraded_fields)})"
+            reasons.append(detail)
         elif event.status == "crashed":
-            reasons.append(f"crash at '{event.node_name}'")
+            exc_summary = (event.exception or "")[:120]
+            reasons.append(f"crash at '{event.node_name}': {exc_summary}")
         elif event.status == "semantic_fail":
-            reasons.append(f"semantic failure at '{event.node_name}'")
+            signals = []
+            if event.inspection and event.inspection.semantic_signals:
+                signals = [
+                    f"{s.sig_id} on {s.dotted_path}"
+                    for s in event.inspection.semantic_signals[:3]
+                ]
+            failed_validators = [
+                v.validator_name for v in event.validator_results if not v.is_valid
+            ]
+            detail = f"semantic failure at '{event.node_name}'"
+            if signals:
+                detail += f" (signals: {', '.join(signals)})"
+            if failed_validators:
+                detail += f" (validators: {', '.join(failed_validators)})"
+            reasons.append(detail)
         elif event.status == "pass" and event.inspection:
             insp = event.inspection
             if insp.tool_failures:
-                reasons.append(
-                    f"tool warning at '{event.node_name}': "
-                    f"{insp.tool_failures[0].failure_type}"
+                tf_detail = ", ".join(
+                    f"{tf.failure_type} on '{tf.field_name}'"
+                    for tf in insp.tool_failures[:3]
                 )
+                reasons.append(f"tool warning at '{event.node_name}': {tf_detail}")
             if insp.empty_fields:
                 reasons.append(
                     f"empty fields at '{event.node_name}': "
@@ -84,7 +106,10 @@ def should_investigate(
                 )
 
     if not reasons:
-        reasons.append(f"run status: {record.overall_status}")
+        reasons.append(f"run status: {record.overall_status} (no specific signals)")
+
+    if not cfg.always_investigate and record.overall_status == "clean":
+        return False, []
 
     return True, reasons
 
@@ -309,7 +334,14 @@ You must respond with valid JSON matching this exact schema:
   ],
   "degradation_narrative": "<developer-readable forensic narrative, 3-8 sentences>",
   "observations": ["<semantic observation>", ...],
-  "debugging_suggestions": ["<actionable fix/prevention suggestion>", ...],
+  "debugging_suggestions": [
+    {
+      "node": "<which node to fix>",
+      "what": "<one-line summary of the fix>",
+      "why": "<why this prevents the failure>",
+      "code_hint": "<pseudocode or concrete hint, e.g. 'if not sources: raise ValueError(...)'>"
+    }
+  ],
   "confidence": <0.0-1.0 overall confidence>,
   "suggested_signatures": []
 }
@@ -317,7 +349,11 @@ You must respond with valid JSON matching this exact schema:
 Rules:
 - Be precise and evidence-based. Reference specific nodes and signals.
 - Rank hypotheses by confidence. Include 1-4 hypotheses.
-- Make debugging suggestions actionable: what to fix, where, and how to prevent recurrence.
+- debugging_suggestions MUST be structured objects, not plain strings. Each suggestion \
+  must name the exact node, describe a concrete fix with a code hint, and explain why \
+  it prevents recurrence. Include as many suggestions as the pipeline needs — one per \
+  distinct failure point. Do NOT pad with generic advice like "add logging" or \
+  "investigate the API". Every suggestion must be a specific code-level change.
 - Your confidence should reflect how certain you are, not how bad the degradation is.
 - Do NOT speculate beyond what the evidence supports.
 - Do NOT suggest changes to ARGUS internals or detection logic.
@@ -364,11 +400,36 @@ def build_prompt(
     if config.suggest_signatures:
         system += _SIGNATURE_ADDENDUM
 
+    # Build a structured, directive prompt that forces the LLM to reason deeply
+    status = briefing.get("overall_status", "unknown")
+    node_count = briefing.get("node_count", 0)
+    step_count = briefing.get("step_count", 0)
+    topology_nodes = briefing.get("topology", {}).get("nodes", [])
+    root_chain = briefing.get("deterministic_root_cause_chain", [])
+    corr = briefing.get("correlation", {})
+    causal_summary = corr.get("causal_summary", "")
+
     user_content = (
-        "## Investigation Trigger\n"
-        "This run was flagged for LLM investigation because:\n"
+        f"## Pipeline Overview\n"
+        f"Status: **{status}** | Nodes: {node_count} | Steps executed: {step_count}\n"
+        f"Topology: {' -> '.join(topology_nodes)}\n"
+    )
+    if root_chain:
+        user_content += f"Deterministic root cause chain: {' -> '.join(root_chain)}\n"
+    if causal_summary:
+        user_content += f"Correlator summary: {causal_summary}\n"
+
+    user_content += (
+        "\n## Signals Detected\n"
+        "The following issues were flagged by deterministic analysis:\n"
         + "\n".join(f"- {r}" for r in trigger_reasons)
-        + "\n\n## Execution Intelligence\n"
+        + "\n\n## Your Task\n"
+        "Analyze the full execution intelligence below. For each failing or degraded node, "
+        "explain the SEMANTIC reason it failed — not just 'field X was empty' but WHY "
+        "the upstream logic produced that empty field, what the node was trying to do, "
+        "and how the failure propagated through the pipeline. Be specific about field names, "
+        "values, and the causal chain. If the correlator's attribution seems wrong, say so.\n"
+        "\n## Full Execution Intelligence\n"
         + json.dumps(briefing, indent=2, default=str)
     )
 
@@ -432,6 +493,31 @@ def _extract_suggested_signatures(data: dict[str, Any]) -> list[SuggestedSignatu
     return sigs
 
 
+def _extract_suggestions(data: dict[str, Any]) -> list[str]:
+    """Extract debugging suggestions, handling both structured and plain formats."""
+    raw = data.get("debugging_suggestions", [])
+    suggestions: list[str] = []
+    for s in raw:
+        if isinstance(s, str):
+            suggestions.append(s)
+        elif isinstance(s, dict):
+            node = s.get("node", "")
+            what = s.get("what", "")
+            why = s.get("why", "")
+            code_hint = s.get("code_hint", "")
+            parts = []
+            if node:
+                parts.append(f"[{node}]")
+            if what:
+                parts.append(what)
+            if why:
+                parts.append(f"— {why}")
+            if code_hint:
+                parts.append(f"\n    {code_hint}")
+            suggestions.append(" ".join(parts) if parts else str(s))
+    return suggestions
+
+
 def parse_investigation_response(
     raw: str,
     model: str,
@@ -468,7 +554,7 @@ def parse_investigation_response(
         causal_hypotheses=_extract_hypotheses(data),
         degradation_narrative=str(data.get("degradation_narrative", "")),
         observations=[str(o) for o in data.get("observations", [])],
-        debugging_suggestions=[str(s) for s in data.get("debugging_suggestions", [])],
+        debugging_suggestions=_extract_suggestions(data),
         confidence=float(data.get("confidence", 0.0)),
         suggested_signatures=_extract_suggested_signatures(data),
         model_used=model,

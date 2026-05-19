@@ -1,6 +1,37 @@
 export type RunStatus = 'clean' | 'silent_failure' | 'crashed' | 'semantic_fail' | 'interrupted'
-export type StepStatus = 'pass' | 'fail' | 'crashed' | 'semantic_fail' | 'interrupted'
+export type StepStatus = 'pass' | 'fail' | 'crashed' | 'semantic_fail' | 'interrupted' | 'degraded_input'
 export type Severity = 'critical' | 'warning' | 'info' | 'ok'
+export type BehaviorType =
+  | 'structured_json'
+  | 'retrieval_result'
+  | 'classification'
+  | 'detailed_text'
+  | 'tool_output'
+  | 'reasoning_chain'
+
+export interface SemanticSignal {
+  sig_id: string
+  category: string
+  severity: 'critical' | 'warning'
+  description: string
+  field_path: string[]
+  evidence: string
+}
+
+export interface AnomalySignal {
+  anomaly_id: string
+  severity: 'critical' | 'warning'
+  suspicion_score: number
+  reason: string
+  expected_behavior: string
+  observed_behavior: string
+  field_path: string
+}
+
+export interface BehaviorConfig {
+  default_behavior_type: BehaviorType | null
+  node_behaviors: Record<string, BehaviorType>
+}
 
 export interface ToolFailure {
   failure_type: 'error_response' | 'rate_limit' | 'empty_result' | 'error_in_data' | 'partial_failure'
@@ -27,6 +58,9 @@ export interface InspectionResult {
   suspicious_empty_keys: string[]
   tool_failures: ToolFailure[]
   has_tool_failure: boolean
+  semantic_signals: SemanticSignal[]
+  degraded_fields: string[]
+  degraded_upstream_node: string | null
 }
 
 export interface ValidatorResult {
@@ -66,6 +100,97 @@ export interface NodeEvent {
   is_subgraph_entry: boolean
   subgraph_run_id: string | null
   llm_usage?: LLMUsage | null
+  behavior_type?: BehaviorType | null
+  anomaly_signals?: AnomalySignal[]
+}
+
+export interface PropagationLink {
+  source_node: string
+  target_node: string
+  signal_type: 'field_drop' | 'placeholder' | 'anomaly_cascade' | 'semantic_collapse'
+  confidence: number
+  evidence: string
+}
+
+export interface DegradationOrigin {
+  node_name: string
+  step_index: number
+  signal_types: string[]
+  confidence: number
+  reason: string
+}
+
+export interface PropagationChain {
+  chain_type:
+    | 'tool_failure_cascade'
+    | 'semantic_collapse'
+    | 'field_drop_cascade'
+    | 'placeholder_propagation'
+    | 'anomaly_cascade'
+    | 'mixed_degradation'
+  nodes: string[]
+  links: PropagationLink[]
+  summary: string
+}
+
+export interface TimelineEvent {
+  step_index: number
+  node_name: string
+  event_type: 'node_ok' | 'degradation_onset' | 'propagation' | 'crash'
+  label: string
+  signal_summary: string
+}
+
+export interface ReplayImpact {
+  improved_nodes: string[]
+  regressed_nodes: string[]
+  key_fix_node: string | null
+  downstream_improvement_count: number
+  summary: string
+}
+
+export interface CorrelationReport {
+  run_id: string
+  degradation_origins: DegradationOrigin[]
+  propagation_chains: PropagationChain[]
+  causal_summary: string
+  timeline: TimelineEvent[]
+  replay_impact: ReplayImpact | null
+}
+
+export interface SemanticHypothesis {
+  hypothesis: string
+  confidence: number
+  supporting_evidence: string[]
+  category: string
+}
+
+export interface SuggestedSignature {
+  pattern: string
+  match_strategy: string
+  proposed_category: string
+  severity: 'critical' | 'warning'
+  description: string
+  evidence: string[]
+  confidence: number
+  reasoning: string
+}
+
+export interface LLMInvestigationResult {
+  triggered: boolean
+  trigger_reasons: string[]
+  root_cause_explanation: string
+  causal_hypotheses: SemanticHypothesis[]
+  degradation_narrative: string
+  observations: string[]
+  debugging_suggestions: string[]
+  confidence: number
+  suggested_signatures: SuggestedSignature[]
+  model_used: string
+  prompt_tokens: number
+  completion_tokens: number
+  investigation_duration_ms: number
+  error?: string | null
 }
 
 export interface RunRecord {
@@ -90,6 +215,9 @@ export interface RunRecord {
   total_llm_calls?: number
   total_tokens?: number
   total_cost_usd?: number | null
+  behavior_config?: BehaviorConfig | null
+  correlation?: CorrelationReport | null
+  llm_investigation?: LLMInvestigationResult | null
 }
 
 export interface RunSummary {

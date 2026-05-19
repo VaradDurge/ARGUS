@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { RunRecord } from '@/lib/types'
-import CliRunView from '@/components/CliRunView'
+import RunDetailView from '@/components/RunDetailView'
 import CliLogViewer from '@/components/CliLogViewer'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
@@ -94,7 +94,7 @@ export default function RunDetailClient({ id }: { id: string }) {
 
   if (authLoading || isLocal === null) {
     return (
-      <div className="py-24 text-center text-sm" style={{ color: '#3f3f46' }}>
+      <div className="py-24 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
         Loading...
       </div>
     )
@@ -110,7 +110,7 @@ export default function RunDetailClient({ id }: { id: string }) {
 
   if (!run) {
     return (
-      <div className="py-24 text-center text-sm" style={{ color: '#3f3f46' }}>
+      <div className="py-24 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
         Loading run...
       </div>
     )
@@ -118,7 +118,7 @@ export default function RunDetailClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <CliRunView run={run} />
+      <RunDetailView run={run} />
       {log && <CliLogViewer log={log} runId={run.run_id} />}
     </div>
   )

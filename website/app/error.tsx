@@ -30,9 +30,9 @@ export default function Error({
           onClick={reset}
           className="text-xs px-3 py-1.5 rounded-md transition-colors"
           style={{
-            color: '#e8e8ea',
-            border: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(255,255,255,0.04)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-default)',
+            background: 'var(--bg-surface)',
           }}
         >
           Try again
