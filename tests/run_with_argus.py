@@ -1,10 +1,11 @@
 """Run the test pipelines with ARGUS wired in — standard 2-line integration."""
-from argus import ArgusWatcher
 from test_langgraph_pipeline import (
     build_clean_pipeline,
     build_failing_pipeline,
     build_sensitive_data_pipeline,
 )
+
+from argus import ArgusWatcher
 
 print("=" * 60)
 print("RUN 1: FAILING PIPELINE")

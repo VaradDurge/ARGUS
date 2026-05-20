@@ -12,8 +12,7 @@ from __future__ import annotations
 import operator
 from typing import Annotated, Any, TypedDict
 
-from langgraph.graph import END, StateGraph
-
+from langgraph.graph import END, StateGraph  # noqa: I001
 
 # ── State schema ────────────────────────────────────────────────────────────
 
@@ -37,7 +36,7 @@ def fetch_sources(state: ResearchState, **kwargs: Any) -> dict[str, Any]:
     Bug: returns {"success": false} — a boolean failure indicator
     that many tools miss because they only look for "error" keys.
     """
-    config = kwargs.get("config", {})
+    _ = kwargs  # accept config forwarded by LangGraph 0.2+
     return {
         "sources": [],
         "success": False,         # ← boolean failure indicator
