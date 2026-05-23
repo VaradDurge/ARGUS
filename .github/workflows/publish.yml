@@ -28,3 +28,27 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Notify Discord
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          NAME="${{ github.event.release.name }}"
+          URL="${{ github.event.release.html_url }}"
+          PYPI="https://pypi.org/project/argus-agents/${TAG#v}/"
+          curl -s -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"${NAME}\",
+                \"url\": \"${URL}\",
+                \"color\": 5814783,
+                \"fields\": [
+                  {\"name\": \"PyPI\", \"value\": \"[argus-agents ${TAG}](${PYPI})\", \"inline\": true},
+                  {\"name\": \"Install\", \"value\": \"\`pip install argus-agents==${TAG#v}\`\", \"inline\": true}
+                ],
+                \"footer\": {\"text\": \"ARGUS — Agent Pipeline Monitor\"}
+              }]
+            }" \
+            "$DISCORD_WEBHOOK"
