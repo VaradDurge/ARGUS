@@ -421,6 +421,9 @@ def _print_chain(chain: list[RunRecord]) -> None:
         rc.append(chain_str, style="bold red")
         console.print(rc)
 
+    # ── AI Fix Advice ─────────────────────────────────────────────────────
+    _print_investigation_panel(leaf)
+
     # ── Replay suggestion ─────────────────────────────────────────────────
     _print_replay_suggestion(leaf)
 
@@ -493,6 +496,9 @@ def _print_run(record: RunRecord) -> None:
     # ── Correlation ───────────────────────────────────────────────────────
     _print_correlation_panel(record)
 
+    # ── AI Fix Advice ─────────────────────────────────────────────────────
+    _print_investigation_panel(record)
+
     # ── Replay suggestion ─────────────────────────────────────────────────
     _print_replay_suggestion(record)
 
@@ -557,6 +563,134 @@ def _print_correlation_panel(record: RunRecord) -> None:
         title_align="left",
         border_style="dim",
         padding=(0, 1),
+    )
+    console.print()
+    console.print(panel)
+
+
+def _print_investigation_panel(record: RunRecord) -> None:
+    """Render the LLM semantic investigation results as a polished panel."""
+    inv = record.llm_investigation
+    if inv is None or not inv.triggered:
+        return
+    if inv.error:
+        console.print()
+        console.print(
+            f"  [dim]AI investigation error:[/dim] [italic red]{inv.error}[/italic red]"
+        )
+        return
+
+    lines: list[str] = []
+
+    # ── Root Cause ────────────────────────────────────────────────────────
+    if inv.root_cause_explanation:
+        lines.append("  [bold underline]Root Cause[/bold underline]")
+        lines.append("")
+        lines.append(f"  {inv.root_cause_explanation}")
+        lines.append("")
+
+    # ── Causal Hypotheses ─────────────────────────────────────────────────
+    if inv.causal_hypotheses:
+        lines.append("  [bold underline]Hypotheses[/bold underline]")
+        lines.append("")
+        for i, h in enumerate(inv.causal_hypotheses, 1):
+            conf = h.confidence
+            conf_bar = "█" * int(conf * 10) + "░" * (10 - int(conf * 10))
+            conf_color = (
+                "bold green" if conf >= 0.8
+                else "bold yellow" if conf >= 0.5
+                else "dim red"
+            )
+            lines.append(
+                f"  [bold]{i}.[/bold]  [{conf_color}]{conf_bar}  {conf:.0%}[/{conf_color}]"
+                f"  [dim]({h.category})[/dim]"
+            )
+            lines.append(f"      {h.hypothesis}")
+            if h.supporting_evidence:
+                evidence = ", ".join(h.supporting_evidence[:3])
+                lines.append(f"      [dim]evidence: {evidence}[/dim]")
+            lines.append("")
+
+    # ── Fix Advice ────────────────────────────────────────────────────────
+    if inv.debugging_suggestions:
+        lines.append("  [bold underline]Fix[/bold underline]")
+        lines.append("")
+        for i, suggestion in enumerate(inv.debugging_suggestions, 1):
+            # Parse structured suggestions: "[node] what — why\n    code_hint"
+            parts = suggestion.split("\n", 1)
+            main_line = parts[0].strip()
+            code_hint = parts[1].strip() if len(parts) > 1 else ""
+
+            # Extract [node_name] prefix if present
+            if main_line.startswith("["):
+                bracket_end = main_line.find("]")
+                if bracket_end > 0:
+                    node_name = main_line[1:bracket_end]
+                    rest = main_line[bracket_end + 1:].strip()
+                    # Split "what — why"
+                    if " — " in rest:
+                        what, why = rest.split(" — ", 1)
+                    else:
+                        what, why = rest, ""
+
+                    lines.append(
+                        f"  [bold cyan]{i}[/bold cyan]"
+                    )
+                    lines.append(
+                        f"  [dim]node[/dim]   [bold]{node_name}[/bold]"
+                    )
+                    lines.append(
+                        f"  [dim]fix[/dim]    {what.strip()}"
+                    )
+                    if why:
+                        lines.append(
+                            f"  [dim]why[/dim]    [italic]{why.strip()}[/italic]"
+                        )
+                    if code_hint:
+                        lines.append(
+                            f"  [dim]code[/dim]   [bold green]{code_hint}[/bold green]"
+                        )
+                    lines.append("")
+                    continue
+
+            # Fallback for unstructured suggestions
+            lines.append(f"  [bold cyan]{i}[/bold cyan]  {main_line}")
+            if code_hint:
+                lines.append(f"         [bold green]{code_hint}[/bold green]")
+            lines.append("")
+
+    # ── Narrative ─────────────────────────────────────────────────────────
+    if inv.degradation_narrative:
+        lines.append("  [bold underline]Narrative[/bold underline]")
+        lines.append("")
+        # Word-wrap long narratives to ~76 chars
+        words = inv.degradation_narrative.split()
+        current_line = "  "
+        for word in words:
+            if len(current_line) + len(word) + 1 > 78:
+                lines.append(current_line)
+                current_line = "  " + word
+            else:
+                current_line += (" " if len(current_line) > 2 else "") + word
+        if current_line.strip():
+            lines.append(current_line)
+        lines.append("")
+
+    # ── Footer: model + tokens + duration ─────────────────────────────────
+    tokens = inv.prompt_tokens + inv.completion_tokens
+    dur_s = inv.investigation_duration_ms / 1000
+    conf_pct = f"{inv.confidence:.0%}"
+    lines.append(
+        f"  [dim]{inv.model_used}  ·  {tokens:,} tokens  ·  "
+        f"{dur_s:.1f}s  ·  confidence {conf_pct}[/dim]"
+    )
+
+    panel = Panel(
+        "\n".join(lines),
+        title="[bold magenta]AI Investigation[/bold magenta]",
+        title_align="left",
+        border_style="magenta dim",
+        padding=(1, 1),
     )
     console.print()
     console.print(panel)
