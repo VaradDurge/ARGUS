@@ -93,15 +93,19 @@ def _import_factory_for_ui(spec: str):
 
 def _run_replay_worker(
     job_id: str, run_id: str, from_node: str, app_module_str: str | None,
+    mode: str = "full",
 ) -> None:
     """Background thread: runs ReplayEngine and updates _replay_jobs on completion."""
     from argus.replay import ReplayEngine  # noqa: PLC0415
     try:
-        factory = _import_factory_for_ui(app_module_str) if app_module_str else None
         engine = ReplayEngine()
-        new_run_id = engine.replay(
-            run_id=run_id, from_node=from_node, app_factory=factory,
-        )
+        if mode == "node":
+            new_run_id = engine.replay_node(run_id=run_id, node_name=from_node)
+        else:
+            factory = _import_factory_for_ui(app_module_str) if app_module_str else None
+            new_run_id = engine.replay(
+                run_id=run_id, from_node=from_node, app_factory=factory,
+            )
         with _replay_lock:
             _replay_jobs[job_id] = {"status": "done", "run_id": new_run_id, "error": None}
     except Exception as exc:
@@ -328,6 +332,7 @@ def _make_handler(
 
                 run_id = (data.get("run_id") or "").strip()
                 from_step = (data.get("from_step") or "").strip()
+                replay_mode = (data.get("mode") or "full").strip()
 
                 if not run_id or not from_step:
                     self._send_json({"error": "run_id and from_step are required"}, 400)
@@ -341,22 +346,30 @@ def _make_handler(
                     self._send_json({"error": "run not found"}, 404)
                     return
 
-                # If run has node_fn_refs, no factory needed at all.
-                # Otherwise fall back to factory resolution chain.
-                has_node_refs = bool(run_record.node_fn_refs)
+                # Single-node replay only needs node_fn_refs
                 effective_app: str | None = None
-                if not has_node_refs:
-                    effective_app = (
-                        app_module_str
-                        or _load_config_app_factory()
-                        or run_record.app_factory_ref
-                    )
-                    if not effective_app:
+                if replay_mode == "node":
+                    if not run_record.node_fn_refs or from_step not in run_record.node_fn_refs:
                         self._send_json({
-                            "error": "no_app_factory",
-                            "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
+                            "error": "no_node_ref",
+                            "message": f"No stored function ref for '{from_step}'. Re-record with latest argus.",  # noqa: E501
                         }, 422)
                         return
+                else:
+                    # Full replay: check factory requirements
+                    has_node_refs = bool(run_record.node_fn_refs)
+                    if not has_node_refs:
+                        effective_app = (
+                            app_module_str
+                            or _load_config_app_factory()
+                            or run_record.app_factory_ref
+                        )
+                        if not effective_app:
+                            self._send_json({
+                                "error": "no_app_factory",
+                                "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
+                            }, 422)
+                            return
 
                 job_id = str(uuid.uuid4())
                 with _replay_lock:
@@ -364,7 +377,7 @@ def _make_handler(
 
                 t = threading.Thread(
                     target=_run_replay_worker,
-                    args=(job_id, run_id, from_step, effective_app),
+                    args=(job_id, run_id, from_step, effective_app, replay_mode),
                     daemon=True,
                 )
                 t.start()

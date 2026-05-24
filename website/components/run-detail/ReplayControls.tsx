@@ -2,22 +2,37 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import type { NodeEvent, RunRecord } from '@/lib/types'
 
-type ReplayPhase = 'idle' | 'submitting' | 'polling' | 'done' | 'error' | 'no_factory'
+type ReplayPhase = 'idle' | 'submitting' | 'polling' | 'done' | 'error' | 'no_factory' | 'node_done'
 
 interface ReplayState {
   phase: ReplayPhase
   jobId?: string
   newRunId?: string
   message?: string
+  mode?: 'full' | 'node'
+  nodeName?: string
+}
+
+export interface NodeDiffData {
+  originalStep: NodeEvent
+  replayStep: NodeEvent
+  nodeName: string
 }
 
 export default function ReplayControls({
   runId,
+  run,
   children,
 }: {
   runId: string
-  children: (handleReplay: (node: string) => void) => React.ReactNode
+  run: RunRecord
+  children: (
+    handleReplay: (node: string) => void,
+    handleReplayNode: (node: string) => void,
+    replayNodeState: { replayingNode: string | null; nodeDiff: NodeDiffData | null; dismissDiff: () => void },
+  ) => React.ReactNode
 }) {
   const router = useRouter()
   const [replayState, setReplayState] = useState<ReplayState>({ phase: 'idle' })
@@ -26,6 +41,8 @@ export default function ReplayControls({
   const [factorySaved, setFactorySaved] = useState(false)
   const factoryInputRef = useRef<HTMLInputElement>(null)
   const [pendingNode, setPendingNode] = useState<string | null>(null)
+  const [nodeDiff, setNodeDiff] = useState<NodeDiffData | null>(null)
+  const [replayingNode, setReplayingNode] = useState<string | null>(null)
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
@@ -42,42 +59,54 @@ export default function ReplayControls({
     setTimeout(() => setFactorySaved(false), 1500)
   }
 
-  async function submitReplay(nodeName: string) {
+  async function submitReplay(nodeName: string, mode: 'full' | 'node' = 'full') {
     if (pollRef.current) clearInterval(pollRef.current)
-    setReplayState({ phase: 'submitting' })
+    setReplayState({ phase: 'submitting', mode, nodeName })
+    setNodeDiff(null)
+    if (mode === 'node') setReplayingNode(nodeName)
 
     let resp: Response
     try {
       resp = await fetch('/api/replay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ run_id: runId, from_step: nodeName }),
+        body: JSON.stringify({ run_id: runId, from_step: nodeName, mode }),
       })
     } catch {
       setReplayState({ phase: 'error', message: 'Network error' })
+      setReplayingNode(null)
       return
     }
 
     if (resp.status === 422) {
+      const body = await resp.json().catch(() => ({})) as { error?: string }
+      if (body.error === 'no_node_ref') {
+        setReplayState({ phase: 'error', message: `No stored function ref for '${nodeName}'. Re-record with latest argus.` })
+        setReplayingNode(null)
+        return
+      }
       setPendingNode(nodeName)
       setReplayState({ phase: 'no_factory' })
+      setReplayingNode(null)
       setTimeout(() => factoryInputRef.current?.focus(), 50)
       return
     }
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}))
       setReplayState({ phase: 'error', message: (body as { error?: string }).error ?? `HTTP ${resp.status}` })
+      setReplayingNode(null)
       return
     }
 
     const { job_id } = await resp.json() as { job_id: string }
-    setReplayState({ phase: 'polling', jobId: job_id })
+    setReplayState({ phase: 'polling', jobId: job_id, mode, nodeName })
 
     const deadline = Date.now() + 5 * 60 * 1000
     pollRef.current = setInterval(async () => {
       if (Date.now() > deadline) {
         clearInterval(pollRef.current!)
         setReplayState({ phase: 'error', message: 'Timed out waiting for replay' })
+        setReplayingNode(null)
         return
       }
       try {
@@ -85,10 +114,28 @@ export default function ReplayControls({
         const pdata = await pr.json() as { status: string; run_id?: string; message?: string }
         if (pdata.status === 'done') {
           clearInterval(pollRef.current!)
-          setReplayState({ phase: 'done', newRunId: pdata.run_id })
-          router.push(`/runs/${pdata.run_id}`)
+          if (mode === 'node' && pdata.run_id && nodeName) {
+            try {
+              const newRunResp = await fetch(`/api/runs/${pdata.run_id}`)
+              const newRun = await newRunResp.json() as RunRecord
+              const originalStep = run.steps.find(s => s.node_name === nodeName)
+              const replayStep = newRun.steps?.find((s: NodeEvent) => s.node_name === nodeName)
+              if (originalStep && replayStep) {
+                setNodeDiff({ originalStep, replayStep, nodeName })
+              }
+            } catch {
+              // ignore
+            }
+            setReplayingNode(null)
+            setReplayState({ phase: 'node_done', newRunId: pdata.run_id, mode, nodeName })
+          } else {
+            setReplayingNode(null)
+            setReplayState({ phase: 'done', newRunId: pdata.run_id })
+            router.push(`/runs/${pdata.run_id}`)
+          }
         } else if (pdata.status === 'error') {
           clearInterval(pollRef.current!)
+          setReplayingNode(null)
           setReplayState({ phase: 'error', message: pdata.message ?? 'Replay failed' })
         }
       } catch {
@@ -98,7 +145,16 @@ export default function ReplayControls({
   }
 
   function handleReplay(nodeName: string) {
-    submitReplay(nodeName)
+    submitReplay(nodeName, 'full')
+  }
+
+  function handleReplayNode(nodeName: string) {
+    submitReplay(nodeName, 'node')
+  }
+
+  function dismissDiff() {
+    setNodeDiff(null)
+    setReplayState({ phase: 'idle' })
   }
 
   async function handleFactorySubmit() {
@@ -111,7 +167,7 @@ export default function ReplayControls({
 
   return (
     <>
-      {/* Factory input - only shown when auto-detection failed (no_factory) */}
+      {/* Factory input - only shown when auto-detection failed */}
       {replayState.phase === 'no_factory' && (
         <div
           className="px-3 py-2 rounded-lg text-[13px] flex items-center gap-2"
@@ -140,10 +196,7 @@ export default function ReplayControls({
             <button
               type="submit"
               className="font-mono text-[10px] px-2 py-1 rounded-md transition-colors"
-              style={{
-                background: '#f59e0b',
-                color: '#000',
-              }}
+              style={{ background: '#f59e0b', color: '#000' }}
             >
               retry
             </button>
@@ -154,8 +207,8 @@ export default function ReplayControls({
         </div>
       )}
 
-      {/* Replay status banner */}
-      {replayState.phase !== 'idle' && replayState.phase !== 'no_factory' && (
+      {/* Full replay status banner */}
+      {replayState.phase !== 'idle' && replayState.phase !== 'no_factory' && replayState.phase !== 'node_done' && replayState.mode !== 'node' && (
         <div
           className="px-3 py-2 rounded-lg text-[13px] flex items-center gap-2"
           style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
@@ -165,8 +218,7 @@ export default function ReplayControls({
           )}
           {replayState.phase === 'polling' && (
             <span className="font-mono text-[12px]" style={{ color: '#f59e0b' }}>
-              replay running
-              <span className="animate-pulse">...</span>
+              replay running<span className="animate-pulse">...</span>
             </span>
           )}
           {replayState.phase === 'done' && (
@@ -189,8 +241,20 @@ export default function ReplayControls({
         </div>
       )}
 
-      {/* Render children with handleReplay */}
-      {children(handleReplay)}
+      {/* Node replay error banner */}
+      {replayState.phase === 'error' && replayState.mode === 'node' && (
+        <div
+          className="px-3 py-2 rounded-lg text-[13px] flex items-center gap-2"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid #ef4444' }}
+        >
+          <span className="font-mono text-[12px]" style={{ color: '#ef4444' }}>
+            node replay failed: {replayState.message}
+          </span>
+        </div>
+      )}
+
+      {/* Pass diff state down to children so it renders inline */}
+      {children(handleReplay, handleReplayNode, { replayingNode, nodeDiff, dismissDiff })}
     </>
   )
 }

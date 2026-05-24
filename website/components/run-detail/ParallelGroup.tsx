@@ -1,6 +1,7 @@
 'use client'
 
 import type { NodeEvent, RunRecord } from '@/lib/types'
+import type { NodeDiffData } from './ReplayControls'
 import StepRow from './StepRow'
 
 export default function ParallelGroup({
@@ -8,11 +9,19 @@ export default function ParallelGroup({
   nameCol,
   run,
   onReplay,
+  onReplayNode,
+  replayingNode,
+  nodeDiff,
+  onDismissDiff,
 }: {
   events: NodeEvent[]
   nameCol: number
   run: RunRecord
   onReplay?: (node: string) => void
+  onReplayNode?: (node: string) => void
+  replayingNode?: string | null
+  nodeDiff?: NodeDiffData | null
+  onDismissDiff?: () => void
 }) {
   const nodeNames = events.map((e) => e.node_name).join(' · ')
   return (
@@ -25,7 +34,17 @@ export default function ParallelGroup({
         <span className="text-[#52525e] ml-3">{nodeNames}</span>
       </div>
       {events.map((event, i) => (
-        <StepRow key={i} event={event} nameCol={nameCol} run={run} onReplay={onReplay} />
+        <StepRow
+          key={i}
+          event={event}
+          nameCol={nameCol}
+          run={run}
+          onReplay={onReplay}
+          onReplayNode={onReplayNode}
+          isReplaying={replayingNode === event.node_name}
+          nodeDiff={nodeDiff?.nodeName === event.node_name ? nodeDiff : undefined}
+          onDismissDiff={onDismissDiff}
+        />
       ))}
     </div>
   )

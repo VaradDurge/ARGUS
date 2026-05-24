@@ -49,6 +49,7 @@ _COMMANDS = [
     ("show last",                         "inspect the most recent run"),
     ("show run <id>",                     "inspect a specific run  (full id or 8-char prefix)"),
     ("replay <id> <node>",                "re-run from a saved node checkpoint"),
+    ("replay <id> <node> --only",         "re-run just that node in isolation"),
     ("replay <id> <node> --app mod:fn",   "replay with a live graph factory"),
     ("inspect <id> --step <node>",        "dump raw input / output state for a node"),
     ("diff <id>",                         "diff a replay run against its original"),
@@ -224,9 +225,16 @@ def cmd_replay(
             help="'module.path:factory_fn' — zero-arg callable returning a StateGraph.",
         ),
     ] = None,
+    only: Annotated[
+        bool,
+        typer.Option(
+            "--only",
+            help="Re-run only the specified node in isolation (skip downstream).",
+        ),
+    ] = False,
 ) -> None:
     """Re-run a pipeline from a saved step using stored input state."""
-    replay_run(run_id=run_id, from_step=from_step, app_module_str=app)
+    replay_run(run_id=run_id, from_step=from_step, app_module_str=app, only=only)
 
 
 @app.command("inspect")

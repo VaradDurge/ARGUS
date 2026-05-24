@@ -10,13 +10,19 @@ from rich.rule import Rule
 from rich.text import Text
 
 from argus.cli import print_footer
+from argus.models import RunRecord
 from argus.replay import ReplayEngine
 from argus.storage import load_run
 
 console = Console()
 
 
-def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
+def replay_run(
+    run_id: str,
+    from_step: str,
+    app_module_str: str | None,
+    only: bool = False,
+) -> None:
     try:
         record = load_run(run_id)
     except FileNotFoundError as e:
@@ -58,27 +64,40 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
             return
 
     # ── Header ────────────────────────────────────────────────────────────
+    mode_label = "single node" if only else "from"
     console.print()
     header = Text()
     header.append("argus replay", style="bold italic")
     header.append(f"  {run_id}", style="italic dim")
-    header.append("  ↺  from  ", style="dim")
+    header.append(f"  ↺  {mode_label}  ", style="dim")
     header.append(from_step, style="bold")
+    if only:
+        header.append("  (isolated)", style="italic dim")
     console.print(f"  {header}")
     console.print()
     console.print(Rule(style="dim"))
     console.print()
-    console.print(
-        f"  [dim]Replaying with frozen LLM responses from [bold]{run_id}[/bold][/dim]"
-    )
+    if only:
+        console.print(
+            f"  [dim]Re-running [bold]{from_step}[/bold] with original input state[/dim]"
+        )
+    else:
+        console.print(
+            f"  [dim]Replaying with frozen LLM responses from [bold]{run_id}[/bold][/dim]"
+        )
     console.print()
 
     # ── Run replay ────────────────────────────────────────────────────────
     engine = ReplayEngine()
     try:
-        new_run_id = engine.replay(
-            run_id=run_id, from_node=from_step, app_factory=factory,
-        )
+        if only:
+            new_run_id = engine.replay_node(
+                run_id=run_id, node_name=from_step,
+            )
+        else:
+            new_run_id = engine.replay(
+                run_id=run_id, from_node=from_step, app_factory=factory,
+            )
     except Exception as e:
         console.print(f"[red]Replay failed:[/red] {e}")
         return
@@ -131,8 +150,107 @@ def replay_run(run_id: str, from_step: str, app_module_str: str | None) -> None:
         result.append(f"    {new_run_id}", style="dim")
 
     console.print(result)
+
+    # ── Auto-diff against original ────────────────────────────────────────
+    console.print()
+    console.print(Rule(style="dim"))
+    _print_inline_diff(record, new_record, only=only)
     console.print()
     print_footer()
+
+
+def _print_inline_diff(
+    original: RunRecord, replay: RunRecord, only: bool = False,
+) -> None:
+    """Print a compact inline diff comparing original vs replay."""
+    from argus.cli.cmd_diff import (
+        _build_node_map,
+        _diff_inspection,
+        _diff_output,
+        _diff_validators,
+    )
+    orig_map = _build_node_map(original)
+    replay_map = _build_node_map(replay)
+
+    # Only compare nodes that exist in both runs
+    common = set(orig_map) & set(replay_map)
+    if not common:
+        console.print("  [dim]no comparable nodes between runs[/dim]")
+        console.print()
+        return
+
+    console.print()
+    console.print(Text("  replay diff", style="bold italic"))
+    console.print()
+
+    fixed = 0
+    regressed = 0
+    changed = 0
+
+    for name in (s.node_name for s in original.steps if s.node_name in common):
+        if name not in common:
+            continue
+        common.discard(name)  # process each only once
+
+        b = orig_map[name]
+        a = replay_map[name]
+
+        status_changed = b.status != a.status
+        field_diffs = _diff_output(b.output_dict, a.output_dict)
+        insp_diffs = _diff_inspection(b.inspection, a.inspection)
+        val_diffs = _diff_validators(b.validator_results, a.validator_results)
+        has_changes = status_changed or field_diffs or insp_diffs or val_diffs
+
+        if not has_changes:
+            console.print(f"  [bold]{name}[/bold]  [dim]unchanged[/dim]")
+            continue
+
+        changed += 1
+
+        if status_changed:
+            b_bad = b.status in ("crashed", "fail", "semantic_fail")
+            a_good = a.status == "pass"
+            a_bad = a.status in ("crashed", "fail", "semantic_fail")
+
+            if b_bad and a_good:
+                fixed += 1
+                console.print(
+                    f"  [bold]{name}[/bold]  "
+                    f"[dim]{b.status}[/dim] → [bold green]{a.status}[/bold green]"
+                    f"  [bold green]FIXED[/bold green]"
+                )
+            elif b.status == "pass" and a_bad:
+                regressed += 1
+                console.print(
+                    f"  [bold]{name}[/bold]  "
+                    f"[dim]{b.status}[/dim] → [bold red]{a.status}[/bold red]"
+                    f"  [bold red]REGRESSION[/bold red]"
+                )
+            else:
+                console.print(
+                    f"  [bold]{name}[/bold]  "
+                    f"[dim]{b.status}[/dim] → [dim]{a.status}[/dim]"
+                )
+        else:
+            console.print(f"  [bold]{name}[/bold]  [dim]{a.status}[/dim]")
+
+        for line in field_diffs + insp_diffs + val_diffs:
+            console.print(f"     [dim]└─[/dim]  {line}")
+
+    console.print()
+
+    # Summary line
+    parts: list[str] = []
+    if fixed:
+        parts.append(f"[bold green]{fixed} fixed[/bold green]")
+    if regressed:
+        parts.append(f"[bold red]{regressed} regressed[/bold red]")
+    if changed and not fixed and not regressed:
+        parts.append(f"[bold]{changed} changed[/bold]")
+    if not parts:
+        parts.append("[dim]no changes[/dim]")
+    console.print("  " + "  ·  ".join(parts))
+    console.print()
 
 
 def _import_factory(spec: str) -> Callable[[], Any] | None:

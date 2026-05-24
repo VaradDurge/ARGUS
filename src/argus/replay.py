@@ -25,6 +25,54 @@ class ReplayEngine:
     def __init__(self, max_field_size: int = 50_000) -> None:
         self._max_field_size = max_field_size
 
+    def replay_node(
+        self,
+        run_id: str,
+        node_name: str,
+        state_type: type | None = None,
+    ) -> str:
+        """Re-execute a single node in isolation using its original input state.
+
+        Imports the node function via stored node_fn_refs, runs it with the
+        original input_state, and records a single-step RunRecord.
+
+        Returns:
+            new run-id of the single-node replay run
+        """
+        from argus.session import ArgusSession
+
+        record = load_run(run_id)
+
+        step = next((e for e in record.steps if e.node_name == node_name), None)
+        if step is None:
+            available = [e.node_name for e in record.steps]
+            raise ValueError(
+                f"Node '{node_name}' not found in run '{run_id}'. "
+                f"Available nodes: {available}"
+            )
+
+        if not record.node_fn_refs or node_name not in record.node_fn_refs:
+            raise ValueError(
+                f"No stored function reference for node '{node_name}'. "
+                "Re-record the run with the latest argus to enable single-node replay."
+            )
+
+        state = safe_deserialize(step.input_state, state_type)
+        fn = _import_fn(record.node_fn_refs[node_name])
+
+        session = ArgusSession(max_field_size=self._max_field_size)
+        session.set_node_names([node_name])
+        session.set_edges({})
+        session.parent_run_id = record.run_id
+        session.replay_from_step = node_name
+        session.node_fn_refs = {node_name: record.node_fn_refs[node_name]}
+
+        wrapped = session.wrap(node_name, fn)
+        wrapped(state)
+
+        session.finalize()
+        return session.run_id
+
     def replay(
         self,
         run_id: str,

@@ -29,8 +29,8 @@ export default function RunDetailView({ run }: { run: RunRecord }) {
         </Link>
       </div>
 
-      <ReplayControls runId={run.run_id}>
-        {(handleReplay) => (
+      <ReplayControls runId={run.run_id} run={run}>
+        {(handleReplay, handleReplayNode, replayNodeState) => (
           <div className="space-y-8">
             {/* 1. Run header with status, metadata, actions */}
             <RunHeader run={run} />
@@ -44,7 +44,14 @@ export default function RunDetailView({ run }: { run: RunRecord }) {
             <MetricsGrid run={run} />
 
             {/* 4. Execution timeline — terminal-inspired */}
-            <ExecutionTimeline run={run} onReplay={handleReplay} />
+            <ExecutionTimeline
+              run={run}
+              onReplay={handleReplay}
+              onReplayNode={handleReplayNode}
+              replayingNode={replayNodeState.replayingNode}
+              nodeDiff={replayNodeState.nodeDiff}
+              onDismissDiff={replayNodeState.dismissDiff}
+            />
 
             {/* 5. AI Analysis */}
             <AIAnalysisPanel run={run} />

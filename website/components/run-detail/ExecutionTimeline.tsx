@@ -3,6 +3,7 @@
 import type { RunRecord } from '@/lib/types'
 import { SENTINEL_NODES } from '@/lib/run-utils'
 import { topologyLines, segmentEvents } from '@/lib/topology'
+import type { NodeDiffData } from './ReplayControls'
 import StepRow from './StepRow'
 import ParallelGroup from './ParallelGroup'
 import CycleGroup from './CycleGroup'
@@ -10,9 +11,17 @@ import CycleGroup from './CycleGroup'
 export default function ExecutionTimeline({
   run,
   onReplay,
+  onReplayNode,
+  replayingNode,
+  nodeDiff,
+  onDismissDiff,
 }: {
   run: RunRecord
   onReplay: (node: string) => void
+  onReplayNode?: (node: string) => void
+  replayingNode?: string | null
+  nodeDiff?: NodeDiffData | null
+  onDismissDiff?: () => void
 }) {
   const steps = run.steps ?? []
   const nameCol = steps.length > 0 ? Math.max(...steps.map((e) => e.node_name.length)) + 2 : 10
@@ -68,16 +77,29 @@ export default function ExecutionTimeline({
             if (seg.type === 'normal') {
               const rows = seg.events.map((event) => {
                 const idx = globalIdx++
-                return <StepRow key={idx} event={event} nameCol={nameCol} run={run} displayIndex={idx} onReplay={onReplay} />
+                return (
+                  <StepRow
+                    key={idx}
+                    event={event}
+                    nameCol={nameCol}
+                    run={run}
+                    displayIndex={idx}
+                    onReplay={onReplay}
+                    onReplayNode={onReplayNode}
+                    isReplaying={replayingNode === event.node_name}
+                    nodeDiff={nodeDiff?.nodeName === event.node_name ? nodeDiff : undefined}
+                    onDismissDiff={onDismissDiff}
+                  />
+                )
               })
               return <div key={si}>{rows}</div>
             }
             if (seg.type === 'parallel') {
               globalIdx += seg.events.length
-              return <ParallelGroup key={si} events={seg.events} nameCol={nameCol} run={run} onReplay={onReplay} />
+              return <ParallelGroup key={si} events={seg.events} nameCol={nameCol} run={run} onReplay={onReplay} onReplayNode={onReplayNode} replayingNode={replayingNode} nodeDiff={nodeDiff} onDismissDiff={onDismissDiff} />
             }
             for (const iter of seg.iterations) globalIdx += iter.length
-            return <CycleGroup key={si} iterations={seg.iterations} nameCol={nameCol} run={run} onReplay={onReplay} />
+            return <CycleGroup key={si} iterations={seg.iterations} nameCol={nameCol} run={run} onReplay={onReplay} onReplayNode={onReplayNode} replayingNode={replayingNode} nodeDiff={nodeDiff} onDismissDiff={onDismissDiff} />
           })}
           <div className="h-2" />
         </div>
