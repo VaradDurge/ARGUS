@@ -13,6 +13,35 @@ interface Release {
 
 const RELEASES: Release[] = [
   {
+    version: '0.4.4',
+    title: 'Detection Engine Upgrade',
+    date: '2026-05-26',
+    tag: 'minor',
+    highlights: [
+      '7 new failure patterns: truncated outputs, retrieval quality, hallucinated success, confidence-behavior mismatch, shallow summaries, partial tool failures, corrupted structured output',
+      'Single-node replay — re-run one node in isolation without rebuilding the full graph',
+      'Inline before/after diff shown in CLI immediately after replay completes',
+      'AI investigation now wired into replayed runs via stored node refs',
+      '14 new semantic signatures: hedging phrases, placeholder variants, corrupted markers',
+      'Short-string repetition detection fixed (N/A × 4 and similar patterns now caught)',
+      'Replay tree visible in run detail Overview tab',
+    ],
+  },
+  {
+    version: '0.4.3',
+    title: 'Master-Detail UI & Factory-Free Replay',
+    date: '2026-05-22',
+    tag: 'minor',
+    highlights: [
+      'Factory-free replay — node function refs stored per-run, no --app flag required',
+      'Master-detail layout: resizable split panel, runs list left, full detail right',
+      'Overview tab: status card, pipeline overview, metrics grid, AI analysis summary, execution timeline, replay branches',
+      'Pipeline tab: node-by-node inspector with expandable input/output per step',
+      'AI Analysis tab: LLM root cause investigation panel with confidence score',
+      'Correlations, State, and Logs tabs added',
+    ],
+  },
+  {
     version: '0.4.0',
     title: 'Beta Testing Rollout',
     date: '2026-05-17',
