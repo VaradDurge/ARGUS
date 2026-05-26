@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus-NameTrans.png?raw=true" width="280"/>
+  <img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus-NameTrans.png?raw=true" width="420"/>
 </div>
 
 <div align="center">
