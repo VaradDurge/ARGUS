@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.4 — 2026-05-26
+
+- Detection engine expanded: 7 new failure patterns across truncated outputs, retrieval quality, hallucinated success, confidence-behavior mismatch, shallow summaries, partial tool failures, corrupted structured output
+- Single-node replay: re-run one node in isolation without rebuilding the full graph
+- Inline before/after diff shown directly in CLI after replay
+- AI investigation wired into replayed runs (uses stored node refs, no factory needed)
+- Semantic signature registry extended: 14 new entries covering hedging phrases, placeholder variants, corrupted markers
+- Short-string repetition detection fixed (N/A × 4 and similar patterns now caught)
+- Replay tree visible in run detail Overview tab
+- README and logo updated
+
+## 0.4.3 — 2026-05-22
+
+- Factory-free replay stabilised: node function refs stored per-run, no `--app` flag required for new runs
+- Master-detail UI: resizable split panel, runs list on left, full run detail on right
+- Overview tab: status card, pipeline overview, metrics grid, AI analysis summary, execution timeline, replay branches
+- Pipeline tab: node-by-node step inspector with expandable input/output
+- AI Analysis tab: LLM root cause investigation panel
+- Correlations, State, Logs tabs added
+- `argus replay` inline diff output
+
 ## 0.4.0 (beta) — 2026-05-17
 
 - LLM token/cost tracking: auto-extracts usage from node outputs, shows cost per node and total in the UI
