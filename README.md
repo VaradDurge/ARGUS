@@ -1,8 +1,5 @@
 <div align="center">
-  <img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus-NameTrans.png?raw=true" width="420"/>
-</div>
-
-<div align="center">
+  <img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus-NameTrans.png?raw=true" width="480"/><br/>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/pypi/v/argus-agents" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/></a>
   <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.4.4"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
