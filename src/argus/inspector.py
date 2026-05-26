@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from statistics import median
 from typing import Any
 
 from argus.heuristic_engine import scan_execution_output as _scan_execution_output
@@ -9,6 +10,50 @@ from argus.utils.type_introspection import extract_fields, get_node_state_type
 
 _EMPTY_VALUES = (None, "", [], {})
 _PRIMITIVE_TYPES = (str, int, float, bool)
+
+# ── Truncation detection helpers ─────────────────────────────────────────────
+
+_TRUNCATION_RE = re.compile(r'\w$')
+_TERMINAL_PUNCT = re.compile(r'[.!?;:,)\]}"\'`]')
+
+
+def _is_truncated(s: str) -> bool:
+    """Return True if the string appears to be cut off mid-sentence."""
+    if len(s) < 30 or ' ' not in s:
+        return False
+    # Must end with a word character (letter or digit)
+    if not _TRUNCATION_RE.search(s):
+        return False
+    # Last 12 chars must have NO terminal punctuation
+    tail = s[-12:]
+    if _TERMINAL_PUNCT.search(tail):
+        return False
+    return True
+
+
+# ── Confidence-mismatch helpers ───────────────────────────────────────────────
+
+_SUCCESS_FIELD_NAMES = {"success", "ok", "succeeded", "is_valid", "is_ok", "status"}
+_SUCCESS_STRING_VALUES = {"ok", "success", "retrieved successfully", "done", "completed"}
+_CONFIDENCE_FIELD_NAMES = {
+    "confidence", "score", "certainty", "probability",
+    "quality_score", "confidence_score", "validation_score", "security_score",
+}
+_RETRIEVAL_CONTENT_KEYS = {"content", "text", "body", "chunk"}
+_SUMMARY_FIELD_RE = re.compile(
+    r"(summary|synthesis|report|analysis|conclusion|findings)",
+    re.IGNORECASE,
+)
+
+# SP-series hedging phrases (must stay in sync with signatures.json SP-009..SP-013)
+_HEDGING_PHRASES = [
+    "i'm not sure", "not certain", "i'm unsure",
+    "i cannot be certain", "i am not sure",
+    # also include existing SP-001..SP-008 phrases for completeness
+    "as an ai", "i cannot", "i'm sorry but", "i don't have access",
+    "i am unable to", "i apologize", "my knowledge cutoff",
+    "i don't have the ability",
+]
 
 # ── Tool output detection patterns ───────────────────────────────────────────
 
@@ -51,13 +96,14 @@ def inspect_tool_outputs(
     output_dict: dict[str, Any],
     strict: bool = False,
     _precomputed_signals: list[SemanticSignal] | None = None,
-) -> list[ToolFailure]:
+    input_state: dict[str, Any] | None = None,
+) -> InspectionResult:
     """Scan a node's output dict for tool call failure patterns.
 
     Detects: error keys, HTTP error codes, empty result fields, error strings
     in data fields, and partial failures inside lists.
     Also scans one level deep into nested dicts for error patterns (BS-02 fix).
-    Returns a deduplicated list of ToolFailure — one per field, highest severity wins.
+    Returns an InspectionResult with tool_failures and semantic_signals populated.
 
     strict: if True, all warning-severity failures are promoted to critical.
     _precomputed_signals: if provided, reuse these SemanticSignals for Rule 7
@@ -235,6 +281,155 @@ def inspect_tool_outputs(
             evidence=f"[{signal.sig_id}] {signal.description}: {signal.evidence}",
         ))
 
+    # Rule 8 — truncated output detection
+    for key, value in output_dict.items():
+        if isinstance(value, str) and _is_truncated(value):
+            _add(ToolFailure(
+                failure_type="truncated_output",
+                field_name=key,
+                severity="warning",
+                evidence=f"string appears truncated mid-word: {value[-30:]!r}",
+            ))
+
+    # Rule 9 — hallucinated success contradiction
+    # Detect: success/status field is truthy AND result field is empty
+    success_fields: dict[str, Any] = {}
+    result_fields: dict[str, Any] = {}
+    for key, value in output_dict.items():
+        if key.lower() in _SUCCESS_FIELD_NAMES:
+            success_fields[key] = value
+        if _RESULT_NAME_RE.search(key):
+            result_fields[key] = value
+
+    for s_key, s_val in success_fields.items():
+        # Determine if success field is truthy
+        is_success = False
+        if isinstance(s_val, bool) and s_val:
+            is_success = True
+        elif isinstance(s_val, str):
+            if s_val.lower() in _SUCCESS_STRING_VALUES:
+                is_success = True
+        if not is_success:
+            continue
+        # Check if any result field is empty
+        for r_key, r_val in result_fields.items():
+            if r_val is None or r_val == [] or r_val == {} or r_val == "":
+                # Use the success field name as the field_name so this doesn't
+                # collide with the empty_result failure already recorded for r_key
+                _add(ToolFailure(
+                    failure_type="confidence_mismatch",
+                    field_name=f"{s_key}:{r_key}",
+                    severity="warning",
+                    evidence=(
+                        f"claimed success ('{s_key}'={s_val!r}) "
+                        f"but empty results in '{r_key}'"
+                    ),
+                ))
+
+    # Rule 10 — confidence-behavior mismatch
+    # Detect: high confidence score but hedging language in the same output
+    for key, value in output_dict.items():
+        if key.lower() not in _CONFIDENCE_FIELD_NAMES:
+            continue
+        if not isinstance(value, (int, float)):
+            continue
+        if float(value) <= 0.80:
+            continue
+        # Found high-confidence field — look for hedging phrases in other string fields
+        for other_key, other_val in output_dict.items():
+            if other_key == key:
+                continue
+            if not isinstance(other_val, str):
+                continue
+            lower_val = other_val.lower()
+            for phrase in _HEDGING_PHRASES:
+                if phrase in lower_val:
+                    _add(ToolFailure(
+                        failure_type="confidence_mismatch",
+                        field_name=key,
+                        severity="warning",
+                        evidence=(
+                            f"high confidence ({key}={value}) but hedging phrase "
+                            f"'{phrase}' found in '{other_key}'"
+                        ),
+                    ))
+                    break
+
+    # Rule 11 — retrieval quality scoring
+    for key, value in output_dict.items():
+        if not isinstance(value, list) or not value:
+            continue
+        # Check if items are dicts with a "score" key
+        score_items = [
+            item for item in value
+            if isinstance(item, dict) and "score" in item
+        ]
+        if not score_items:
+            continue
+        scores = []
+        for item in score_items:
+            try:
+                scores.append(float(item["score"]))
+            except (TypeError, ValueError):
+                pass
+        if scores:
+            med = median(scores)
+            if med < 0.45:
+                _add(ToolFailure(
+                    failure_type="retrieval_quality_low",
+                    field_name=key,
+                    severity="warning",
+                    evidence=f"median retrieval score {med:.2f}",
+                ))
+        # Check for shallow content
+        content_strings = []
+        for item in score_items:
+            for ck in _RETRIEVAL_CONTENT_KEYS:
+                if ck in item and isinstance(item[ck], str):
+                    content_strings.append(item[ck])
+                    break
+        if content_strings and all(len(s) < 60 for s in content_strings):
+            # Use a distinct field_name suffix so this doesn't collide with
+            # the retrieval_quality_low entry already stored under `key`
+            _add(ToolFailure(
+                failure_type="shallow_context",
+                field_name=f"{key}:content_depth",
+                severity="warning",
+                evidence=f"all {len(content_strings)} content strings are < 60 chars",
+            ))
+
+    # Rule 12 — information density / shallow summary
+    # Detect output fields whose name suggests a summary/analysis that are suspiciously short
+    for key, value in output_dict.items():
+        if not isinstance(value, str):
+            continue
+        if not _SUMMARY_FIELD_RE.search(key):
+            continue
+        v_len = len(value)
+        if v_len < 40:
+            _add(ToolFailure(
+                failure_type="shallow_output",
+                field_name=key,
+                severity="warning",
+                evidence=f"'{key}' is only {v_len} chars",
+            ))
+        elif input_state is not None and v_len < 100:
+            # Check if input had substantial content that this summary doesn't reflect
+            input_total = sum(
+                len(v) for v in input_state.values()
+                if isinstance(v, str)
+            )
+            if input_total > 800:
+                _add(ToolFailure(
+                    failure_type="information_compression_anomaly",
+                    field_name=key,
+                    severity="warning",
+                    evidence=(
+                        f"'{key}' is {v_len} chars but input had "
+                        f"{input_total} chars of text"
+                    ),
+                ))
+
     # Strict mode: promote all warnings to critical
     if strict:
         for field_name, tf in list(by_field.items()):
@@ -246,7 +441,20 @@ def inspect_tool_outputs(
                     evidence=tf.evidence,
                 )
 
-    return list(by_field.values())
+    tool_failures = list(by_field.values())
+    has_tool_failure = any(tf.severity == "critical" for tf in tool_failures)
+    semantic_signals_list: list[SemanticSignal] = list(signals)
+    return InspectionResult(
+        is_silent_failure=False,
+        missing_fields=[],
+        empty_fields=[],
+        type_mismatches=[],
+        severity="critical" if has_tool_failure else ("warning" if tool_failures else "ok"),
+        message=_build_tool_failure_message(tool_failures) or "No tool failures detected",
+        tool_failures=tool_failures,
+        has_tool_failure=has_tool_failure,
+        semantic_signals=semantic_signals_list,
+    )
 
 
 def inspect_transition(
@@ -276,13 +484,15 @@ def inspect_transition(
     semantic_signals: list[SemanticSignal] = (
         _scan_execution_output(output_dict) if output_dict else []
     )
-    tool_failures = (
+    _tool_result = (
         inspect_tool_outputs(
             output_dict, strict=strict,
             _precomputed_signals=semantic_signals,
+            input_state=input_state,
         )
-        if output_dict else []
+        if output_dict else None
     )
+    tool_failures = _tool_result.tool_failures if _tool_result is not None else []
     has_tool_failure = any(tf.severity == "critical" for tf in tool_failures)
 
     if output_dict is None:

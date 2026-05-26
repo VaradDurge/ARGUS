@@ -142,6 +142,8 @@ class ArgusSession:
         self._completed = False
         self._is_cyclic = False
         self._node_attempt_counts: dict[str, int] = {}
+        self._terminal_nodes: set[str] = set()
+        self._completed_terminals: set[str] = set()
 
         # set by ReplayEngine or ArgusWatcher for linked runs
         self.parent_run_id: str | None = parent_run_id
@@ -160,10 +162,31 @@ class ArgusSession:
         """Register the pipeline topology. Enables cycle detection and successor validation."""
         self.graph_edge_map = edge_map
         self._is_cyclic = has_cycles(edge_map)
+        if self.graph_node_names:
+            self._terminal_nodes = self._compute_terminal_nodes()
 
     def set_node_names(self, names: list[str]) -> None:
         """Register ordered node names. Used for last-node auto-finalization."""
         self.graph_node_names = names
+        self._terminal_nodes = self._compute_terminal_nodes()
+
+    def _compute_terminal_nodes(self) -> set[str]:
+        """Find nodes with no outgoing edges to other graph nodes (DAG leaves).
+
+        Terminal nodes are the "real" last nodes in the topology — auto-finalize
+        triggers only after ALL terminal nodes have completed. This correctly
+        handles parallel fan-out where multiple branches finish independently.
+        """
+        if not self.graph_node_names:
+            return set()
+        node_set = set(self.graph_node_names)
+        terminals = set()
+        for name in self.graph_node_names:
+            successors = self.graph_edge_map.get(name, [])
+            real_successors = [s for s in successors if s in node_set]
+            if not real_successors:
+                terminals.add(name)
+        return terminals or {self.graph_node_names[-1]}
 
     # ── Function wrapping (framework-agnostic entry point) ───────────────────
 
@@ -467,12 +490,19 @@ class ArgusSession:
 
             self._events.append(event)
 
+            # Track terminal node completion for parallel-aware finalization
+            if node_name in self._terminal_nodes:
+                self._completed_terminals.add(node_name)
+
             # auto-finalize decision (atomic with event append)
+            # Uses terminal-node tracking: finalize only when ALL DAG leaves
+            # have completed, so parallel branches aren't cut short.
             should_finalize = (
                 status in ("crashed", "interrupted")
                 or (
                     not self._is_cyclic
-                    and node_name == self._last_expected_node()
+                    and self._terminal_nodes
+                    and self._completed_terminals >= self._terminal_nodes
                 )
             )
 
@@ -701,3 +731,4 @@ class ArgusSession:
             self._started_at = datetime.now(timezone.utc).isoformat()
             self._completed = False
             self._node_attempt_counts = {}
+            self._completed_terminals = set()

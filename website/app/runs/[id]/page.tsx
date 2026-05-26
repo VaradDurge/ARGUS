@@ -1,9 +1,9 @@
-import RunDetailClient from './RunDetailClient'
+import RunDetailRedirectClient from './RunDetailClient'
 
 export function generateStaticParams() {
   return [{ id: '_' }]
 }
 
 export default function RunDetailPage({ params }: { params: { id: string } }) {
-  return <RunDetailClient id={params.id} />
+  return <RunDetailRedirectClient id={params.id} />
 }

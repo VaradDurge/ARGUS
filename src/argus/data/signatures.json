@@ -122,6 +122,21 @@
       }
     },
     {
+      "id": "CM-009",
+      "category": "corrupted_markers",
+      "pattern": "<<[A-Z_]{2,}>>",
+      "match_strategy": "regex",
+      "severity": "warning",
+      "description": "Double-angle-bracket uppercase marker — unfilled template slot or corrupted placeholder",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
       "id": "PH-001",
       "category": "placeholder_outputs",
       "pattern": "TODO",
@@ -248,6 +263,66 @@
       "match_strategy": "contains_ci",
       "severity": "warning",
       "description": "Literal REPLACE_ME text in output",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-010",
+      "category": "placeholder_outputs",
+      "pattern": "coming soon",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "Coming soon placeholder — content not yet available",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-011",
+      "category": "placeholder_outputs",
+      "pattern": "[pending]",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "Bracket-form [pending] placeholder — content deferred",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-012",
+      "category": "placeholder_outputs",
+      "pattern": "[todo]",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "Bracket-form [todo] placeholder in output field",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "PH-013",
+      "category": "placeholder_outputs",
+      "pattern": "[placeholder]",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "Bracket-form [placeholder] marker not substituted",
       "source": "builtin",
       "metadata": {
         "confidence": null,
@@ -488,6 +563,81 @@
       "match_strategy": "contains_ci",
       "severity": "warning",
       "description": "LLM capability denial phrase",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-009",
+      "category": "suspicious_phrases",
+      "pattern": "I'm not sure",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM uncertainty hedging phrase",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-010",
+      "category": "suspicious_phrases",
+      "pattern": "not certain",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM uncertainty hedging phrase — not certain",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-011",
+      "category": "suspicious_phrases",
+      "pattern": "I'm unsure",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM uncertainty hedging phrase — I'm unsure",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-012",
+      "category": "suspicious_phrases",
+      "pattern": "I cannot be certain",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM epistemic uncertainty phrase",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null
+      }
+    },
+    {
+      "id": "SP-013",
+      "category": "suspicious_phrases",
+      "pattern": "I am not sure",
+      "match_strategy": "contains_ci",
+      "severity": "warning",
+      "description": "LLM uncertainty hedging phrase — I am not sure",
       "source": "builtin",
       "metadata": {
         "confidence": null,

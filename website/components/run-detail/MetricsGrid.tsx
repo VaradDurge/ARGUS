@@ -12,19 +12,21 @@ interface MetricCardProps {
   label: string
   value: string
   color?: string
-  mono?: boolean
 }
 
-function MetricCard({ icon, label, value, color, mono = true }: MetricCardProps) {
+function MetricCard({ icon, label, value, color }: MetricCardProps) {
   return (
-    <div className="card rounded-xl px-4 py-3.5 flex items-center gap-3.5">
-      {icon}
+    <div
+      className="rounded-lg px-2 py-2 flex flex-col items-center justify-center text-center min-h-[68px]"
+      style={{ background: '#fafafa', border: '1px solid var(--border-subtle)' }}
+    >
+      <div className="mb-1">{icon}</div>
       <div>
-        <div className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-[10.5px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
           {label}
         </div>
         <div
-          className={`text-lg font-bold tabular-nums tracking-tight ${mono ? 'font-mono' : ''}`}
+          className="text-[17px] font-bold tabular-nums tracking-[-0.03em] leading-none"
           style={{ color: color ?? 'var(--text-primary)' }}
         >
           {value}
@@ -36,13 +38,13 @@ function MetricCard({ icon, label, value, color, mono = true }: MetricCardProps)
 
 function MetricIcon({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}12` }}>
+    <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: `${color}0a`, color }}>
       {children}
     </div>
   )
 }
 
-export default function MetricsGrid({ run }: { run: RunRecord }) {
+export default function MetricsGrid({ run, compact = false }: { run: RunRecord; compact?: boolean }) {
   const steps = run.steps ?? []
   const totalNodes = steps.length
   const passedNodes = steps.filter((s) => s.status === 'pass').length
@@ -64,6 +66,14 @@ export default function MetricsGrid({ run }: { run: RunRecord }) {
     info: '#6366f1',
     ok: C_GREEN,
   }
+  const statusSeverity =
+    run.overall_status === 'clean'
+      ? 'ok'
+      : run.overall_status === 'interrupted'
+        ? 'warning'
+        : 'critical'
+  const severityDisplay = statusSeverity === 'ok' ? 'OK' : statusSeverity.charAt(0).toUpperCase() + statusSeverity.slice(1)
+  const severityDisplayColor = severityColor[statusSeverity] ?? '#9ca3af'
 
   const totalLLMCalls = run.total_llm_calls ?? 0
   const totalTokens = run.total_tokens ?? 0
@@ -79,6 +89,42 @@ export default function MetricsGrid({ run }: { run: RunRecord }) {
       calls: s.llm_usage!.calls.length,
     }))
     .sort((a, b) => b.cost - a.cost)
+
+  if (compact) {
+    return (
+      <div className="card rounded-xl p-3.5">
+        <div className="flex items-center gap-1.5 mb-2">
+          <h3 className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>Metrics</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <MetricCard
+            icon={<MetricIcon color="#6366f1"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.35"/><path d="M7 4v3.5l2 1.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/></svg></MetricIcon>}
+            label="Duration"
+            value={formatDur(run.duration_ms)}
+            color="var(--text-primary)"
+          />
+          <MetricCard
+            icon={<MetricIcon color={C_AMBER}><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 10l3-3 2.5 1.5L12 4" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round"/></svg></MetricIcon>}
+            label="Success Rate"
+            value={successRate !== null ? `${successRate}%` : '\u2014'}
+            color={successRate === null ? '#9ca3af' : C_AMBER}
+          />
+          <MetricCard
+            icon={<MetricIcon color={C_RED}><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 3.5v4M7 10h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></MetricIcon>}
+            label="Failures"
+            value={`${failedNodes}`}
+            color={C_RED}
+          />
+          <MetricCard
+            icon={<MetricIcon color={severityDisplayColor}><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2l5.5 9H1.5L7 2Z" stroke="currentColor" strokeWidth="1.45" fill="none" strokeLinejoin="round"/></svg></MetricIcon>}
+            label="Severity"
+            value={severityDisplay}
+            color={severityDisplayColor}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -111,7 +157,6 @@ export default function MetricsGrid({ run }: { run: RunRecord }) {
           label="Severity"
           value={worstSeverity}
           color={severityColor[worstSeverity] ?? '#9ca3af'}
-          mono={false}
         />
         {hasLLMData && (
           <>
@@ -138,7 +183,6 @@ export default function MetricsGrid({ run }: { run: RunRecord }) {
               label="Completed"
               value={completed ? 'Yes' : 'No'}
               color={completed ? C_GREEN : C_AMBER}
-              mono={false}
             />
           </>
         )}
@@ -148,7 +192,6 @@ export default function MetricsGrid({ run }: { run: RunRecord }) {
             label="Completed"
             value={completed ? 'Yes' : 'No'}
             color={completed ? C_GREEN : C_AMBER}
-            mono={false}
           />
         )}
       </div>

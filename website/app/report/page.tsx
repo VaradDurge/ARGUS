@@ -89,6 +89,7 @@ export default function ReportPage() {
   }
 
   return (
+    <div className="max-w-6xl mx-auto px-8 py-10 overflow-auto h-full">
     <div className="max-w-xl">
       {/* Header */}
       <div className="mb-8">
@@ -227,6 +228,7 @@ export default function ReportPage() {
           </button>
         </form>
       )}
+    </div>
     </div>
   )
 }

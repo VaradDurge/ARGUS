@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -9,6 +10,17 @@ from typing import Any, Callable
 from argus.models import RunRecord
 from argus.storage import load_run
 from argus.utils.serializer import safe_deserialize
+
+
+def _make_llm_inv_config():
+    """Return LLMInvestigationConfig if an OpenAI key is available, else None."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        return None
+    try:
+        from argus.models import LLMInvestigationConfig
+        return LLMInvestigationConfig(enabled=True, always_investigate=False)
+    except Exception:
+        return None
 
 
 class ReplayEngine:
@@ -60,7 +72,10 @@ class ReplayEngine:
         state = safe_deserialize(step.input_state, state_type)
         fn = _import_fn(record.node_fn_refs[node_name])
 
-        session = ArgusSession(max_field_size=self._max_field_size)
+        session = ArgusSession(
+            max_field_size=self._max_field_size,
+            llm_investigation=_make_llm_inv_config(),
+        )
         session.set_node_names([node_name])
         session.set_edges({})
         session.parent_run_id = record.run_id
@@ -153,7 +168,10 @@ class ReplayEngine:
                 seen.add(s.node_name)
                 execution_order.append(s.node_name)
 
-        session = ArgusSession(max_field_size=self._max_field_size)
+        session = ArgusSession(
+            max_field_size=self._max_field_size,
+            llm_investigation=_make_llm_inv_config(),
+        )
         session.set_node_names(record.graph_node_names)
         session.set_edges(record.graph_edge_map)
         session.parent_run_id = record.run_id
@@ -204,7 +222,7 @@ class ReplayEngine:
             graph = graph.graph
 
         if hasattr(graph, "nodes") and not hasattr(graph, "invoke"):
-            watcher = ArgusWatcher(max_field_size=self._max_field_size)
+            watcher = ArgusWatcher(max_field_size=self._max_field_size, investigate=True)
             watcher.watch(graph)
             if watcher._session is not None:
                 watcher._session.parent_run_id = record.run_id

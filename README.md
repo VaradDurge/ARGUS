@@ -10,7 +10,7 @@ ARGUS sits between your nodes and tells you exactly where it went wrong.
 
 ---
 
-<img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/ARGUS_ui.png" width="600"/>
+<img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_website.png" width="600"/>
 
 ---
 

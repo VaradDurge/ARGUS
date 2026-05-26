@@ -165,6 +165,7 @@ function ReleaseBadge({ tag }: { tag: Release['tag'] }) {
 
 export default function ChangelogPage() {
   return (
+    <div className="max-w-6xl mx-auto px-8 py-10 overflow-auto h-full">
     <div className="max-w-2xl">
       {/* Header */}
       <div className="mb-10">
@@ -240,6 +241,7 @@ export default function ChangelogPage() {
           ))}
         </div>
       </div>
+    </div>
     </div>
   )
 }

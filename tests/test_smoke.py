@@ -108,3 +108,125 @@ def test_storage_roundtrip():
     loaded = load_run(session.run_id)
     assert loaded.run_id == session.run_id
     assert len(loaded.steps) == 1
+
+
+# ── Parallel workflow tests ──────────────────────────────────────────────────
+
+
+def test_terminal_nodes_linear():
+    """Linear A→B→C: only C is terminal, backward compat with old behavior."""
+    session = ArgusSession()
+    session.set_node_names(["A", "B", "C"])
+    session.set_edges({"A": ["B"], "B": ["C"]})
+    assert session._terminal_nodes == {"C"}
+
+
+def test_terminal_nodes_fan_out():
+    """A→[B,C]: both B and C are terminal (no successors)."""
+    session = ArgusSession()
+    session.set_node_names(["A", "B", "C"])
+    session.set_edges({"A": ["B", "C"]})
+    assert session._terminal_nodes == {"B", "C"}
+
+
+def test_terminal_nodes_asymmetric():
+    """A→[B,C], B→D: terminals are C and D."""
+    session = ArgusSession()
+    session.set_node_names(["A", "B", "C", "D"])
+    session.set_edges({"A": ["B", "C"], "B": ["D"]})
+    assert session._terminal_nodes == {"C", "D"}
+
+
+def test_terminal_nodes_fan_in():
+    """A→[B,C]→D: only D is terminal."""
+    session = ArgusSession()
+    session.set_node_names(["A", "B", "C", "D"])
+    session.set_edges({"A": ["B", "C"], "B": ["D"], "C": ["D"]})
+    assert session._terminal_nodes == {"D"}
+
+
+def test_parallel_fan_out_all_events_captured():
+    """A→[B,C]: both B and C events must be in the finalized record."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    edges = {"A": ["B", "C"]}
+    wrapped = session.instrument(
+        agents={
+            "A": lambda s: {"from_a": True},
+            "B": lambda s: {"from_b": True},
+            "C": lambda s: {"from_c": True},
+        },
+        edges=edges,
+    )
+
+    state = wrapped["A"]({})
+    # Simulate parallel execution — order shouldn't matter
+    wrapped["B"]({**state, "from_a": True})
+    wrapped["C"]({**state, "from_a": True})
+
+    loaded = load_run(session.run_id)
+    node_names = [s.node_name for s in loaded.steps]
+    assert "A" in node_names
+    assert "B" in node_names
+    assert "C" in node_names
+    assert len(loaded.steps) == 3
+
+
+def test_parallel_asymmetric_all_events_captured():
+    """A→[B,C], B→D: all 4 events captured regardless of completion order."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    edges = {"A": ["B", "C"], "B": ["D"]}
+    wrapped = session.instrument(
+        agents={
+            "A": lambda s: {"from_a": True},
+            "B": lambda s: {"from_b": True},
+            "C": lambda s: {"from_c": True},
+            "D": lambda s: {"from_d": True},
+        },
+        edges=edges,
+    )
+
+    state = wrapped["A"]({})
+    # C finishes first, then B→D
+    wrapped["C"]({**state, "from_a": True})
+    wrapped["B"]({**state, "from_a": True})
+    wrapped["D"]({**state, "from_a": True, "from_b": True})
+
+    loaded = load_run(session.run_id)
+    node_names = [s.node_name for s in loaded.steps]
+    assert set(node_names) == {"A", "B", "C", "D"}
+    assert len(loaded.steps) == 4
+
+
+def test_parallel_asymmetric_d_before_c():
+    """A→[B,C], B→D: D finishes before C — C must not be lost."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    edges = {"A": ["B", "C"], "B": ["D"]}
+    wrapped = session.instrument(
+        agents={
+            "A": lambda s: {"from_a": True},
+            "B": lambda s: {"from_b": True},
+            "C": lambda s: {"from_c": True},
+            "D": lambda s: {"from_d": True},
+        },
+        edges=edges,
+    )
+
+    state = wrapped["A"]({})
+    # B→D finishes first, then C arrives late
+    wrapped["B"]({**state, "from_a": True})
+    wrapped["D"]({**state, "from_a": True, "from_b": True})
+    # Under the old bug, finalize would have triggered at D.
+    # C should still be captured.
+    wrapped["C"]({**state, "from_a": True})
+
+    loaded = load_run(session.run_id)
+    node_names = [s.node_name for s in loaded.steps]
+    assert set(node_names) == {"A", "B", "C", "D"}
+    assert len(loaded.steps) == 4
+    assert loaded.overall_status in ("clean", "silent_failure")

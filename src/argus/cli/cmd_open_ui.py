@@ -210,6 +210,35 @@ def _make_handler(
                         pass
             self._send_json({"error": "not found"}, 404)
 
+        def _get_run_children(self, run_id: str) -> None:
+            from argus.storage import list_replay_children  # noqa: PLC0415
+            children = list_replay_children(run_id)
+            # Also scan all project run files for cloud-synced children
+            for f in _all_run_files(_project_dir):
+                try:
+                    data = json.loads(f.read_text())
+                    if data.get("parent_run_id") == run_id:
+                        rid = data.get("run_id", f.stem)
+                        if not any(c["run_id"] == rid for c in children):
+                            children.append({
+                                "run_id": rid,
+                                "started_at": data.get("started_at", ""),
+                                "overall_status": data.get("overall_status", "unknown"),
+                                "duration_ms": data.get("duration_ms"),
+                                "step_count": len(data.get("steps", [])),
+                                "replay_from_step": data.get("replay_from_step"),
+                                "parent_run_id": run_id,
+                            })
+                except Exception:
+                    continue
+            children.sort(key=lambda r: r.get("started_at", ""))
+            self._send_json(children)
+
+        def _get_run_tree(self, run_id: str) -> None:
+            from argus.storage import build_replay_tree  # noqa: PLC0415
+            tree = build_replay_tree(run_id)
+            self._send_json(tree)
+
         def _get_log(self, run_id: str) -> None:
             for log_dir in _all_log_dirs(_project_dir):
                 for f in log_dir.glob("*.log"):
@@ -276,6 +305,12 @@ def _make_handler(
                     self._send_json({"error": "not logged in"}, 401)
             elif path == "/api/runs":
                 self._list_runs()
+            elif path.startswith("/api/runs/") and path.endswith("/children"):
+                rid = path[len("/api/runs/"):-len("/children")]
+                self._get_run_children(rid)
+            elif path.startswith("/api/runs/") and path.endswith("/tree"):
+                rid = path[len("/api/runs/"):-len("/tree")]
+                self._get_run_tree(rid)
             elif path.startswith("/api/runs/"):
                 self._get_run(path[len("/api/runs/"):])
             elif path.startswith("/api/logs/"):

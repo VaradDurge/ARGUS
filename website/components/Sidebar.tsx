@@ -92,6 +92,36 @@ function IconLogout() {
   )
 }
 
+function IconGraphs() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="4" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
+      <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
+      <circle cx="8" cy="12" r="2" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M5.5 5.5L7 10.5M10.5 5.5L9 10.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function IconAlerts() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 2a4.5 4.5 0 00-4.5 4.5v3L2 11.5h12l-1.5-2V6.5A4.5 4.5 0 008 2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d="M6.5 11.5a1.5 1.5 0 003 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function IconDatasets() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="8" cy="4.5" rx="5" ry="2" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M3 4.5v3.5c0 1.1 2.24 2 5 2s5-.9 5-2V4.5" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M3 8v3.5c0 1.1 2.24 2 5 2s5-.9 5-2V8" stroke="currentColor" strokeWidth="1.2"/>
+    </svg>
+  )
+}
+
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
@@ -129,7 +159,7 @@ function NavLink({
       style={{
         background: active ? 'var(--sidebar-active)' : 'transparent',
         color: active ? '#6366f1' : 'var(--sidebar-text)',
-        fontWeight: active ? 600 : 500,
+        fontWeight: active ? 700 : 600,
       }}
     >
       {active && (
@@ -201,7 +231,7 @@ export default function Sidebar() {
           <circle cx="9" cy="9" r="2.2" fill="rgba(99,102,241,0.15)" stroke="#6366f1" strokeWidth="1.1"/>
           <circle cx="9" cy="9" r="0.9" fill="#6366f1"/>
         </svg>
-        <span className="text-[15px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        <span className="text-[15px] font-extrabold tracking-[-0.035em]" style={{ color: 'var(--text-primary)' }}>
           ARGUS
         </span>
         <span
@@ -225,13 +255,20 @@ export default function Sidebar() {
         <NavLink href="/compare" icon={<IconCompare />} label="Compare" exact={false} />
         <SoonItem icon={<IconEval />} label="Evaluation" />
 
+        <Divider />
+
+        <SectionLabel label="Workflows" />
+        <SoonItem icon={<IconGraphs />} label="Graphs" />
+        <SoonItem icon={<IconAlerts />} label="Alerts" />
+        <SoonItem icon={<IconDatasets />} label="Datasets" />
+
         <div className="flex-1" />
 
         <Divider />
 
         <NavLink href="/guide" icon={<IconGuide />} label="Guide" exact={true} />
         <NavLink href="/changelog" icon={<IconChangelog />} label="Changelog" exact={true} />
-        <NavLink href="/report" icon={<IconReport />} label="Report the Dev" exact={true} />
+        <NavLink href="/report" icon={<IconReport />} label="Report a bug" exact={true} />
         <SoonItem icon={<IconSettings />} label="Settings" />
 
       </nav>

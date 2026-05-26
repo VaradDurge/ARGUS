@@ -131,7 +131,7 @@ export default function ReplayControls({
           } else {
             setReplayingNode(null)
             setReplayState({ phase: 'done', newRunId: pdata.run_id })
-            router.push(`/runs/${pdata.run_id}`)
+            router.push(`/?run=${pdata.run_id}`)
           }
         } else if (pdata.status === 'error') {
           clearInterval(pollRef.current!)
@@ -226,7 +226,7 @@ export default function ReplayControls({
               <span className="font-mono text-[12px]" style={{ color: '#22c55e' }}>replay complete</span>
               {replayState.newRunId && (
                 <a
-                  href={`/runs/${replayState.newRunId}`}
+                  href={`/?run=${replayState.newRunId}`}
                   className="ml-2 hover:underline font-mono text-[12px]"
                   style={{ color: '#22c55e' }}
                 >

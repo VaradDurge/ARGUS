@@ -4,25 +4,30 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 :root {
   color-scheme: light;
 
   /* Clean light palette — inspired by modern SaaS dashboards */
-  --bg-base:     #f8f9fb;
+  --bg-base:     #fafbfc;
   --bg-surface:  #ffffff;
-  --bg-elevated: #f3f4f6;
-  --bg-overlay:  #ebedf0;
+  --bg-elevated: #f6f7f9;
+  --bg-overlay:  #eef1f5;
 
   /* Borders */
-  --border-subtle:  #e5e7eb;
-  --border-default: #d1d5db;
-  --border-strong:  #9ca3af;
+  --border-subtle:  #e8ebf0;
+  --border-default: #d7dce4;
+  --border-strong:  #9aa3b2;
 
   /* Text */
   --text-primary:   #111827;
-  --text-secondary: #6b7280;
-  --text-muted:     #9ca3af;
-  --text-faint:     #d1d5db;
+  --text-secondary: #667085;
+  --text-muted:     #98a2b3;
+  --text-faint:     #d0d5dd;
 
   /* Accent */
   --accent-blue:      #6366f1;
@@ -35,9 +40,9 @@
 
   /* Sidebar */
   --sidebar-bg:     #ffffff;
-  --sidebar-active: rgba(99,102,241,0.08);
-  --sidebar-text:   #374151;
-  --sidebar-muted:  #9ca3af;
+  --sidebar-active: rgba(99,102,241,0.10);
+  --sidebar-text:   #344054;
+  --sidebar-muted:  #98a2b3;
 }
 
 * { box-sizing: border-box; }
@@ -49,10 +54,10 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.005em;
 }
 
 .font-mono, code, pre, .mono {
@@ -105,9 +110,78 @@ body {
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.025), 0 6px 18px rgba(16,24,40,0.025);
 }
 .card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 4px rgba(16,24,40,0.035), 0 10px 24px rgba(16,24,40,0.04);
+}
+
+/* Split panel divider */
+.split-divider {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 150ms ease;
+  position: relative;
+  flex-shrink: 0;
+}
+.split-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1px;
+  width: 1px;
+  background: var(--border-subtle);
+}
+.split-divider:hover {
+  background: rgba(99,102,241,0.15);
+}
+.split-divider:active {
+  background: rgba(99,102,241,0.25);
+}
+
+/* Panel slide-in animation */
+.panel-slide-in {
+  animation: panelSlideIn 200ms ease-out;
+}
+@keyframes panelSlideIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Responsive overlay for detail panel below lg (1024px) */
+.detail-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  animation: overlayFadeIn 150ms ease-out;
+}
+.detail-overlay-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 92%;
+  max-width: 640px;
+  z-index: 50;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+  animation: overlaySlideIn 200ms ease-out;
+}
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes overlaySlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Hide split divider on mobile */
+@media (max-width: 1023px) {
+  .split-divider {
+    display: none;
+  }
 }

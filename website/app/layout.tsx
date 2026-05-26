@@ -26,17 +26,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${dmMono.variable}`}>
-      <body className="min-h-screen text-[var(--text-primary)] flex" style={{ background: 'var(--bg-base)' }}>
+      <body className="h-screen overflow-hidden text-[var(--text-primary)] flex" style={{ background: 'var(--bg-base)' }}>
         <AuthProvider>
           <Sidebar />
 
           {/* Right column: topbar + page content */}
-          <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
             <Topbar />
-            <main className="flex-1 overflow-auto">
-              <div className="max-w-6xl mx-auto px-8 py-10">
-                {children}
-              </div>
+            <main className="flex-1 overflow-hidden">
+              {children}
             </main>
           </div>
         </AuthProvider>

@@ -141,8 +141,10 @@ function CompareContent() {
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={<div />}>
-      <CompareContent />
-    </Suspense>
+    <div className="max-w-6xl mx-auto px-8 py-10 overflow-auto h-full">
+      <Suspense fallback={<div />}>
+        <CompareContent />
+      </Suspense>
+    </div>
   )
 }

@@ -27,7 +27,7 @@ export default function LoginPage() {
   if (user) return null
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex items-center justify-center min-h-[60vh] overflow-auto h-full px-8 py-10">
       <div
         className="flex flex-col items-center gap-8 p-10 rounded-xl"
         style={{

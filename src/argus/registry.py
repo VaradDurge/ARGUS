@@ -95,7 +95,15 @@ def _match_repetition(value: str, threshold: int = 3) -> bool:
     while a 30-word text still triggers at 3.
     """
     tokens = value.lower().split()
-    if len(tokens) < 8:
+
+    # Short-string unigram check: 3–7 tokens where one non-stop token dominates
+    # Catches "N/A N/A N/A N/A", "loading loading loading", etc.
+    if 3 <= len(tokens) < 8:
+        non_stop = [t for t in tokens if t not in _STOP_WORDS]
+        if len(non_stop) >= 3:
+            top_count = max(non_stop.count(t) for t in set(non_stop))
+            if top_count / len(non_stop) >= 0.75:
+                return True
         return False
 
     # Scale threshold with text length

@@ -168,6 +168,62 @@ def _resolve_run_path(run_id: str, runs_dir: Path) -> Path:
     raise FileNotFoundError(f"No run found for id '{run_id}' in {runs_dir}")
 
 
+def list_replay_children(run_id: str) -> list[dict[str, Any]]:
+    """Return summary metadata for all runs whose parent_run_id matches run_id."""
+    runs_dir = _runs_path()
+    children: list[dict[str, Any]] = []
+    for f in runs_dir.glob("*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            if data.get("parent_run_id") == run_id:
+                children.append({
+                    "run_id": data.get("run_id", f.stem),
+                    "started_at": data.get("started_at", ""),
+                    "overall_status": data.get("overall_status", "unknown"),
+                    "duration_ms": data.get("duration_ms"),
+                    "step_count": len(data.get("steps", [])),
+                    "replay_from_step": data.get("replay_from_step"),
+                    "parent_run_id": run_id,
+                })
+        except Exception:
+            continue
+    children.sort(key=lambda r: r.get("started_at", ""))
+    return children
+
+
+def build_replay_tree(run_id: str, max_depth: int = 5) -> dict[str, Any]:
+    """Build a tree of the original run and its replay descendants."""
+    runs_dir = _runs_path()
+
+    # Load the root run summary
+    try:
+        _resolve_run_path(run_id, runs_dir)
+    except (FileNotFoundError, ValueError):
+        return {"error": f"Run '{run_id}' not found"}
+
+    def _build(rid: str, depth: int) -> dict[str, Any]:
+        node: dict[str, Any] = {"run_id": rid}
+        try:
+            p = _resolve_run_path(rid, runs_dir)
+            d = json.loads(p.read_text(encoding="utf-8"))
+            node["started_at"] = d.get("started_at", "")
+            node["overall_status"] = d.get("overall_status", "unknown")
+            node["duration_ms"] = d.get("duration_ms")
+            node["step_count"] = len(d.get("steps", []))
+            node["replay_from_step"] = d.get("replay_from_step")
+        except Exception:
+            node["overall_status"] = "unknown"
+
+        if depth < max_depth:
+            kids = list_replay_children(rid)
+            node["children"] = [_build(c["run_id"], depth + 1) for c in kids]
+        else:
+            node["children"] = []
+        return node
+
+    return _build(run_id, 0)
+
+
 def _deserialize_run(data: dict[str, Any]) -> RunRecord:
     steps = [_deserialize_event(s) for s in data.get("steps", [])]
     bc_data = data.get("behavior_config")
