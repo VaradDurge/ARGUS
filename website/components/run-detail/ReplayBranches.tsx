@@ -118,9 +118,16 @@ function ReplayNodeRow({
               </svg>
             )}
             <div className="flex-1" />
-            <span className="text-[11px] font-medium tabular-nums shrink-0" style={{ color: 'var(--text-muted)' }}>
-              {node.step_count} steps{node.duration_ms ? ` · ${formatDur(node.duration_ms)}` : ''}
-            </span>
+            <div className="flex flex-col items-end shrink-0 gap-0.5">
+              <span className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                {fmtBranchTime(node.started_at)}
+              </span>
+              {hasChildren && (
+                <span className="text-[10px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                  {node.step_count} steps{node.duration_ms ? ` · ${formatDur(node.duration_ms)}` : ''}
+                </span>
+              )}
+            </div>
           </div>
 
           {hasChildren && (
