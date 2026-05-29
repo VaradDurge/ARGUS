@@ -2,7 +2,7 @@
 
 import { useRef, useState, type MouseEvent, type WheelEvent } from 'react'
 import type { RunRecord, StepStatus } from '@/lib/types'
-import { formatDur } from '@/lib/run-utils'
+import { formatDur, fmtCost } from '@/lib/run-utils'
 
 const SENTINEL_NODES = new Set(['__start__', '__end__', 'START', 'END'])
 
@@ -267,6 +267,11 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
                         <span className="text-[12px] font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                           {step ? formatDur(step.duration_ms) : '—'}
                         </span>
+                        {step?.llm_usage?.total_cost_usd != null && step.llm_usage.total_cost_usd > 0 && (
+                          <span className="text-[10px] font-bold tabular-nums" style={{ color: '#10b981' }}>
+                            {fmtCost(step.llm_usage.total_cost_usd)}
+                          </span>
+                        )}
                         {visual.icon && (
                           <span
                             className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center"

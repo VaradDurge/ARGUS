@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { NodeEvent, RunRecord } from '@/lib/types'
-import { getStepDisplay, getDetailLines, formatDur, SENTINEL_NODES } from '@/lib/run-utils'
+import { getStepDisplay, getDetailLines, formatDur, fmtCost, SENTINEL_NODES } from '@/lib/run-utils'
 import type { NodeDiffData } from './ReplayControls'
 import JsonViewer from '../JsonViewer'
 import { Button } from '@/components/ui/button-1'
@@ -194,6 +194,11 @@ export default function StepRow({
         <span className="text-[#9ca3af] w-8 text-right shrink-0 tabular-nums">{number}</span>
         <span className="w-3 shrink-0" />
         <span className="text-[var(--text-primary)] font-semibold shrink-0">{event.node_name}</span>
+        {event.llm_usage?.total_cost_usd != null && event.llm_usage.total_cost_usd > 0 && (
+          <span className="text-[10px] font-bold tabular-nums shrink-0 ml-1.5" style={{ color: '#10b981' }}>
+            {fmtCost(event.llm_usage.total_cost_usd)}
+          </span>
+        )}
         {event.behavior_type && (
           <span className="text-[10px] px-1.5 py-0.5 rounded ml-1 shrink-0" style={{ background: 'var(--bg-elevated)', color: '#9ca3af' }}>
             {event.behavior_type}
