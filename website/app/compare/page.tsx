@@ -153,28 +153,28 @@ function CompareContent() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-0">
+      {/* Page title + back button */}
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-[20px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
             Compare Runs
           </h1>
-          <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Side-by-side comparison of pipeline executions
           </p>
         </div>
         <a
           href="/"
-          className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
-          style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+          className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
+          style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 9L4.5 6l3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Back to run
         </a>
       </div>
 
-      {/* Header with selectors */}
+      {/* Header: selectors + run info cards */}
       <CompareHeader
         runs={allRuns}
         selectedA={idA}
@@ -185,12 +185,12 @@ function CompareContent() {
         onSelectB={handleSelectB}
       />
 
-      {/* Tabs */}
+      {/* Tab bar + active tab content */}
       {runA && runB && (
-        <>
+        <div className="mt-4">
           <CompareTabNav active={activeTab} onChange={setActiveTab} />
           {renderTab()}
-        </>
+        </div>
       )}
 
       {/* Empty states */}
