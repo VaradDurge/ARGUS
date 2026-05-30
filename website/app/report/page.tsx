@@ -1,201 +1,485 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 
-const TAGS = ['Request new feature', 'Bug', 'Failure'] as const
-type Tag = typeof TAGS[number]
+// ── Types ────────────────────────────────────────────────────
 
-const TAG_COLORS: Record<Tag, { bg: string; border: string; text: string; activeBg: string; activeBorder: string; activeText: string }> = {
-  'Request new feature': {
-    bg: 'rgba(99,102,241,0.05)',
-    border: 'rgba(99,102,241,0.2)',
-    text: '#6366f1',
-    activeBg: 'rgba(99,102,241,0.12)',
-    activeBorder: '#6366f1',
-    activeText: '#6366f1',
-  },
-  'Bug': {
-    bg: 'rgba(239,68,68,0.05)',
-    border: 'rgba(239,68,68,0.2)',
-    text: '#ef4444',
-    activeBg: 'rgba(239,68,68,0.12)',
-    activeBorder: '#ef4444',
-    activeText: '#ef4444',
-  },
-  'Failure': {
-    bg: 'rgba(245,158,11,0.05)',
-    border: 'rgba(245,158,11,0.2)',
-    text: '#f59e0b',
-    activeBg: 'rgba(245,158,11,0.12)',
-    activeBorder: '#f59e0b',
-    activeText: '#f59e0b',
-  },
+type Category = 'feature' | 'bug' | 'failure'
+type SortMode = 'most' | 'least'
+
+interface FeedbackPost {
+  id: string
+  user_id: string
+  author_name: string
+  author_avatar: string | null
+  title: string
+  category: Category
+  description: string
+  vote_count: number
+  created_at: string
+  user_voted: boolean
+}
+
+// ── Constants ────────────────────────────────────────────────
+
+const CATEGORY_COLORS: Record<Category, { bg: string; border: string; text: string }> = {
+  feature: { bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.25)', text: '#6366f1' },
+  bug:     { bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.25)',  text: '#ef4444' },
+  failure: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', text: '#f59e0b' },
+}
+
+const CATEGORY_LABELS: Record<Category, string> = {
+  feature: 'Feature',
+  bug: 'Bug',
+  failure: 'Failure',
 }
 
 const WEBHOOK_URL =
   'https://discord.com/api/webhooks/1505632723539066980/aV5SfeCJ_m6rdxweGQkX0sJUT5mcI95wFU5DVvy1ELTaZQgV34MnhvzwJzsoDZLARNoS'
 
-export default function ReportPage() {
-  const [subject, setSubject] = useState('')
-  const [tag, setTag] = useState<Tag | null>(null)
+// ── Helpers ──────────────────────────────────────────────────
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  return `${months}mo ago`
+}
+
+// ── Components ───────────────────────────────────────────────
+
+function Avatar({ name, url, size = 28 }: { name: string; url: string | null; size?: number }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={name}
+        width={size}
+        height={size}
+        className="rounded-full shrink-0"
+        style={{ width: size, height: size }}
+        referrerPolicy="no-referrer"
+      />
+    )
+  }
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div
+      className="rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold"
+      style={{
+        width: size,
+        height: size,
+        background: 'rgba(99,102,241,0.15)',
+        color: '#6366f1',
+      }}
+    >
+      {initials}
+    </div>
+  )
+}
+
+function UpvoteButton({
+  count,
+  voted,
+  onClick,
+}: {
+  count: number
+  voted: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center gap-0 px-1.5 py-1 rounded-md transition-all hover:opacity-80"
+      style={{
+        background: voted ? 'rgba(99,102,241,0.1)' : 'transparent',
+        border: `1px solid ${voted ? 'rgba(99,102,241,0.3)' : 'var(--border-subtle)'}`,
+        color: voted ? '#6366f1' : 'var(--text-muted)',
+        minWidth: 32,
+      }}
+    >
+      <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+        <path
+          d="M7 3L11 9H3L7 3Z"
+          fill={voted ? '#6366f1' : 'none'}
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span className="text-[11px] font-semibold leading-none">{count}</span>
+    </button>
+  )
+}
+
+function CategoryBadge({ category }: { category: Category }) {
+  const c = CATEGORY_COLORS[category]
+  return (
+    <span
+      className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md shrink-0"
+      style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.text }}
+    >
+      {CATEGORY_LABELS[category]}
+    </span>
+  )
+}
+
+function PostCard({
+  post,
+  onVote,
+}: {
+  post: FeedbackPost
+  onVote: (postId: string) => void
+}) {
+  return (
+    <div
+      className="flex gap-3 px-4 py-3.5 rounded-xl transition-colors"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+    >
+      <UpvoteButton count={post.vote_count} voted={post.user_voted} onClick={() => onVote(post.id)} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Avatar name={post.author_name} url={post.author_avatar} size={22} />
+          <span className="text-[12px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+            {post.author_name}
+          </span>
+          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            {timeAgo(post.created_at)}
+          </span>
+          <CategoryBadge category={post.category} />
+        </div>
+        <h3
+          className="text-[14px] font-semibold mb-1 leading-snug"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {post.title}
+        </h3>
+        <p
+          className="text-[13px] leading-relaxed"
+          style={{
+            color: 'var(--text-secondary)',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {post.description}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ────────────────────────────────────────────────
+
+export default function FeedbackBoardPage() {
+  const { user, signInWithGoogle } = useAuth()
+
+  const [posts, setPosts] = useState<FeedbackPost[]>([])
+  const [userVotes, setUserVotes] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [sort, setSort] = useState<SortMode>('most')
+  const [filter, setFilter] = useState<Category | 'all'>('all')
+
+  // New post form
+  const [showForm, setShowForm] = useState(false)
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState<Category | null>(null)
   const [description, setDescription] = useState('')
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [submitting, setSubmitting] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!subject.trim() || !tag || !description.trim()) return
+  // ── Fetch posts ──────────────────────────────────────────
 
-    setStatus('sending')
+  const fetchPosts = useCallback(async () => {
+    let query = supabase
+      .from('feedback_posts')
+      .select('*')
 
-    const tagEmoji: Record<Tag, string> = {
-      'Request new feature': '✨',
-      'Bug': '🐛',
-      'Failure': '🔥',
+    if (filter !== 'all') {
+      query = query.eq('category', filter)
     }
 
-    const payload = {
-      embeds: [
-        {
-          title: `${tagEmoji[tag]} ${subject}`,
-          description,
-          color: tag === 'Request new feature' ? 0x6366f1 : tag === 'Bug' ? 0xef4444 : 0xf59e0b,
-          fields: [
-            { name: 'Tag', value: tag, inline: true },
-          ],
-          footer: { text: 'ARGUS — Report the Dev' },
-          timestamp: new Date().toISOString(),
-        },
-      ],
+    if (sort === 'most') {
+      query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false })
+    } else {
+      query = query.order('vote_count', { ascending: true }).order('created_at', { ascending: false })
     }
 
-    try {
-      const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+    const { data } = await query
+    if (!data) return
 
-      if (res.ok || res.status === 204) {
-        setStatus('sent')
-        setSubject('')
-        setTag(null)
-        setDescription('')
-      } else {
-        setStatus('error')
+    // Fetch user's votes
+    let votedIds = new Set<string>()
+    if (user) {
+      const { data: votes } = await supabase
+        .from('feedback_votes')
+        .select('post_id')
+        .eq('user_id', user.id)
+      if (votes) {
+        votedIds = new Set(votes.map((v: { post_id: string }) => v.post_id))
       }
-    } catch {
-      setStatus('error')
+    }
+
+    setUserVotes(votedIds)
+    setPosts(
+      data.map((p: Record<string, unknown>) => ({
+        ...p,
+        user_voted: votedIds.has(p.id as string),
+      })) as FeedbackPost[]
+    )
+    setLoading(false)
+  }, [sort, filter, user])
+
+  useEffect(() => {
+    fetchPosts()
+  }, [fetchPosts])
+
+  // ── Upvote toggle ────────────────────────────────────────
+
+  async function handleVote(postId: string) {
+    if (!user) {
+      signInWithGoogle()
+      return
+    }
+
+    const wasVoted = userVotes.has(postId)
+
+    // Optimistic update
+    setPosts(prev =>
+      prev.map(p =>
+        p.id === postId
+          ? { ...p, vote_count: p.vote_count + (wasVoted ? -1 : 1), user_voted: !wasVoted }
+          : p
+      )
+    )
+    setUserVotes(prev => {
+      const next = new Set(prev)
+      if (wasVoted) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+
+    // DB operation
+    if (wasVoted) {
+      const { error } = await supabase
+        .from('feedback_votes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('post_id', postId)
+      if (error) {
+        // Revert
+        setPosts(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? { ...p, vote_count: p.vote_count + 1, user_voted: true }
+              : p
+          )
+        )
+        setUserVotes(prev => new Set(prev).add(postId))
+      }
+    } else {
+      const { error } = await supabase
+        .from('feedback_votes')
+        .insert({ user_id: user.id, post_id: postId })
+      if (error) {
+        // Revert
+        setPosts(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? { ...p, vote_count: p.vote_count - 1, user_voted: false }
+              : p
+          )
+        )
+        setUserVotes(prev => {
+          const next = new Set(prev)
+          next.delete(postId)
+          return next
+        })
+      }
     }
   }
 
+  // ── Submit new post ──────────────────────────────────────
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user || !title.trim() || !category || !description.trim()) return
+
+    setSubmitting(true)
+
+    const authorName = user.user_metadata?.full_name || user.email || 'Anonymous'
+    const authorAvatar = user.user_metadata?.avatar_url || null
+
+    const { data, error } = await supabase
+      .from('feedback_posts')
+      .insert({
+        user_id: user.id,
+        author_name: authorName,
+        author_avatar: authorAvatar,
+        title: title.trim(),
+        category,
+        description: description.trim(),
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      const newPost: FeedbackPost = { ...(data as FeedbackPost), user_voted: false }
+      setPosts(prev => [newPost, ...prev])
+      setTitle('')
+      setCategory(null)
+      setDescription('')
+      setShowForm(false)
+
+      // Fire Discord webhook (non-blocking)
+      const tagEmoji = { feature: '\u2728', bug: '\uD83D\uDC1B', failure: '\uD83D\uDD25' }
+      fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [{
+            title: `${tagEmoji[category]} ${title.trim()}`,
+            description: description.trim(),
+            color: category === 'feature' ? 0x6366f1 : category === 'bug' ? 0xef4444 : 0xf59e0b,
+            fields: [
+              { name: 'Category', value: CATEGORY_LABELS[category], inline: true },
+              { name: 'Author', value: authorName, inline: true },
+            ],
+            footer: { text: 'ARGUS Report Board' },
+            timestamp: new Date().toISOString(),
+          }],
+        }),
+      }).catch(() => {})
+    }
+
+    setSubmitting(false)
+  }
+
+  // ── Render ───────────────────────────────────────────────
+
+  const categories: (Category | 'all')[] = ['all', 'feature', 'bug', 'failure']
+
   return (
-    <div className="max-w-6xl mx-auto px-8 py-10 overflow-auto h-full">
-    <div className="max-w-xl">
+    <div className="max-w-3xl mx-auto px-8 py-10 overflow-auto h-full">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-[22px] font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
-          Report the Dev
-        </h1>
-        <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-          Found a bug, hit a failure, or want a new feature? Let me know.
-        </p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1
+            className="text-[22px] font-bold tracking-tight mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Report Board
+          </h1>
+          <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            Share feedback, request features, and report bugs.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (!user) { signInWithGoogle(); return }
+            setShowForm(!showForm)
+          }}
+          className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all shrink-0"
+          style={{
+            background: '#6366f1',
+            color: '#fff',
+          }}
+        >
+          + New Post
+        </button>
       </div>
 
-      {status === 'sent' ? (
-        <div
-          className="rounded-xl p-6 text-center flex flex-col items-center gap-3"
-          style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}
+      {/* New Post Form */}
+      {showForm && user && (
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-xl p-5 mb-5 flex flex-col gap-4"
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
         >
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(16,185,129,0.12)' }}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10l4 4 8-8" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <p className="text-[15px] font-semibold" style={{ color: '#10b981' }}>Report sent!</p>
-          <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-            Thanks — I&apos;ll look into it.
-          </p>
-          <button
-            onClick={() => setStatus('idle')}
-            className="mt-2 text-[13px] font-medium px-4 py-1.5 rounded-lg transition-colors"
-            style={{ color: '#6366f1', background: 'rgba(99,102,241,0.08)' }}
-          >
-            Send another
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {/* Subject */}
+          {/* Title */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-              Subject
+            <label
+              className="text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Title
             </label>
             <input
               type="text"
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-              placeholder="Short summary of the issue or request"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Short summary"
               maxLength={120}
-              className="w-full rounded-lg px-3.5 py-2.5 text-[13px] outline-none transition-colors"
+              className="w-full rounded-lg px-3.5 py-2 text-[13px] outline-none"
               style={{
-                background: 'var(--card-bg)',
-                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
                 color: 'var(--text-primary)',
               }}
               required
             />
           </div>
 
-          {/* Tags */}
+          {/* Category */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-              Tag
+            <label
+              className="text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Category
             </label>
-            <div className="flex gap-2 flex-wrap">
-              {TAGS.map(t => {
-                const active = tag === t
-                const c = TAG_COLORS[t]
+            <div className="flex gap-2">
+              {(['feature', 'bug', 'failure'] as Category[]).map(cat => {
+                const active = category === cat
+                const c = CATEGORY_COLORS[cat]
                 return (
                   <button
-                    key={t}
+                    key={cat}
                     type="button"
-                    onClick={() => setTag(active ? null : t)}
-                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all select-none"
+                    onClick={() => setCategory(active ? null : cat)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
                     style={{
-                      background: active ? c.activeBg : c.bg,
-                      border: `1px solid ${active ? c.activeBorder : c.border}`,
-                      color: active ? c.activeText : c.text,
-                      boxShadow: active ? `0 0 0 1px ${c.activeBorder}20` : 'none',
+                      background: active ? c.bg : 'transparent',
+                      border: `1px solid ${active ? c.text : 'var(--border-subtle)'}`,
+                      color: active ? c.text : 'var(--text-muted)',
                     }}
                   >
-                    {t}
+                    {CATEGORY_LABELS[cat]}
                   </button>
                 )
               })}
             </div>
-            {!tag && (
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Select one tag</p>
-            )}
           </div>
 
           {/* Description */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+            <label
+              className="text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               Description
             </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Describe what happened, what you expected, or what you'd like to see..."
-              rows={5}
+              placeholder="Describe in detail..."
+              rows={4}
               maxLength={2000}
-              className="w-full rounded-lg px-3.5 py-2.5 text-[13px] outline-none resize-none transition-colors"
+              className="w-full rounded-lg px-3.5 py-2 text-[13px] outline-none resize-none"
               style={{
-                background: 'var(--card-bg)',
-                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
                 color: 'var(--text-primary)',
               }}
               required
@@ -205,30 +489,109 @@ export default function ReportPage() {
             </p>
           </div>
 
-          {/* Error */}
-          {status === 'error' && (
-            <p className="text-[12px]" style={{ color: '#ef4444' }}>
-              Something went wrong. Try again.
-            </p>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={!subject.trim() || !tag || !description.trim() || status === 'sending'}
-            className="self-start px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all"
-            style={{
-              background: '#6366f1',
-              color: '#fff',
-              opacity: (!subject.trim() || !tag || !description.trim() || status === 'sending') ? 0.5 : 1,
-              cursor: (!subject.trim() || !tag || !description.trim() || status === 'sending') ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {status === 'sending' ? 'Sending…' : 'Send Report'}
-          </button>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={!title.trim() || !category || !description.trim() || submitting}
+              className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
+              style={{
+                background: '#6366f1',
+                color: '#fff',
+                opacity: (!title.trim() || !category || !description.trim() || submitting) ? 0.5 : 1,
+              }}
+            >
+              {submitting ? 'Posting...' : 'Post'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 rounded-lg text-[13px] font-medium"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Cancel
+            </button>
+          </div>
         </form>
       )}
-    </div>
+
+      {/* Controls bar */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        {/* Sort */}
+        <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+          {(['most', 'least'] as SortMode[]).map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSort(s)}
+              className="px-3 py-1.5 text-[12px] font-medium transition-all"
+              style={{
+                background: sort === s ? 'rgba(99,102,241,0.1)' : 'transparent',
+                color: sort === s ? '#6366f1' : 'var(--text-muted)',
+              }}
+            >
+              {s === 'most' ? 'Most upvoted' : 'Least upvoted'}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-px h-5" style={{ background: 'var(--border-subtle)' }} />
+
+        {/* Category filter */}
+        <div className="flex gap-1.5">
+          {categories.map(cat => {
+            const active = filter === cat
+            const isAll = cat === 'all'
+            const c = isAll ? null : CATEGORY_COLORS[cat as Category]
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setFilter(cat)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all"
+                style={{
+                  background: active
+                    ? (c ? c.bg : 'rgba(255,255,255,0.08)')
+                    : 'transparent',
+                  border: `1px solid ${active
+                    ? (c ? c.border : 'var(--border-default)')
+                    : 'transparent'}`,
+                  color: active
+                    ? (c ? c.text : 'var(--text-primary)')
+                    : 'var(--text-muted)',
+                }}
+              >
+                {isAll ? 'All' : CATEGORY_LABELS[cat as Category]}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Posts list */}
+      {loading ? (
+        <div className="text-center py-16 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+          Loading...
+        </div>
+      ) : posts.length === 0 ? (
+        <div
+          className="text-center py-16 rounded-xl"
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+        >
+          <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+            No posts yet
+          </p>
+          <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            Be the first to share feedback!
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {posts.map(post => (
+            <PostCard key={post.id} post={post} onVote={handleVote} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

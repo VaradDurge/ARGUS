@@ -43,3 +43,71 @@ create policy "Users update own runs"
 create policy "Users delete own runs"
   on public.runs for delete
   using (auth.uid() = user_id);
+
+-- ============================================================
+-- Feedback Board
+-- ============================================================
+
+-- ── Feedback posts ─────────────────────────────────────────
+create table public.feedback_posts (
+  id            uuid        default gen_random_uuid() primary key,
+  user_id       uuid        references auth.users(id) on delete cascade not null,
+  author_name   text        not null,
+  author_avatar text,
+  title         text        not null check (char_length(title) <= 120),
+  category      text        not null check (category in ('feature', 'bug', 'failure')),
+  description   text        not null check (char_length(description) <= 2000),
+  vote_count    integer     default 0 not null,
+  created_at    timestamptz default now() not null
+);
+
+create index idx_feedback_votes   on public.feedback_posts (vote_count desc, created_at desc);
+create index idx_feedback_created on public.feedback_posts (created_at desc);
+
+alter table public.feedback_posts enable row level security;
+
+create policy "read_posts" on public.feedback_posts for select
+  using (auth.role() = 'authenticated');
+
+create policy "insert_own_posts" on public.feedback_posts for insert
+  with check (auth.uid() = user_id);
+
+create policy "delete_own_posts" on public.feedback_posts for delete
+  using (auth.uid() = user_id);
+
+-- ── Feedback votes ─────────────────────────────────────────
+create table public.feedback_votes (
+  user_id    uuid references auth.users(id) on delete cascade not null,
+  post_id    uuid references public.feedback_posts(id) on delete cascade not null,
+  created_at timestamptz default now() not null,
+  primary key (user_id, post_id)
+);
+
+alter table public.feedback_votes enable row level security;
+
+create policy "read_votes" on public.feedback_votes for select
+  using (auth.role() = 'authenticated');
+
+create policy "insert_own_votes" on public.feedback_votes for insert
+  with check (auth.uid() = user_id);
+
+create policy "delete_own_votes" on public.feedback_votes for delete
+  using (auth.uid() = user_id);
+
+-- ── Vote count trigger ─────────────────────────────────────
+create or replace function update_feedback_vote_count()
+returns trigger as $$
+begin
+  if TG_OP = 'INSERT' then
+    update public.feedback_posts set vote_count = vote_count + 1 where id = NEW.post_id;
+    return NEW;
+  elsif TG_OP = 'DELETE' then
+    update public.feedback_posts set vote_count = vote_count - 1 where id = OLD.post_id;
+    return OLD;
+  end if;
+end;
+$$ language plpgsql security definer;
+
+create trigger trg_feedback_vote_count
+  after insert or delete on public.feedback_votes
+  for each row execute function update_feedback_vote_count();

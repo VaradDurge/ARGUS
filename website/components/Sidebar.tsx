@@ -268,7 +268,7 @@ export default function Sidebar() {
 
         <NavLink href="/guide" icon={<IconGuide />} label="Guide" exact={true} />
         <NavLink href="/changelog" icon={<IconChangelog />} label="Changelog" exact={true} />
-        <NavLink href="/report" icon={<IconReport />} label="Report a bug" exact={true} />
+        <NavLink href="/report" icon={<IconReport />} label="Report Board" exact={true} />
         <SoonItem icon={<IconSettings />} label="Settings" />
 
       </nav>
