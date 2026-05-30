@@ -26,7 +26,7 @@ export function useRunList() {
       fetch('/api/runs')
         .then((r) => r.json())
         .then((data: RunSummary[]) => {
-          setRuns(data.filter((r) => !r.parent_run_id))
+          setRuns(data)
           setLoading(false)
         })
         .catch(() => setLoading(false))
@@ -59,7 +59,6 @@ export function useRunList() {
               argus_version: (row.argus_version ?? '') as string,
               parent_run_id: row.parent_run_id as string | null,
             }))
-            .filter((r) => !r.parent_run_id)
         )
         setLoading(false)
       })

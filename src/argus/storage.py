@@ -250,6 +250,7 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         is_cyclic=data.get("is_cyclic", False),
         app_factory_ref=data.get("app_factory_ref"),
         node_fn_refs=data.get("node_fn_refs"),
+        node_fn_paths=data.get("node_fn_paths"),
         subgraph_run_ids=data.get("subgraph_run_ids", []),
         interrupted=data.get("interrupted", False),
         interrupt_node=data.get("interrupt_node"),

@@ -35,7 +35,7 @@ export default function SummaryMetrics({ metrics }: { metrics: SummaryMetric[] }
           <div className="flex items-baseline gap-2">
             <span
               className="text-[16px] font-bold tracking-[-0.02em]"
-              style={{ color: m.color }}
+              style={{ color: 'var(--text-primary)' }}
             >
               {m.displayValue}
             </span>

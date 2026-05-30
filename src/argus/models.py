@@ -141,6 +141,7 @@ class RunRecord:
     subgraph_run_ids: list[str] = field(default_factory=list)  # child run ids
     app_factory_ref: str | None = None  # auto-captured "module:function" for replay
     node_fn_refs: dict[str, str] | None = None  # factory-free replay refs
+    node_fn_paths: dict[str, str] | None = None  # {node_name: relative_file_path}
     interrupted: bool = False        # True if a GraphInterrupt occurred
     interrupt_node: str | None = None  # node name where interrupt occurred
     total_llm_calls: int = 0

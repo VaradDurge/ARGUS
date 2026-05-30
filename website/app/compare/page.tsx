@@ -73,6 +73,7 @@ function CompareContent() {
             graph_node_names: ((row.data as Record<string, unknown>)?.graph_node_names ?? []) as string[],
             argus_version: (row.argus_version ?? '') as string,
             parent_run_id: row.parent_run_id as string | null,
+            replay_from_step: ((row.data as Record<string, unknown>)?.replay_from_step ?? null) as string | null,
           }))
         )
       })

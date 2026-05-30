@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import os
 import threading
 import time
 import traceback
@@ -128,7 +129,16 @@ class ArgusSession:
                 node_behaviors=node_behaviors or {},
             )
 
-        # LLM semantic investigator config
+        # LLM semantic investigator config — auto-enable if OPENAI_API_KEY is set
+        if llm_investigation is None:
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(override=True)
+            except ImportError:
+                pass
+            if os.environ.get("OPENAI_API_KEY"):
+                from argus.models import LLMInvestigationConfig
+                llm_investigation = LLMInvestigationConfig(enabled=True)
         self._llm_investigation_config = llm_investigation
 
         # validator map: key is node name or "*" (wildcard)
@@ -155,6 +165,7 @@ class ArgusSession:
         # auto-captured for zero-config replay (set by ArgusWatcher)
         self.app_factory_ref: str | None = None
         self.node_fn_refs: dict[str, str] | None = None
+        self.node_fn_paths: dict[str, str] | None = None
 
     # ── Public configuration ─────────────────────────────────────────────────
 
@@ -648,6 +659,7 @@ class ArgusSession:
             is_cyclic=self._is_cyclic,
             app_factory_ref=self.app_factory_ref,
             node_fn_refs=self.node_fn_refs,
+            node_fn_paths=self.node_fn_paths,
             parent_run_id=self.parent_run_id,
             replay_from_step=self.replay_from_step,
             interrupted=has_interrupt,

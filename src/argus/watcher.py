@@ -74,7 +74,7 @@ class ArgusWatcher:
         # Load .env early so OPENAI_API_KEY is available for auto-detection
         try:
             from dotenv import load_dotenv
-            load_dotenv()
+            load_dotenv(override=True)
         except ImportError:
             pass
 
@@ -105,6 +105,9 @@ class ArgusWatcher:
 
         # Auto-capture each node function's import path for factory-free replay
         self._session.node_fn_refs = _capture_node_fn_refs(
+            self._session.node_fn_registry
+        )
+        self._session.node_fn_paths = _capture_node_fn_paths(
             self._session.node_fn_registry
         )
 
@@ -199,6 +202,26 @@ def _capture_node_fn_refs(
                 continue
         refs[name] = f"{module}:{qualname}"
     return refs
+
+
+def _capture_node_fn_paths(
+    fn_registry: dict[str, Any],
+) -> dict[str, str]:
+    """Build a {node_name: relative_file_path} map from live functions.
+
+    Stores the source file path relative to cwd so replay can fall back to
+    direct file loading when importlib fails (e.g. no __init__.py).
+    """
+    paths: dict[str, str] = {}
+    for name, fn in fn_registry.items():
+        code = getattr(fn, "__code__", None)
+        if code and code.co_filename:
+            try:
+                paths[name] = os.path.relpath(code.co_filename, os.getcwd())
+            except ValueError:
+                # On Windows, relpath fails across drives
+                paths[name] = code.co_filename
+    return paths
 
 
 def _module_from_filepath(filepath: str) -> str | None:

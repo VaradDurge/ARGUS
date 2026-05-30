@@ -51,6 +51,22 @@ def _content_type(suffix: str) -> str:
 
 
 _CONFIG_PATH = Path(".") / ".argus" / "config.json"
+def _aliases_path(project_dir: Path) -> Path:
+    return project_dir / ".argus" / "aliases.json"
+
+
+def _load_aliases(project_dir: Path) -> dict[str, str]:
+    """Read {run_id: alias} map from .argus/aliases.json."""
+    try:
+        return json.loads(_aliases_path(project_dir).read_text())
+    except Exception:
+        return {}
+
+
+def _save_aliases(aliases: dict[str, str], project_dir: Path) -> None:
+    p = _aliases_path(project_dir)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(aliases, indent=2))
 
 
 def _load_config_app_factory() -> str | None:
@@ -175,6 +191,7 @@ def _make_handler(
             if not all_files:
                 self._send_json([])
                 return
+            aliases = _load_aliases(_project_dir)
             seen: set[str] = set()
             summaries = []
             for f in all_files:
@@ -194,6 +211,8 @@ def _make_handler(
                         "graph_node_names": run.get("graph_node_names", []),
                         "argus_version": run.get("argus_version", ""),
                         "parent_run_id": run.get("parent_run_id"),
+                        "replay_from_step": run.get("replay_from_step"),
+                        "alias": aliases.get(rid),
                     })
                 except Exception:
                     pass
@@ -418,6 +437,60 @@ def _make_handler(
                 t.start()
 
                 self._send_json({"job_id": job_id}, 202)
+            else:
+                self._send_json({"error": "not found"}, 404)
+
+        def do_PUT(self) -> None:
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+
+            if path.startswith("/api/runs/") and path.endswith("/alias"):
+                rid = path[len("/api/runs/"):-len("/alias")]
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+                alias = (data.get("alias") or "").strip()
+                if not alias:
+                    self._send_json({"error": "alias is required"}, 400)
+                    return
+                aliases = _load_aliases(_project_dir)
+                aliases[rid] = alias
+                _save_aliases(aliases, _project_dir)
+                self._send_json({"run_id": rid, "alias": alias})
+            else:
+                self._send_json({"error": "not found"}, 404)
+
+        def do_DELETE(self) -> None:
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+
+            if path.startswith("/api/runs/") and path.endswith("/alias"):
+                rid = path[len("/api/runs/"):-len("/alias")]
+                aliases = _load_aliases(_project_dir)
+                aliases.pop(rid, None)
+                _save_aliases(aliases, _project_dir)
+                self._send_json({"run_id": rid, "alias": None})
+            elif path.startswith("/api/runs/"):
+                rid = path[len("/api/runs/"):]
+                deleted = False
+                for f in _all_run_files(_project_dir):
+                    if f.stem == rid or f.stem.startswith(rid):
+                        f.unlink()
+                        deleted = True
+                        break
+                if deleted:
+                    # Also remove alias if one exists
+                    aliases = _load_aliases(_project_dir)
+                    if rid in aliases:
+                        aliases.pop(rid)
+                        _save_aliases(aliases, _project_dir)
+                    self._send_json({"ok": True})
+                else:
+                    self._send_json({"error": "not found"}, 404)
             else:
                 self._send_json({"error": "not found"}, 404)
 

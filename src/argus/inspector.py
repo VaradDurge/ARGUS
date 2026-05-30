@@ -985,18 +985,26 @@ def build_root_cause_chain(
                     seen_nodes.add(prev.node_name)
                 break
 
-    # Phase 2: inspection-based chain (silent failures, missing fields, etc.)
+    # Phase 2: inspection-based chain (silent failures, missing fields,
+    # semantic degradation, tool failures, etc.)
     for event in reversed(steps_so_far):
         insp = event.inspection
         if insp is None:
             continue
-        if not insp.is_silent_failure and not insp.has_tool_failure:
+        has_any_failure = (
+            insp.is_silent_failure
+            or insp.has_tool_failure
+            or insp.tool_failures
+            or insp.semantic_signals
+        )
+        if not has_any_failure:
             continue
         bad_fields = set(insp.missing_fields + insp.empty_fields)
         # Remove fields that were actually provided elsewhere — parallel siblings
         real_bad = bad_fields - all_provided
         if (real_bad or seen_bad_fields.intersection(real_bad)
-                or insp.has_tool_failure):
+                or insp.has_tool_failure or insp.tool_failures
+                or insp.semantic_signals):
             if event.node_name not in seen_nodes:
                 chain.append(event.node_name)
                 seen_nodes.add(event.node_name)

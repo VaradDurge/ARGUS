@@ -108,7 +108,14 @@ def should_investigate(
     if not reasons:
         reasons.append(f"run status: {record.overall_status} (no specific signals)")
 
-    if not cfg.always_investigate and record.overall_status == "clean":
+    # Skip investigation only if the run is clean AND no failure signals were found.
+    # If any node has semantic degradation, tool failures, etc., always investigate.
+    has_real_signals = any(
+        r.startswith(("silent failure", "crash", "semantic failure",
+                      "degraded input", "tool warning", "empty fields"))
+        for r in reasons
+    )
+    if not cfg.always_investigate and record.overall_status == "clean" and not has_real_signals:
         return False, []
 
     return True, reasons
@@ -323,7 +330,7 @@ can produce false causal narratives. Before accepting any propagation claim, ver
 
 You must respond with valid JSON matching this exact schema:
 {
-  "root_cause_explanation": "<2-3 sentences. Name the node, field, reason.>",
+  "root_cause_explanation": "<Cover ALL failing nodes. Name each node, field, reason.>",
   "causal_hypotheses": [
     {
       "hypothesis": "<concise causal statement>",
@@ -359,9 +366,11 @@ Rules:
 - Do NOT suggest changes to ARGUS internals or detection logic.
 - If the correlator's causal summary conflicts with the node-level evidence, \
   trust the node-level evidence and explain the discrepancy.
-- root_cause_explanation must be 2-3 sentences max. Name the exact node, exact field, \
-  and precise reason. No vague phrases like "degradation originated from" or \
-  "the execution experienced significant degradation". Be direct: what broke, where, why.
+- root_cause_explanation must cover ALL failing or degraded nodes, not just the most \
+  severe one. If node B has semantic degradation and node C has a silent failure, explain \
+  BOTH — do not skip lower-severity failures. Name each exact node, exact field, and \
+  precise reason. No vague phrases like "degradation originated from". Be direct: \
+  what broke, where, why — for every affected node.
 """
 
 _SIGNATURE_ADDENDUM = """
@@ -424,11 +433,15 @@ def build_prompt(
         "The following issues were flagged by deterministic analysis:\n"
         + "\n".join(f"- {r}" for r in trigger_reasons)
         + "\n\n## Your Task\n"
-        "Analyze the full execution intelligence below. For each failing or degraded node, "
-        "explain the SEMANTIC reason it failed — not just 'field X was empty' but WHY "
-        "the upstream logic produced that empty field, what the node was trying to do, "
-        "and how the failure propagated through the pipeline. Be specific about field names, "
-        "values, and the causal chain. If the correlator's attribution seems wrong, say so.\n"
+        "Analyze the full execution intelligence below. You MUST cover EVERY failing or "
+        "degraded node — not just the most severe one. If multiple nodes have different "
+        "failure types (e.g. semantic degradation in one node and silent failure in another), "
+        "explain ALL of them in your root_cause_explanation, degradation_narrative, and "
+        "debugging_suggestions. For each affected node, explain the SEMANTIC reason it "
+        "failed — not just 'field X was empty' but WHY the upstream logic produced that "
+        "empty field, what the node was trying to do, and how the failure propagated. "
+        "Be specific about field names, values, and the causal chain. "
+        "If the correlator's attribution seems wrong, say so.\n"
         "\n## Full Execution Intelligence\n"
         + json.dumps(briefing, indent=2, default=str)
     )
@@ -612,12 +625,12 @@ def investigate(
     # Load .env if present (no-op if python-dotenv not installed)
     try:
         from dotenv import load_dotenv
-        load_dotenv()
+        load_dotenv(override=True)
     except ImportError:
         pass
 
-    # Resolve API key
-    api_key = cfg.api_key or os.environ.get("OPENAI_API_KEY")
+    # Resolve API key — server env var always takes precedence (SaaS mode)
+    api_key = os.environ.get("OPENAI_API_KEY") or cfg.api_key
     if not api_key:
         return LLMInvestigationResult(
             triggered=True,

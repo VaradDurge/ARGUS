@@ -230,4 +230,6 @@ export interface RunSummary {
   graph_node_names: string[]
   argus_version: string
   parent_run_id: string | null
+  replay_from_step?: string | null
+  alias?: string | null
 }

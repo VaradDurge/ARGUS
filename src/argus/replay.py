@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import sys
 from collections import defaultdict
@@ -70,7 +71,8 @@ class ReplayEngine:
             )
 
         state = safe_deserialize(step.input_state, state_type)
-        fn = _import_fn(record.node_fn_refs[node_name])
+        fp = (record.node_fn_paths or {}).get(node_name)
+        fn = _import_fn(record.node_fn_refs[node_name], file_path=fp)
 
         session = ArgusSession(
             max_field_size=self._max_field_size,
@@ -154,8 +156,9 @@ class ReplayEngine:
 
         # Import each node function from the stored refs
         node_fns: dict[str, Callable] = {}
+        fn_paths = record.node_fn_paths or {}
         for name, ref in record.node_fn_refs.items():
-            node_fns[name] = _import_fn(ref)
+            node_fns[name] = _import_fn(ref, file_path=fn_paths.get(name))
 
         # Build execution order from the original run's steps (deduplicated, preserves order)
         seen: set[str] = set()
@@ -244,11 +247,13 @@ class ReplayEngine:
         return new_run_id
 
 
-def _import_fn(ref: str) -> Callable:
+def _import_fn(ref: str, file_path: str | None = None) -> Callable:
     """Import a function from a 'module:qualname' reference.
 
     Handles both simple names (module:func) and nested qualnames
-    (module:Class.method).
+    (module:Class.method).  When *file_path* is provided, it is used as a
+    last-resort fallback via ``spec_from_file_location`` — no ``__init__.py``
+    required in parent directories.
     """
     if ":" not in ref:
         raise ValueError(f"Invalid function ref '{ref}' — expected 'module:qualname'")
@@ -285,12 +290,20 @@ def _import_fn(ref: str) -> Callable:
             try:
                 module = importlib.import_module(module_path)
             except ImportError as e2:
-                raise ImportError(f"Cannot import module '{module_path}': {e2}") from e2
+                # Fall through to file-path fallback below
+                if not file_path:
+                    raise ImportError(
+                        f"Cannot import module '{module_path}': {e2}"
+                    ) from e2
+                module = _load_module_from_file(module_path, file_path)
         else:
-            raise ImportError(
-                f"Cannot import module '{module_path}': not found on sys.path "
-                f"or under {Path.cwd()}"
-            )
+            if file_path:
+                module = _load_module_from_file(module_path, file_path)
+            else:
+                raise ImportError(
+                    f"Cannot import module '{module_path}': not found on sys.path "
+                    f"or under {Path.cwd()}"
+                )
 
     # Walk the qualname (handles Class.method, nested classes, etc.)
     obj: Any = module
@@ -305,3 +318,23 @@ def _import_fn(ref: str) -> Callable:
         raise TypeError(f"'{ref}' resolved to {type(obj).__name__}, not a callable")
 
     return obj
+
+
+def _load_module_from_file(module_path: str, file_path: str) -> Any:
+    """Load a module directly from a .py file — no __init__.py required."""
+    abs_path = Path.cwd() / file_path
+    if not abs_path.exists():
+        raise ImportError(
+            f"Cannot import module '{module_path}': stored file path "
+            f"'{file_path}' not found at {abs_path}"
+        )
+    spec = importlib.util.spec_from_file_location(module_path, str(abs_path))
+    if spec is None or spec.loader is None:
+        raise ImportError(
+            f"Cannot import module '{module_path}': "
+            f"spec_from_file_location failed for '{abs_path}'"
+        )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_path] = module
+    spec.loader.exec_module(module)
+    return module

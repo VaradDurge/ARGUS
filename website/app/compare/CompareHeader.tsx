@@ -36,6 +36,49 @@ function badgeLabel(run: RunRecord): string {
   return STATUS_DISPLAY[run.overall_status] ?? run.overall_status
 }
 
+const STATUS_DOT_SYMBOL: Record<string, string> = {
+  clean: '\u{1F7E9}',          // green square (smaller than circle emoji)
+  silent_failure: '\u{1F7E8}', // yellow square
+  crashed: '\u{1F7E5}',        // red square
+  semantic_fail: '\u{1F7EA}',  // purple square
+  interrupted: '\u{1F7E8}',    // yellow square
+}
+
+function statusDot(s: string) { return STATUS_DOT_SYMBOL[s] ?? '\u2B1C' }
+
+function RunSelectOptions({ runs }: { runs: RunSummary[] }) {
+  // Group: parent runs first, then their replays indented beneath
+  const parents = runs.filter((r) => !r.parent_run_id)
+  const childMap = new Map<string, RunSummary[]>()
+  for (const r of runs) {
+    if (r.parent_run_id) {
+      const list = childMap.get(r.parent_run_id) ?? []
+      list.push(r)
+      childMap.set(r.parent_run_id, list)
+    }
+  }
+  const options: JSX.Element[] = []
+  for (const p of parents) {
+    const label = p.alias || p.run_id
+    options.push(
+      <option key={p.run_id} value={p.run_id}>
+        {statusDot(p.overall_status)} {label}
+      </option>
+    )
+    const children = childMap.get(p.run_id) ?? []
+    for (const c of children) {
+      const cName = c.alias || c.run_id.slice(0, 12)
+      const from = c.replay_from_step ? ` from ${c.replay_from_step}` : ''
+      options.push(
+        <option key={c.run_id} value={c.run_id}>
+          {`  \u21B3 ${statusDot(c.overall_status)} ${cName}${from}`}
+        </option>
+      )
+    }
+  }
+  return <>{options}</>
+}
+
 export default function CompareHeader({
   runs,
   selectedA,
@@ -53,6 +96,15 @@ export default function CompareHeader({
   onSelectA: (id: string) => void
   onSelectB: (id: string) => void
 }) {
+  // Build alias lookup from the runs list
+  const aliasMap = new Map<string, string>()
+  for (const r of runs) {
+    if (r.alias) aliasMap.set(r.run_id, r.alias)
+  }
+  function displayName(run: RunRecord): string {
+    return aliasMap.get(run.run_id) || run.run_id.slice(0, 15)
+  }
+
   return (
     <div className="space-y-2.5">
       {/* Selectors row */}
@@ -69,11 +121,7 @@ export default function CompareHeader({
           }}
         >
           <option value="">{selectorLabel(runA, 'Select base run...')}</option>
-          {runs.map((r) => (
-            <option key={r.run_id} value={r.run_id}>
-              {r.run_id} \u2022 {r.overall_status}
-            </option>
-          ))}
+          <RunSelectOptions runs={runs} />
         </select>
 
         {/* Swap / Copy */}
@@ -116,11 +164,7 @@ export default function CompareHeader({
           }}
         >
           <option value="">{selectorLabel(runB, 'Select replay...')}</option>
-          {runs.map((r) => (
-            <option key={r.run_id} value={r.run_id}>
-              {r.run_id} \u2022 {r.overall_status}
-            </option>
-          ))}
+          <RunSelectOptions runs={runs} />
         </select>
 
         <div className="flex-1" />
@@ -169,8 +213,11 @@ export default function CompareHeader({
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: statusColor(runA.overall_status) }} />
               <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
-                {runA.run_id.slice(0, 15)}
+                {displayName(runA)}
               </span>
+              {aliasMap.has(runA.run_id) && (
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{runA.run_id.slice(0, 8)}</span>
+              )}
               <span
                 className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
                 style={{ color: statusColor(runA.overall_status), background: `${statusColor(runA.overall_status)}10` }}
@@ -191,8 +238,11 @@ export default function CompareHeader({
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: statusColor(runB.overall_status) }} />
               <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
-                {runB.run_id.slice(0, 15)}
+                {displayName(runB)}
               </span>
+              {aliasMap.has(runB.run_id) && (
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{runB.run_id.slice(0, 8)}</span>
+              )}
               <span
                 className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
                 style={{ color: statusColor(runB.overall_status), background: `${statusColor(runB.overall_status)}10` }}
