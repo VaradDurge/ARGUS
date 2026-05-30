@@ -155,7 +155,7 @@ function CompareContent() {
   return (
     <div className="space-y-0">
       {/* Page title + back button */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-[20px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
             Compare Runs
@@ -187,7 +187,7 @@ function CompareContent() {
 
       {/* Tab bar + active tab content */}
       {runA && runB && (
-        <div className="mt-4">
+        <div className="mt-2">
           <CompareTabNav active={activeTab} onChange={setActiveTab} />
           {renderTab()}
         </div>
@@ -211,7 +211,7 @@ function CompareContent() {
 
 export default function ComparePage() {
   return (
-    <div className="px-8 py-6 overflow-auto h-full">
+    <div className="px-5 py-4 overflow-auto h-full">
       <Suspense fallback={<div />}>
         <CompareContent />
       </Suspense>

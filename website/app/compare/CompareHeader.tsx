@@ -1,7 +1,6 @@
 'use client'
 
 import type { RunSummary, RunRecord } from '@/lib/types'
-import { formatDur } from '@/lib/run-utils'
 import { STATUS_DOT_COLOR } from './lib/compare-utils'
 
 const STATUS_DISPLAY: Record<string, string> = {
@@ -14,12 +13,6 @@ const STATUS_DISPLAY: Record<string, string> = {
 
 function statusColor(s: string) {
   return STATUS_DOT_COLOR[s] ?? '#9ca3af'
-}
-
-function formatTs(iso: string): string {
-  const d = new Date(iso)
-  const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]
-  return `${month} ${d.getDate()}, ${d.getFullYear()} \u2022 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
 }
 
 function selectorLabel(run: RunRecord | null, fallback: string): string {
@@ -61,7 +54,7 @@ export default function CompareHeader({
   onSelectB: (id: string) => void
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Selectors row */}
       <div className="flex items-center gap-2.5 flex-wrap">
         <select
@@ -173,20 +166,17 @@ export default function CompareHeader({
             className="flex-1 px-4 py-3 rounded-xl"
             style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
           >
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: statusColor(runA.overall_status) }} />
-              <span className="text-[14px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
-                {runA.run_id}
+              <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
+                {runA.run_id.slice(0, 15)}
               </span>
               <span
-                className="text-[11px] font-medium px-2 py-0.5 rounded-full ml-1"
+                className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
                 style={{ color: statusColor(runA.overall_status), background: `${statusColor(runA.overall_status)}10` }}
               >
                 {badgeLabel(runA)}
               </span>
-            </div>
-            <div className="text-[12px] font-mono" style={{ color: 'var(--text-muted)' }}>
-              {runA.started_at ? formatTs(runA.started_at) : ''} \u2022 {(runA.steps ?? []).length} steps \u2022 {formatDur(runA.duration_ms)} \u2022 v{runA.argus_version}
             </div>
           </div>
 
@@ -198,20 +188,17 @@ export default function CompareHeader({
             className="flex-1 px-4 py-3 rounded-xl"
             style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
           >
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: statusColor(runB.overall_status) }} />
-              <span className="text-[14px] font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
-                {runB.run_id}
+              <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
+                {runB.run_id.slice(0, 15)}
               </span>
               <span
-                className="text-[11px] font-medium px-2 py-0.5 rounded-full ml-1"
+                className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
                 style={{ color: statusColor(runB.overall_status), background: `${statusColor(runB.overall_status)}10` }}
               >
                 {badgeLabel(runB)}
               </span>
-            </div>
-            <div className="text-[12px] font-mono" style={{ color: 'var(--text-muted)' }}>
-              {runB.started_at ? formatTs(runB.started_at) : ''} \u2022 {(runB.steps ?? []).length} steps \u2022 {formatDur(runB.duration_ms)} \u2022 v{runB.argus_version}
             </div>
           </div>
         </div>

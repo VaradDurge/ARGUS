@@ -28,18 +28,18 @@ function impactLabel(diff: NodeDiff): { text: string; color: string } {
 export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
   return (
     <div className="card rounded-xl overflow-hidden">
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Node Comparison</h3>
+      <div className="px-2.5 py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <h3 className="text-[11.5px] font-bold" style={{ color: 'var(--text-primary)' }}>Node Comparison</h3>
       </div>
 
-      <table className="w-full text-[12px]">
+      <table className="w-full text-[10px]">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            <th className="text-left px-4 py-2 font-semibold" style={{ color: 'var(--text-muted)', width: '30%' }}>Node</th>
-            <th className="text-left px-3 py-2 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Base Run</th>
-            <th className="text-left px-3 py-2 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Replay 1</th>
-            <th className="text-left px-3 py-2 font-semibold" style={{ color: 'var(--text-muted)', width: '22%' }}>Change</th>
-            <th className="text-left px-3 py-2 font-semibold" style={{ color: 'var(--text-muted)', width: '18%' }}>Impact</th>
+            <th className="text-left px-2.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '30%' }}>Node</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Base</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Replay</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '22%' }}>Change</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '18%' }}>Impact</th>
           </tr>
         </thead>
         <tbody>
@@ -54,44 +54,44 @@ export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
                 style={{ borderBottom: i < diffs.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
                 className="transition-colors hover:bg-black/[0.02]"
               >
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
-                    <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{diff.name}</span>
+                <td className="px-2.5 py-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
+                    <span className="font-mono font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{diff.name}</span>
                     {beforeIcon && (
-                      <span className="text-[11px]" style={{ color: beforeIcon.color }}>{beforeIcon.icon}</span>
+                      <span className="text-[9px]" style={{ color: beforeIcon.color }}>{beforeIcon.icon}</span>
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-1.5">
+                <td className="px-1.5 py-1">
+                  <div className="flex items-center gap-1">
                     <span className="font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {diff.before ? formatDur(diff.before.duration_ms) : '\u2014'}
                     </span>
                     {diff.before && (
-                      <span className="text-[10px] font-semibold" style={{ color: (STEP_ICON[diff.before.status] ?? {}).color ?? '#9ca3af' }}>
-                        {diff.before.status === 'pass' ? 'Passed' : diff.before.status === 'fail' ? 'Failed' : diff.before.status}
+                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.before.status] ?? {}).color ?? '#9ca3af' }}>
+                        {diff.before.status === 'pass' ? 'OK' : diff.before.status === 'fail' ? 'Fail' : diff.before.status}
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-1.5">
+                <td className="px-1.5 py-1">
+                  <div className="flex items-center gap-1">
                     <span className="font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                       {diff.after ? formatDur(diff.after.duration_ms) : '\u2014'}
                     </span>
                     {diff.after && (
-                      <span className="text-[10px] font-semibold" style={{ color: (STEP_ICON[diff.after.status] ?? {}).color ?? '#9ca3af' }}>
-                        {diff.after.status === 'pass' ? 'Passed' : diff.after.status === 'fail' ? 'Failed' : diff.after.status}
+                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.after.status] ?? {}).color ?? '#9ca3af' }}>
+                        {diff.after.status === 'pass' ? 'OK' : diff.after.status === 'fail' ? 'Fail' : diff.after.status}
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                <td className="px-1.5 py-1 font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatDelta(diff.before?.duration_ms, diff.after?.duration_ms)}
                 </td>
-                <td className="px-3 py-2.5">
-                  <span className="text-[11px] font-bold" style={{ color: impact.color }}>
+                <td className="px-1.5 py-1">
+                  <span className="text-[9px] font-bold" style={{ color: impact.color }}>
                     {impact.text}
                   </span>
                 </td>
@@ -101,10 +101,10 @@ export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
         </tbody>
       </table>
 
-      <div className="px-4 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <span className="text-[11px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#6366f1' }}>
+      <div className="px-2.5 py-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        <span className="text-[10px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#6366f1' }}>
           View all node details
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3.5 2L6.5 5l-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M3.5 2L6.5 5l-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </span>
       </div>
     </div>

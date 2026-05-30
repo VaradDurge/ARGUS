@@ -8,24 +8,24 @@ const ICONS: Record<string, { icon: string; color: string }> = {
   unchanged: { icon: '\u2014', color: '#9ca3af' },
 }
 
-export default function KeyChangesSummary({ changes }: { changes: KeyChange[] }) {
+export default function KeyChangesSummary({ changes, compact = false }: { changes: KeyChange[]; compact?: boolean }) {
   return (
-    <div className="space-y-2">
+    <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
       {changes.map((c) => {
         const vis = ICONS[c.type] ?? ICONS.unchanged
         return (
-          <div key={c.nodeName} className="flex items-start gap-2.5">
+          <div key={c.nodeName} className={compact ? 'flex items-start gap-2' : 'flex items-start gap-2.5'}>
             <span
-              className="text-[14px] font-bold shrink-0 w-5 text-center mt-0.5"
+              className={`${compact ? 'text-[12px] w-4' : 'text-[14px] w-5'} font-bold shrink-0 text-center mt-0.5`}
               style={{ color: vis.color }}
             >
               {vis.icon}
             </span>
             <div className="min-w-0">
-              <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <span className={`${compact ? 'text-[11.5px]' : 'text-[13px]'} font-semibold`} style={{ color: 'var(--text-primary)' }}>
                 {c.nodeName}:
               </span>
-              <span className="text-[13px] ml-1" style={{ color: 'var(--text-secondary)' }}>
+              <span className={`${compact ? 'text-[11.5px]' : 'text-[13px]'} ml-1`} style={{ color: 'var(--text-secondary)' }}>
                 {c.description}
               </span>
             </div>

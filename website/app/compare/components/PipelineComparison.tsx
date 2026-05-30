@@ -71,16 +71,16 @@ function MiniPipeline({ run, diffMap, label }: { run: RunRecord; diffMap: Map<st
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-1.5">
         <span className="w-1 h-4 rounded-full shrink-0" style={{ background: STATUS_LABEL[run.overall_status] ? (run.overall_status === 'clean' ? '#10b981' : '#ef4444') : '#9ca3af' }} />
         <span className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</span>
       </div>
-      <div className="flex items-center py-2 overflow-x-auto">
+      <div className="flex items-center py-1.5 overflow-x-auto">
         {layers.map((layer, layerIndex) => {
           const isLast = layerIndex === layers.length - 1
           return (
             <div key={layer.join('|')} className="flex items-center shrink-0">
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 {layer.map((name) => {
                   counter++
                   const step = stepMap.get(name)
@@ -155,9 +155,9 @@ export default function PipelineComparison({
 
   return (
     <div
-      className="card rounded-xl p-4"
+      className="card rounded-xl p-3.5"
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2.5">
         <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Pipeline Overview</h3>
         <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#10b981' }} /> Improved</span>
@@ -168,7 +168,7 @@ export default function PipelineComparison({
 
       <MiniPipeline run={runA} diffMap={diffMap} label={`${labelA}${statusA}`} />
 
-      <div className="flex justify-center py-2">
+      <div className="flex justify-center py-1">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M8 3v10M5 10l3 3 3-3" stroke="var(--text-faint)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>

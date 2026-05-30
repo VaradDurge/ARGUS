@@ -16,33 +16,27 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
   const keyChanges = computeKeyChanges(nodes)
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-2.5 py-2.5">
       {/* Summary Metrics */}
       <SummaryMetrics metrics={summaryMetrics} />
 
-      {/* Pipeline + Key Changes */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-7">
+      {/* Main compare layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+        <div className="lg:col-span-7 flex flex-col gap-2.5">
           <PipelineComparison runA={runA} runB={runB} diffs={nodes} />
-        </div>
-        <div className="lg:col-span-5 flex flex-col gap-4">
-          <div className="card rounded-xl p-4">
-            <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Key Changes Summary</h3>
-            <KeyChangesSummary changes={keyChanges} />
-          </div>
-          <div className="card rounded-xl p-4">
-            <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Change Impact</h3>
-            <ChangeImpactChart impact={impact} />
-          </div>
-        </div>
-      </div>
-
-      {/* Node Comparison + Diff View */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-6">
           <NodeComparisonTable diffs={nodes} />
         </div>
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-5 flex flex-col gap-2.5">
+          <div className="card rounded-xl p-3.5">
+            <div className="min-w-0">
+              <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Key Changes Summary</h3>
+              <KeyChangesSummary changes={keyChanges} compact />
+            </div>
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Change Impact</h3>
+              <ChangeImpactChart impact={impact} compact />
+            </div>
+          </div>
           <StructuredDiff diffs={nodes} />
         </div>
       </div>
