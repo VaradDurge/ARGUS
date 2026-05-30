@@ -269,10 +269,15 @@ def _import_fn(ref: str) -> Callable:
         else:
             module = importlib.import_module(module_path)
     except ImportError:
-        # Module not on sys.path — search for the .py file under CWD
+        # Module not on sys.path — search for the .py file or package under CWD
         # (handles pipelines run from subdirectories)
         top_level = module_path.split(".")[0]
         found = list(Path.cwd().rglob(f"{top_level}.py"))
+        # Also search for packages (directories with __init__.py)
+        if not found:
+            found = [
+                p.parent for p in Path.cwd().rglob(f"{top_level}/__init__.py")
+            ]
         if found:
             parent = str(found[0].parent)
             if parent not in sys.path:
