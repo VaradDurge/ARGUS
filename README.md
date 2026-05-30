@@ -7,9 +7,11 @@
 
 ---
 
+**Production readiness platform for AI agent pipelines.**
+
 Your LangGraph pipeline runs. No exception. But three nodes later something crashes with a `KeyError`. The node that crashed didn't cause it — some node upstream returned a dict with a missing field, and nothing caught it.
 
-ARGUS sits between your nodes and tells you exactly where it went wrong.
+ARGUS sits between your nodes and catches silent failures, semantic degradation, and contract violations before they reach production.
 
 <img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_website.png?raw=true" width="700"/>
 

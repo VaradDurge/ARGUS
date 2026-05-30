@@ -20,7 +20,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: 'ARGUS',
-  description: 'Agentic Realtime Guard & Unified Scope — run inspector',
+  description: 'Production readiness platform for AI agent pipelines',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,7 +1,7 @@
-"""ARGUS — Agentic Realtime Guard and Unified Scope.
+"""ARGUS — Production readiness platform for AI agent pipelines.
 
-Monitors multi-agent pipelines for silent failures, semantic errors,
-and handoff contract violations. Framework-agnostic core with a
+Detects silent failures, semantic degradation, and handoff contract
+violations before deployment. Framework-agnostic core with a
 first-class LangGraph adapter.
 
 LangGraph usage:
