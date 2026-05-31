@@ -473,8 +473,9 @@ export default function GuideContent() {
         Rerun re-executes your pipeline from a specific node using the frozen input state
         captured from a previous run. This means you can test a fix without re-running
         the full pipeline or making new LLM calls for the nodes before the broken one.
-        External API calls (OpenAI, search tools, etc.) are recorded automatically and
-        replayed from disk — zero extra cost, fully deterministic.
+        External API calls (OpenAI, search tools, etc.) execute live by default.
+        Use <Code>record_http=True</Code> to capture and replay them from disk for
+        fully deterministic reruns.
       </Body>
 
       <SubTitle>How rerun works</SubTitle>

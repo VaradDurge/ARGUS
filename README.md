@@ -118,17 +118,17 @@ From the web UI — hover any step, click `↺ Rerun From Here`. After rerun, th
 argus diff <rerun-id>    # compare rerun vs original
 ```
 
-### External API calls are recorded automatically
+### What about external API calls?
 
-ARGUS records every outbound HTTP call (OpenAI, search APIs, databases) during the original run. During rerun, the recorded responses are served back — same data, zero extra cost, fully deterministic.
+By default, reruns call external APIs live (OpenAI, search tools, databases). Results may differ from the original run.
 
-No setup needed. It just works.
-
-To disable recording (e.g. if you *want* live calls during rerun):
+For **fully deterministic** reruns, record HTTP calls during the original run:
 
 ```python
-watcher = ArgusWatcher(record_http=False)
+watcher = ArgusWatcher(record_http=True)
 ```
+
+Every API response is saved to disk. During rerun, the recorded responses are served back — same data, zero extra cost, fully reproducible.
 
 ---
 
