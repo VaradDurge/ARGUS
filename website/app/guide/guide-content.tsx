@@ -265,7 +265,7 @@ export default function GuideContent() {
       <PageTitle>How to Use Argus</PageTitle>
       <Body>
         A step-by-step walkthrough of every section in the Argus dashboard — from browsing
-        your run history to reading failure details, comparing executions, and replaying from
+        your run history to reading failure details, comparing executions, and rerunning from
         a broken node.
       </Body>
 
@@ -467,17 +467,19 @@ export default function GuideContent() {
 
       <Divider />
 
-      {/* ── 4. Replay ────────────────────────────────────────────────────── */}
-      <SectionTitle>4. Replay</SectionTitle>
+      {/* ── 4. Rerun ─────────────────────────────────────────────────────── */}
+      <SectionTitle>4. Rerun</SectionTitle>
       <Body>
-        Replay re-executes your pipeline from a specific node using the frozen input state
+        Rerun re-executes your pipeline from a specific node using the frozen input state
         captured from a previous run. This means you can test a fix without re-running
         the full pipeline or making new LLM calls for the nodes before the broken one.
+        Note: external API calls, DB reads, and timestamps execute live — use{' '}
+        <Code>record_http=True</Code> during recording for deterministic reruns.
       </Body>
 
-      <SubTitle>How replay works</SubTitle>
+      <SubTitle>How rerun works</SubTitle>
       <Body>
-        When Argus records a run, it saves the input state at every node. When you replay
+        When Argus records a run, it saves the input state at every node. When you rerun
         from node X, Argus loads the exact input that node X received originally, then
         re-executes node X and everything downstream with your current code. A new run ID
         is created for the result.
@@ -490,10 +492,10 @@ export default function GuideContent() {
         </StepItem>
         <StepItem n={2} title="Find the root cause node">
           Check the red root cause banner at the top — it names the node that first produced
-          bad output. That&apos;s the node you want to replay from.
+          bad output. That&apos;s the node you want to rerun from.
         </StepItem>
-        <StepItem n={3} title="Click the replay icon">
-          In the execution timeline, each node row has a replay icon (↺) on the right.
+        <StepItem n={3} title="Click the rerun icon">
+          In the execution timeline, each node row has a rerun icon (↺) on the right.
           Click it on the root cause node.
         </StepItem>
         <StepItem n={4} title="Wait for the new run">
@@ -501,13 +503,13 @@ export default function GuideContent() {
           run&apos;s detail page with a fresh set of results.
         </StepItem>
         <StepItem n={5} title="Compare to confirm">
-          Use the <strong>Compare</strong> button to diff the original run against the replay.
+          Use the <strong>Compare</strong> button to diff the original run against the rerun.
           The broken nodes should now show <Code>pass</Code>.
         </StepItem>
       </div>
 
       <SubTitle>Step by step — from the CLI</SubTitle>
-      <CodeBlock title="Replay from a specific node">
+      <CodeBlock title="Rerun from a specific node">
 {`argus replay <run-id> <node-name>`}
       </CodeBlock>
       <CodeBlock title="If node functions weren't stored in the run">
@@ -516,14 +518,14 @@ export default function GuideContent() {
       <Body>
         The <Code>--app</Code> flag takes a <Code>module:function</Code> path to your graph
         factory function. Only needed if node function references weren&apos;t captured at
-        recording time. After replay, use <Code>argus diff</Code> to compare:
+        recording time. After rerun, use <Code>argus diff</Code> to compare:
       </Body>
       <CodeBlock>
-{`argus diff <original-run-id> <replay-run-id>`}
+{`argus diff <original-run-id> <rerun-run-id>`}
       </CodeBlock>
 
       <Note>
-        Screenshots for the replay UI will be added in a future update.
+        Screenshots for the rerun UI will be added in a future update.
       </Note>
     </article>
   )

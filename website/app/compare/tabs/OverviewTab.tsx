@@ -51,7 +51,7 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
           <path d="M7 4.5v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           <circle cx="7" cy="9.5" r="0.6" fill="currentColor"/>
         </svg>
-        Comparison shows differences between base run (failed) and replay run. Use &quot;Replay from diff&quot; to create a new run starting from the first differing node.
+        Comparison shows differences between base run (failed) and rerun. Use &quot;Rerun from diff&quot; to create a new run starting from the first differing node.
       </div>
     </div>
   )

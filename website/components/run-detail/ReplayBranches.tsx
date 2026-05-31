@@ -104,7 +104,7 @@ function ReplayNodeRow({
             onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa' }}
           >
             <span className="text-[12.5px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>
-              Replay {label}
+              Rerun {label}
             </span>
             <span
               className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md leading-none shrink-0"
@@ -201,14 +201,14 @@ export default function ReplayBranches({
       {/* Header */}
       <div className="px-3.5 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <h3 className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>
-          Replay Branches{total > 0 ? ` (${total})` : ''}
+          Rerun Branches{total > 0 ? ` (${total})` : ''}
         </h3>
         <button
           onClick={() => onSwitchTab('Pipeline')}
           className="text-[11px] font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-colors"
           style={{ color: '#6366f1', border: '1px solid rgba(99,102,241,0.22)', background: 'rgba(99,102,241,0.04)' }}
         >
-          + Replay
+          + Rerun
         </button>
       </div>
 
@@ -267,7 +267,7 @@ export default function ReplayBranches({
           </div>
         ) : (
           <div className="py-3 text-center text-[11.5px]" style={{ color: 'var(--text-muted)' }}>
-            No replays yet
+            No reruns yet
           </div>
         )}
       </div>

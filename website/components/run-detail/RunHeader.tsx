@@ -72,7 +72,7 @@ export default function RunHeader({
           {/* Replay lineage */}
           {run.parent_run_id && (
             <div className="mt-2 text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              replay of{' '}
+              rerun of{' '}
               <a href={`/runs/${run.parent_run_id}`} className="font-mono hover:text-indigo-500 transition-colors">
                 {run.parent_run_id}
               </a>

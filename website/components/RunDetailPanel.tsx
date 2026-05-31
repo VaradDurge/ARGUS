@@ -219,7 +219,7 @@ export default function RunDetailPanel({
 
         {run.parent_run_id && (
           <div className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
-            replay of{' '}
+            rerun of{' '}
             <button
               onClick={() => {
                 const parentRun = encodeURIComponent(run.parent_run_id ?? '')

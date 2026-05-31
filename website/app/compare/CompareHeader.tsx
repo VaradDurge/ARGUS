@@ -21,7 +21,7 @@ function selectorLabel(run: RunRecord | null, fallback: string): string {
   const isReplay = !!run.parent_run_id
   if (isReplay) {
     const fixedCrash = status === 'clean' || status === 'silent_failure'
-    return `Replay${run.run_id.includes('-R') ? ` ${run.run_id.split('-R').pop()}` : ''} (${fixedCrash ? 'Fixed' : 'Failed'})`
+    return `Rerun${run.run_id.includes('-R') ? ` ${run.run_id.split('-R').pop()}` : ''} (${fixedCrash ? 'Fixed' : 'Failed'})`
   }
   const label = status === 'clean' ? 'Passed' : status === 'crashed' ? 'Failed' : status === 'silent_failure' ? 'Failed' : 'Unknown'
   return `Base Run (${label})`
@@ -31,7 +31,7 @@ function badgeLabel(run: RunRecord): string {
   const isReplay = !!run.parent_run_id
   if (isReplay) {
     const base = STATUS_DISPLAY[run.overall_status] ?? run.overall_status
-    return `replay (fixed ${base === 'clean' ? 'all' : base})`
+    return `rerun (fixed ${base === 'clean' ? 'all' : base})`
   }
   return STATUS_DISPLAY[run.overall_status] ?? run.overall_status
 }
@@ -163,7 +163,7 @@ export default function CompareHeader({
             minWidth: '200px',
           }}
         >
-          <option value="">{selectorLabel(runB, 'Select replay...')}</option>
+          <option value="">{selectorLabel(runB, 'Select rerun...')}</option>
           <RunSelectOptions runs={runs} />
         </select>
 
@@ -197,7 +197,7 @@ export default function CompareHeader({
             className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:opacity-80 transition-opacity"
             style={{ color: '#10b981', border: '1px solid #10b981' }}
           >
-            + Replay from diff
+            + Rerun from diff
           </button>
         </div>
       </div>

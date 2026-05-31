@@ -46,6 +46,7 @@ class ArgusWatcher:
         investigate: bool | str = True,
         redact_keys: set[str] | list[str] | None = None,
         persist_state: bool = True,
+        record_http: bool = False,
     ) -> None:
         self._max_field_size = max_field_size
         self._validators = validators or {}
@@ -53,19 +54,65 @@ class ArgusWatcher:
         self._investigate = investigate  # True | False | "always"
         self._redact_keys = redact_keys
         self._persist_state = persist_state
+        self._record_http = record_http
+        self._http_recorder_ctx = None
+        self._http_recorder = None
         self._session: ArgusSession | None = None
 
+    def watch_compiled(self, compiled_graph: Any) -> Any:
+        """Attach ARGUS to an already-compiled LangGraph graph.
+
+        This is the recommended method when you receive a pre-compiled graph
+        or prefer compiling first.  Internally it extracts the underlying
+        StateGraph, attaches monitoring, and recompiles.
+
+        Args:
+            compiled_graph: A ``CompiledGraph`` returned by ``graph.compile()``.
+
+        Returns:
+            A new ``CompiledGraph`` with ARGUS monitoring attached.
+
+        Usage::
+
+            app = graph.compile(checkpointer=memory)
+            app = watcher.watch_compiled(app)   # returns a new compiled app
+            app.invoke(state)
+        """
+        # Extract the builder (StateGraph) from the compiled graph
+        builder = getattr(compiled_graph, "builder", None)
+        if builder is None:
+            # Older LangGraph versions may not have .builder
+            raise ValueError(
+                "Cannot extract StateGraph from this compiled graph. "
+                "Your LangGraph version may be too old for watch_compiled(). "
+                "Either upgrade langgraph or use watcher.watch(graph) before compile()."
+            )
+
+        # Collect compile kwargs from the existing compiled graph so we
+        # preserve checkpointer, interrupt_before/after, etc.
+        compile_kwargs: dict[str, Any] = {}
+        for attr in ("checkpointer", "interrupt_before", "interrupt_after"):
+            val = getattr(compiled_graph, attr, None)
+            if val is not None:
+                compile_kwargs[attr] = val
+
+        self.watch(builder)
+        return builder.compile(**compile_kwargs)
+
     def watch(self, graph: Any) -> None:
-        """Attach ARGUS to a LangGraph StateGraph. Must be called before compile()."""
+        """Attach ARGUS to a LangGraph StateGraph. Must be called before compile().
+
+        If you already have a compiled graph, use ``watch_compiled()`` instead.
+        """
         if not hasattr(graph, "nodes"):
             raise ValueError(
                 "argus.watch() expects a LangGraph StateGraph instance with a .nodes attribute. "
-                "Call watch() before graph.compile()."
+                "Call watch() before graph.compile(), or use watch_compiled() on a compiled graph."
             )
         if hasattr(graph, "_compiled") and graph._compiled:
             raise ValueError(
                 "argus.watch() must be called before graph.compile(). "
-                "Pass the StateGraph, not the compiled CompiledGraph."
+                "Use watch_compiled() if you already have a compiled graph."
             )
 
         node_names = list(graph.nodes.keys())
@@ -116,6 +163,15 @@ class ArgusWatcher:
 
         patch_graph(graph, self._session)
 
+        # Start HTTP recording if requested
+        if self._record_http:
+            try:
+                from argus.http_recorder import record_http
+                self._http_recorder_ctx = record_http()
+                self._http_recorder = self._http_recorder_ctx.__enter__()
+            except Exception:
+                pass  # HTTP recording is best-effort
+
     def finalize(self) -> None:
         """Persist the run record.
 
@@ -125,6 +181,25 @@ class ArgusWatcher:
         """
         if self._session is not None:
             self._session.finalize()
+
+            # Save HTTP recordings if any
+            if self._http_recorder is not None:
+                try:
+                    interactions = self._http_recorder.interactions
+                    if interactions:
+                        from argus.http_recorder import save_http_interactions
+                        save_http_interactions(self._session.run_id, interactions)
+                except Exception:
+                    pass  # best-effort
+
+            # Clean up HTTP recorder context
+            if self._http_recorder_ctx is not None:
+                try:
+                    self._http_recorder_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
+                self._http_recorder_ctx = None
+                self._http_recorder = None
 
     def resume(self, checkpoint_run_id: str, app: Any, resume_input: Any = None) -> None:
         """Resume a previously interrupted (human-approval) run.

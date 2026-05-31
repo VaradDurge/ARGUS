@@ -512,7 +512,7 @@ export default function RunListPanel({
                               <button
                                 onClick={(e) => { e.stopPropagation(); setEditingId(child.run_id) }}
                                 className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
-                                title="Rename replay"
+                                title="Rename rerun"
                               >
                                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                                   <path d="M7.5 2.5l2 2M2 8l-.5 2.5L4 10l6-6-2-2-6 6z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
@@ -522,7 +522,7 @@ export default function RunListPanel({
                                 onClick={(e) => { e.stopPropagation(); handleDelete(child.run_id, e) }}
                                 className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
                                 style={{ color: '#ef4444' }}
-                                title="Delete replay"
+                                title="Delete rerun"
                               >
                                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                                   <path d="M2 3h8M4.5 3V2a.5.5 0 01.5-.5h2a.5.5 0 01.5.5v1M3 3l.5 7a1 1 0 001 1h3a1 1 0 001-1L9 3" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>

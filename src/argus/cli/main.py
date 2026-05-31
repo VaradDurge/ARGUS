@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.text import Text
 
 from argus.cli.cmd_diff import diff_runs
+from argus.cli.cmd_doctor import doctor
 from argus.cli.cmd_login import login, logout, whoami
 from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
@@ -58,12 +59,13 @@ _COMMANDS = [
     ("logout",                           "clear stored credentials"),
     ("whoami",                           "show current login status"),
     ("update",                           "check GitHub for a newer release and upgrade"),
+    ("doctor",                           "diagnose integration issues (LangGraph, storage)"),
 ]
 
 _WHEN_TO_USE = [
     ("list",     "after a run — get the run id for further commands"),
     ("show",     "understand what happened: statuses, warnings, root cause"),
-    ("replay",   "re-run from a broken node after fixing the code"),
+    ("replay",   "re-run from a broken node after fixing the code (warns about live calls)"),
     ("inspect",  "read exact input/output JSON for a specific step"),
     ("diff",     "verify a fix actually changed behaviour between runs"),
 ]
@@ -307,3 +309,9 @@ def cmd_whoami() -> None:
 def cmd_update() -> None:
     """Check GitHub for a newer release and upgrade if one is available."""
     check_for_update()
+
+
+@app.command("doctor")
+def cmd_doctor() -> None:
+    """Diagnose integration issues: LangGraph version, storage, replay readiness."""
+    doctor()

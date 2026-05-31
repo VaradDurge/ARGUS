@@ -2,7 +2,7 @@
   <img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus-NameTrans.png?raw=true" width="480"/><br/>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/pypi/v/argus-agents" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/></a>
-  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.4.4"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
+  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
 </div>
 
 ---
@@ -23,8 +23,9 @@ ARGUS sits between your nodes and catches silent failures, semantic degradation,
 pip install argus-agents
 ```
 
-## Setup
+## Setup — pick whichever fits your code
 
+**Option A — before compile:**
 ```python
 from argus import ArgusWatcher
 
@@ -35,7 +36,18 @@ app.invoke(initial_state)
 watcher.finalize()
 ```
 
-No changes to your node functions.
+**Option B — after compile (new in v0.5.0):**
+```python
+from argus import ArgusWatcher
+
+watcher = ArgusWatcher()
+app = graph.compile(checkpointer=memory)
+app = watcher.watch_compiled(app)   # works on already-compiled graphs
+app.invoke(initial_state)
+watcher.finalize()
+```
+
+Both work. No changes to your node functions.
 
 ---
 
@@ -90,36 +102,68 @@ Parallel nodes shown as a grouped panel. Cyclic graphs show each iteration separ
 
 ---
 
-## Replay
+## Rerun
 
 A 10-node pipeline fails at node 7. You fix the bug. Instead of re-running nodes 1–6 and burning API credits:
 
 ```bash
-argus replay <run-id> node_7 --app my_module:build_graph
+argus replay <run-id> node_7
 ```
 
-ARGUS restores the exact state at node 7 from disk and runs from there. `build_graph` is a zero-arg function that returns your graph — compiled or uncompiled, both work.
+ARGUS restores the exact state at node 7 from disk and runs from there. Upstream outputs stay frozen. Only node 7 onward re-executes with your fixed code.
 
-From the web UI — hover any step, click `↺ replay from here`. After replay, the diff view opens automatically.
+From the web UI — hover any step, click `↺ Rerun From Here`. After rerun, the diff view opens automatically.
 
 ```bash
-argus diff <replay-id>    # compare replay vs original
+argus diff <rerun-id>    # compare rerun vs original
 ```
+
+### What about external API calls?
+
+By default, reruns call external APIs live (OpenAI, search tools, databases). Results may differ from the original run.
+
+For **fully deterministic** reruns, record HTTP calls during the original run:
+
+```python
+watcher = ArgusWatcher(record_http=True)
+```
+
+Now every API response is saved. During rerun, the recorded responses are served back — same data, zero extra cost, fully reproducible.
+
+---
+
+## Diagnose setup issues
+
+```bash
+argus doctor
+```
+
+```
+✓  python           Python 3.9.6
+✓  langgraph        langgraph 0.6.11
+✓  storage          312 runs stored, all healthy
+✓  replay           all 7 node functions importable for rerun
+✓  optional deps    openai (key set), dotenv
+```
+
+5 seconds to know if something is wrong — Python version, LangGraph compatibility, storage health, rerun readiness.
 
 ---
 
 ## CLI
 
 ```
-argus list                                            # all runs
-argus show last                                       # most recent run
-argus show run <id>                                   # by full id or 8-char prefix
-argus replay <id> <node> --app my_module:build_graph  # re-run from a node
-argus inspect <id> --step <node>                      # raw input/output for a node
-argus diff <id>                                       # replay vs original
-argus diff <id-a> <id-b>                              # any two runs
-argus ui                                              # open web dashboard
-argus login                                           # sync runs to cloud
+argus list                          # all runs
+argus show last                     # most recent run
+argus show run <id>                 # by full id or 8-char prefix
+argus replay <id> <node>            # re-run from a node
+argus replay <id> <node> --only     # re-run just that one node
+argus inspect <id> --step <node>    # raw input/output for a node
+argus diff <id>                     # rerun vs original
+argus diff <id-a> <id-b>            # any two runs
+argus ui                            # open web dashboard
+argus doctor                        # check your setup
+argus login                         # sync runs to cloud
 ```
 
 ---
@@ -132,7 +176,7 @@ argus ui
 
 Opens at `http://localhost:7842`. Serves runs from `.argus/runs/` in your current directory — no account needed.
 
-Run detail, replay tree, side-by-side diff, LLM cost per node, AI root cause investigation.
+Run detail, rerun tree, side-by-side diff, LLM cost per node, AI root cause investigation.
 
 ---
 
@@ -173,4 +217,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.4.4** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.4.4)
+**v0.5.0** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.5.0)

@@ -105,7 +105,7 @@ export default function ReplayControls({
     pollRef.current = setInterval(async () => {
       if (Date.now() > deadline) {
         clearInterval(pollRef.current!)
-        setReplayState({ phase: 'error', message: 'Timed out waiting for replay' })
+        setReplayState({ phase: 'error', message: 'Timed out waiting for rerun' })
         setReplayingNode(null)
         return
       }
@@ -136,7 +136,7 @@ export default function ReplayControls({
         } else if (pdata.status === 'error') {
           clearInterval(pollRef.current!)
           setReplayingNode(null)
-          setReplayState({ phase: 'error', message: pdata.message ?? 'Replay failed' })
+          setReplayState({ phase: 'error', message: pdata.message ?? 'Rerun failed' })
         }
       } catch {
         // transient - keep polling
@@ -214,16 +214,16 @@ export default function ReplayControls({
           style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
         >
           {replayState.phase === 'submitting' && (
-            <span className="font-mono text-[12px]" style={{ color: '#f59e0b' }}>submitting replay...</span>
+            <span className="font-mono text-[12px]" style={{ color: '#f59e0b' }}>submitting rerun...</span>
           )}
           {replayState.phase === 'polling' && (
             <span className="font-mono text-[12px]" style={{ color: '#f59e0b' }}>
-              replay running<span className="animate-pulse">...</span>
+              rerun in progress<span className="animate-pulse">...</span>
             </span>
           )}
           {replayState.phase === 'done' && (
             <>
-              <span className="font-mono text-[12px]" style={{ color: '#22c55e' }}>replay complete</span>
+              <span className="font-mono text-[12px]" style={{ color: '#22c55e' }}>rerun complete</span>
               {replayState.newRunId && (
                 <a
                   href={`/?run=${replayState.newRunId}`}
@@ -236,7 +236,7 @@ export default function ReplayControls({
             </>
           )}
           {replayState.phase === 'error' && (
-            <span className="font-mono text-[12px]" style={{ color: '#ef4444' }}>replay failed: {replayState.message}</span>
+            <span className="font-mono text-[12px]" style={{ color: '#ef4444' }}>rerun failed: {replayState.message}</span>
           )}
         </div>
       )}
@@ -248,7 +248,7 @@ export default function ReplayControls({
           style={{ background: 'var(--bg-elevated)', border: '1px solid #ef4444' }}
         >
           <span className="font-mono text-[12px]" style={{ color: '#ef4444' }}>
-            node replay failed: {replayState.message}
+            node rerun failed: {replayState.message}
           </span>
         </div>
       )}

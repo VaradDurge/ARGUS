@@ -37,7 +37,7 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
       <div className="flex items-center gap-2 py-2">
         <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#a855f740' }} />
         <span className="text-[10px] uppercase tracking-widest font-semibold shrink-0" style={{ color: '#a855f7' }}>
-          node replay diff
+          node rerun diff
         </span>
         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ color: verdictColor, background: verdictBg }}>
           {verdictLabel}
@@ -239,7 +239,7 @@ export default function StepRow({
                 onClick={(e) => { e.stopPropagation(); onReplayNode(event.node_name) }}
               >
                 <RotateCcw className="text-purple-400" />
-                Replay Node
+                Rerun Node
               </Button>
             )}
             {onReplay && (
@@ -250,7 +250,7 @@ export default function StepRow({
                 onClick={(e) => { e.stopPropagation(); onReplay(event.node_name) }}
               >
                 <Play className="text-indigo-400" />
-                Replay From Here
+                Rerun From Here
               </Button>
             )}
           </span>

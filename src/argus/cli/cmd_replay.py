@@ -67,7 +67,7 @@ def replay_run(
     mode_label = "single node" if only else "from"
     console.print()
     header = Text()
-    header.append("argus replay", style="bold italic")
+    header.append("argus rerun", style="bold italic")
     header.append(f"  {run_id}", style="italic dim")
     header.append(f"  ↺  {mode_label}  ", style="dim")
     header.append(from_step, style="bold")
@@ -83,8 +83,16 @@ def replay_run(
         )
     else:
         console.print(
-            f"  [dim]Replaying with frozen LLM responses from [bold]{run_id}[/bold][/dim]"
+            f"  [dim]Re-running from [bold]{from_step}[/bold] "
+            f"— upstream outputs frozen from [bold]{run_id}[/bold][/dim]"
         )
+    # Warn about non-deterministic external calls
+    console.print()
+    console.print(
+        "  [yellow]note:[/yellow] [dim]external API calls, DB reads, and timestamps "
+        "execute live — results may differ from the original run. "
+        "Use [bold]record_http=True[/bold] during recording for deterministic replay.[/dim]"
+    )
     console.print()
 
     # ── Run replay ────────────────────────────────────────────────────────
@@ -180,7 +188,7 @@ def _print_inline_diff(
         return
 
     console.print()
-    console.print(Text("  replay diff", style="bold italic"))
+    console.print(Text("  rerun diff", style="bold italic"))
     console.print()
 
     fixed = 0

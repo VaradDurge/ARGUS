@@ -13,6 +13,31 @@ from argus.storage import load_run
 from argus.utils.serializer import safe_deserialize
 
 
+def _smart_merge(state: dict, partial: dict) -> dict:
+    """Merge partial output into state, respecting list-append semantics.
+
+    LangGraph reducers (e.g. ``Annotated[list, operator.add]``) append list
+    outputs instead of overwriting.  The naive ``{**state, **partial}`` merge
+    destroys this: a node returning ``{"messages": [new_msg]}`` replaces
+    the entire messages list instead of appending.
+
+    Heuristic: if a key exists in both *state* and *partial* and both
+    values are lists, we concatenate them (matching ``operator.add``).
+    For all other types we overwrite (matching ``operator.setitem``).
+    """
+    merged = dict(state)
+    for key, value in partial.items():
+        if (
+            key in merged
+            and isinstance(merged[key], list)
+            and isinstance(value, list)
+        ):
+            merged[key] = merged[key] + value
+        else:
+            merged[key] = value
+    return merged
+
+
 def _make_llm_inv_config():
     """Return LLMInvestigationConfig if an OpenAI key is available, else None."""
     if not os.environ.get("OPENAI_API_KEY"):
@@ -191,18 +216,42 @@ class ReplayEngine:
         # the next node — mimicking what LangGraph's reducer does.
         wrapped = {name: session.wrap(name, fn) for name, fn in node_fns.items()}
 
-        for node_name in execution_order:
-            fn = wrapped.get(node_name)
-            if fn is None:
-                raise ValueError(
-                    f"Node '{node_name}' has no stored function reference. "
-                    f"Available: {list(record.node_fn_refs.keys())}"
-                )
-            partial = fn(state)
-            if isinstance(partial, dict) and isinstance(state, dict):
-                state = {**state, **partial}
-            else:
-                state = partial
+        # Load recorded HTTP interactions for deterministic replay
+        http_interactions = None
+        try:
+            from argus.http_recorder import load_http_interactions
+            http_interactions = load_http_interactions(record.run_id)
+        except Exception:
+            pass
+
+        http_ctx = None
+        if http_interactions:
+            try:
+                from argus.http_recorder import playback_http
+                http_ctx = playback_http(http_interactions)
+                http_ctx.__enter__()
+            except Exception:
+                pass
+
+        try:
+            for node_name in execution_order:
+                fn = wrapped.get(node_name)
+                if fn is None:
+                    raise ValueError(
+                        f"Node '{node_name}' has no stored function reference. "
+                        f"Available: {list(record.node_fn_refs.keys())}"
+                    )
+                partial = fn(state)
+                if isinstance(partial, dict) and isinstance(state, dict):
+                    state = _smart_merge(state, partial)
+                else:
+                    state = partial
+        finally:
+            if http_ctx is not None:
+                try:
+                    http_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
         session.finalize()
         return session.run_id
