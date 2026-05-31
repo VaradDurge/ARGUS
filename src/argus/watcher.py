@@ -46,7 +46,7 @@ class ArgusWatcher:
         investigate: bool | str = True,
         redact_keys: set[str] | list[str] | None = None,
         persist_state: bool = True,
-        record_http: bool = False,
+        record_http: bool = True,
     ) -> None:
         self._max_field_size = max_field_size
         self._validators = validators or {}

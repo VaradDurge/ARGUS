@@ -20,7 +20,7 @@ const RELEASES: Release[] = [
     highlights: [
       'watch_compiled() — attach ARGUS to already-compiled graphs, no more "must call before compile()" trap',
       'Reducer-aware state merging — list fields (messages, tool calls) now append correctly during reruns instead of being overwritten',
-      'HTTP recording — opt-in record_http=True captures all API calls for fully deterministic reruns',
+      'HTTP recording on by default — all outbound API calls automatically captured and replayed from disk',
       'argus doctor — 5-second diagnostic command checks Python, LangGraph, storage, and rerun readiness',
       'Renamed "replay" to "rerun" across all UI, CLI, and docs — honest about what it actually does',
       'Live-call warning in CLI — explicitly tells users that external API calls execute live unless HTTP recording is enabled',

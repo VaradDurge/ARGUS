@@ -86,12 +86,11 @@ def replay_run(
             f"  [dim]Re-running from [bold]{from_step}[/bold] "
             f"— upstream outputs frozen from [bold]{run_id}[/bold][/dim]"
         )
-    # Warn about non-deterministic external calls
+    # Note about HTTP recording
     console.print()
     console.print(
-        "  [yellow]note:[/yellow] [dim]external API calls, DB reads, and timestamps "
-        "execute live — results may differ from the original run. "
-        "Use [bold]record_http=True[/bold] during recording for deterministic replay.[/dim]"
+        "  [dim]external API calls are replayed from recorded responses when available. "
+        "timestamps and non-HTTP side effects (DB writes, file I/O) still execute live.[/dim]"
     )
     console.print()
 
