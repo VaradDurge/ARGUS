@@ -179,15 +179,30 @@ function FieldGroup({ items }: { items: { field: string; description: string }[]
   )
 }
 
-const LLM_PROMPT = `Add ARGUS monitoring to my LangGraph pipeline. In the file where the graph is built, add the following before graph.compile():
+const LLM_PROMPT = `Add ARGUS monitoring to my LangGraph pipeline. ARGUS watches every node and catches silent failures, missing fields, and semantic issues.
+
+Install: pip install argus-agents
+
+Then add 3 lines to the file where the graph is built:
 
 from argus import ArgusWatcher
 
 watcher = ArgusWatcher()
-watcher.watch(graph)    # must be called BEFORE graph.compile()
+watcher.watch(graph)
 app = graph.compile()
+result = app.invoke(initial_state)
+watcher.finalize()
 
-For cyclic graphs, also call watcher.finalize() after app.invoke().`
+If the graph is already compiled, use watch_compiled() instead:
+
+watcher = ArgusWatcher()
+app = watcher.watch_compiled(app)
+result = app.invoke(initial_state)
+watcher.finalize()
+
+That's it. Run the pipeline, then use "argus show last" to see what ARGUS caught.
+
+Optional: add record_http=True to ArgusWatcher() if you want reruns to replay API calls from disk instead of making live calls again.`
 
 function LLMPromptBox() {
   const [copied, setCopied] = useState(false)
