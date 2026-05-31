@@ -525,6 +525,32 @@ export default function GuideContent() {
 {`argus diff <original-run-id> <rerun-run-id>`}
       </CodeBlock>
 
+      <SubTitle>HTTP recording — deterministic reruns</SubTitle>
+      <Body>
+        By default, when a node calls an external API (OpenAI, DuckDuckGo, any HTTP endpoint),
+        the rerun makes that call again live. This means you might get different results,
+        and you pay for the API call again.
+      </Body>
+      <Body>
+        If you want the rerun to produce the <strong>exact same results</strong> as the original run,
+        enable HTTP recording:
+      </Body>
+      <CodeBlock title="Record all API calls during the original run">
+{`watcher = ArgusWatcher(record_http=True)`}
+      </CodeBlock>
+      <Body>
+        This captures every outbound HTTP request and response and saves it alongside your run.
+        When you rerun, ARGUS serves the recorded responses instead of making live calls —
+        zero extra cost, fully reproducible.
+      </Body>
+      <Body>
+        <strong>When to use it:</strong> if your pipeline calls paid APIs (OpenAI, Anthropic, Google)
+        or external search tools, and you want reruns to be cheap and identical.
+        <br />
+        <strong>When to skip it:</strong> if you <em>want</em> the rerun to hit the real API with your
+        fixed code — for example, when testing a new prompt or a different model.
+      </Body>
+
       <Note>
         Screenshots for the rerun UI will be added in a future update.
       </Note>
