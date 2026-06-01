@@ -205,10 +205,12 @@ That's it. Run the pipeline, then use "argus show last" to see what ARGUS caught
 Optional parameters — all go in ArgusWatcher():
 
 watcher = ArgusWatcher(
-    record_http=True,       # records all outbound API calls (OpenAI, search, etc.) to disk — reruns replay from disk instead of making live calls. zero extra cost, fully deterministic.
-    semantic_judge=True,    # enables an LLM judge that analyzes every node's output for subtle quality issues (wrong tone, unhelpful, outdated). requires OPENAI_API_KEY. heads up: this calls GPT-4o per node, so it will add to your API bill — worth it for complex pipelines, overkill for simple ones.
-    judge_model="gpt-4o",  # which model the semantic judge uses. default is gpt-4o.
+    record_http=True,      # save API calls to disk for deterministic reruns
+    semantic_judge=True,   # LLM judge on every node (needs OPENAI_API_KEY)
+    judge_model="gpt-4o",  # model for the judge. default: gpt-4o
 )
+# heads up: semantic_judge calls GPT-4o per node — adds to your
+# OpenAI bill. worth it for complex pipelines, overkill for simple ones.
 
 You can mix and match — use any combination that fits your pipeline.`
 

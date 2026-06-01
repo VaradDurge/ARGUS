@@ -62,8 +62,8 @@ function statusVisual(status: StepStatus | undefined, degradedDownstream: boolea
   if (!status) {
     return {
       color: '#5d6370',
-      border: '#d0d5dd',
-      bg: '#f8fafc',
+      border: '#2c2f3a',
+      bg: 'rgba(28,29,36,0.5)',
       soft: 'rgba(152,162,179,0.12)',
       icon: null as 'check' | 'warn' | 'down' | 'x' | null,
       dashed: true,
@@ -223,7 +223,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
         onMouseUp={stopDragging}
         onMouseLeave={stopDragging}
         style={{
-          background: 'linear-gradient(180deg, rgba(248,250,252,0.7), rgba(255,255,255,0.2))',
+          background: 'linear-gradient(180deg, rgba(28,29,36,0.7), rgba(20,21,25,0.2))',
           cursor: isDragging ? 'grabbing' : 'grab',
         }}
       >
@@ -275,7 +275,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
                         {visual.icon && (
                           <span
                             className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center"
-                            style={{ background: '#ffffff', color: visual.color, boxShadow: '0 5px 14px rgba(16,24,40,0.10)' }}
+                            style={{ background: '#141519', color: visual.color, boxShadow: '0 5px 14px rgba(0,0,0,0.25)' }}
                           >
                             <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
                               <StatusIcon icon={visual.icon} color={visual.color} />
@@ -306,7 +306,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
                       className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
                       style={{
                         background: targetConnector.color,
-                        boxShadow: `0 0 0 3px #ffffff, 0 4px 10px ${targetConnector.soft}`,
+                        boxShadow: `0 0 0 3px #141519, 0 4px 10px ${targetConnector.soft}`,
                       }}
                     />
                     <span

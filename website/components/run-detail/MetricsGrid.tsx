@@ -18,7 +18,7 @@ function MetricCard({ icon, label, value, color }: MetricCardProps) {
   return (
     <div
       className="rounded-lg px-2 py-2 flex flex-col items-center justify-center text-center min-h-[68px]"
-      style={{ background: '#fafafa', border: '1px solid var(--border-subtle)' }}
+      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
     >
       <div className="mb-1">{icon}</div>
       <div>
