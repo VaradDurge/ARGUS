@@ -144,10 +144,10 @@ function StepItem({ n, title, children }: { n: number; title: string; children: 
 }
 
 const FIELD_COLORS = [
-  { bg: 'rgba(99,102,241,0.08)', color: '#818cf8', border: 'rgba(99,102,241,0.2)' },   // indigo
-  { bg: 'rgba(16,185,129,0.08)', color: '#34d399', border: 'rgba(16,185,129,0.2)' },   // emerald
-  { bg: 'rgba(245,158,11,0.08)', color: '#fbbf24', border: 'rgba(245,158,11,0.2)' },   // amber
-  { bg: 'rgba(168,85,247,0.08)', color: '#c084fc', border: 'rgba(168,85,247,0.2)' },   // purple
+  { bg: 'rgba(124,127,199,0.08)', color: '#818cf8', border: 'rgba(124,127,199,0.2)' },   // indigo
+  { bg: 'rgba(61,158,125,0.08)', color: '#34d399', border: 'rgba(61,158,125,0.2)' },   // emerald
+  { bg: 'rgba(212,154,46,0.08)', color: '#fbbf24', border: 'rgba(212,154,46,0.2)' },   // amber
+  { bg: 'rgba(154,109,198,0.08)', color: '#c084fc', border: 'rgba(154,109,198,0.2)' },   // purple
   { bg: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: 'rgba(59,130,246,0.2)' },   // blue
   { bg: 'rgba(236,72,153,0.08)', color: '#f472b6', border: 'rgba(236,72,153,0.2)' },   // pink
 ]
@@ -202,7 +202,15 @@ watcher.finalize()
 
 That's it. Run the pipeline, then use "argus show last" to see what ARGUS caught.
 
-Optional: add record_http=True to ArgusWatcher() if you want reruns to replay API calls from disk instead of making live calls again.`
+Optional parameters — all go in ArgusWatcher():
+
+watcher = ArgusWatcher(
+    record_http=True,       # records all outbound API calls (OpenAI, search, etc.) to disk — reruns replay from disk instead of making live calls. zero extra cost, fully deterministic.
+    semantic_judge=True,    # enables an LLM judge that analyzes every node's output for subtle quality issues (wrong tone, unhelpful, outdated). requires OPENAI_API_KEY. heads up: this calls GPT-4o per node, so it will add to your API bill — worth it for complex pipelines, overkill for simple ones.
+    judge_model="gpt-4o",  # which model the semantic judge uses. default is gpt-4o.
+)
+
+You can mix and match — use any combination that fits your pipeline.`
 
 function LLMPromptBox() {
   const [copied, setCopied] = useState(false)
@@ -237,15 +245,15 @@ function LLMPromptBox() {
           onClick={handleCopy}
           className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded transition-all"
           style={{
-            color: copied ? '#10b981' : 'var(--text-secondary)',
-            background: copied ? 'rgba(16,185,129,0.08)' : 'var(--bg-overlay)',
-            border: `1px solid ${copied ? 'rgba(16,185,129,0.25)' : 'var(--border-subtle)'}`,
+            color: copied ? '#3d9e7d' : 'var(--text-secondary)',
+            background: copied ? 'rgba(61,158,125,0.08)' : 'var(--bg-overlay)',
+            border: `1px solid ${copied ? 'rgba(61,158,125,0.25)' : 'var(--border-subtle)'}`,
           }}
         >
           {copied ? (
             <>
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                <path d="M2 5.5l2.5 2.5 4.5-5" stroke="#10b981" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 5.5l2.5 2.5 4.5-5" stroke="#3d9e7d" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Copied
             </>
@@ -540,35 +548,75 @@ export default function GuideContent() {
 {`argus diff <original-run-id> <rerun-run-id>`}
       </CodeBlock>
 
-      <SubTitle>HTTP recording — deterministic reruns</SubTitle>
-      <Body>
-        By default, when a node calls an external API (OpenAI, DuckDuckGo, any HTTP endpoint),
-        the rerun makes that call again live. This means you might get different results,
-        and you pay for the API call again.
-      </Body>
-      <Body>
-        If you want the rerun to produce the <strong>exact same results</strong> as the original run,
-        enable HTTP recording:
-      </Body>
-      <CodeBlock title="Record all API calls during the original run">
-{`watcher = ArgusWatcher(record_http=True)`}
-      </CodeBlock>
-      <Body>
-        This captures every outbound HTTP request and response and saves it alongside your run.
-        When you rerun, ARGUS serves the recorded responses instead of making live calls —
-        zero extra cost, fully reproducible.
-      </Body>
-      <Body>
-        <strong>When to use it:</strong> if your pipeline calls paid APIs (OpenAI, Anthropic, Google)
-        or external search tools, and you want reruns to be cheap and identical.
-        <br />
-        <strong>When to skip it:</strong> if you <em>want</em> the rerun to hit the real API with your
-        fixed code — for example, when testing a new prompt or a different model.
-      </Body>
-
       <Note>
         Screenshots for the rerun UI will be added in a future update.
       </Note>
+
+      <Divider />
+
+      {/* ── 5. Optional Parameters ────────────────────────────────────── */}
+      <SectionTitle>5. Optional Parameters</SectionTitle>
+      <Body>
+        All optional features live in the <Code>ArgusWatcher()</Code> constructor.
+        Mix and match whatever fits your pipeline:
+      </Body>
+
+      <CodeBlock title="All optional parameters explained">
+{`watcher = ArgusWatcher(
+    # --- Deterministic rerun ---
+    record_http=True,       # saves every outbound API call (OpenAI, search, etc.)
+                            # to disk. reruns replay from disk instead of calling
+                            # live APIs — zero extra cost, fully reproducible.
+
+    # --- LLM semantic judge ---
+    semantic_judge=True,    # enables an LLM that reviews every node's output for
+                            # subtle quality issues (wrong tone, unhelpful, outdated).
+                            # runs AFTER deterministic checks — so it only adds cost
+                            # where structural checks can't tell if something's off.
+                            # heads up: this calls GPT-4o once per node, so your
+                            # OpenAI bill will go up. worth it for complex pipelines,
+                            # probably overkill for simple ones.
+
+    judge_model="gpt-4o",  # which model the semantic judge uses. default is gpt-4o.
+                            # swap to gpt-4o-mini if you want cheaper runs.
+)`}
+      </CodeBlock>
+
+      <SubTitle>record_http — deterministic reruns</SubTitle>
+      <Body>
+        By default, when you rerun from a node, any external API calls (OpenAI, DuckDuckGo, etc.)
+        execute live again. Different results, extra cost.
+        With <Code>record_http=True</Code>, ARGUS captures every HTTP request and response
+        during the original run. On rerun, it serves the recorded responses back — same data,
+        zero cost, fully reproducible.
+      </Body>
+      <Body>
+        <strong>Use it</strong> when your pipeline calls paid APIs and you want cheap, identical reruns.
+        <strong> Skip it</strong> when you <em>want</em> the rerun to hit the real API — e.g. testing a new prompt.
+      </Body>
+
+      <SubTitle>semantic_judge — LLM-powered quality checks</SubTitle>
+      <Body>
+        ARGUS catches ~80% of production failures deterministically (missing fields, empty results,
+        type mismatches, placeholder outputs) — zero cost, zero false positives.
+        The remaining ~20% are subtle: wrong tone, unhelpful responses, outdated info,
+        answering the wrong question. That&apos;s what the semantic judge is for.
+      </Body>
+      <FieldGroup items={[
+        { field: 'Deterministic first', description: 'Structural checks always run first — free, instant, reproducible.' },
+        { field: 'LLM second', description: 'The judge only reviews what the structural layer couldn\'t decide.' },
+        { field: 'Per-node', description: 'Each node\'s output is evaluated in context of its input and the pipeline\'s purpose.' },
+        { field: 'Hypotheses', description: 'The judge generates causal hypotheses ranked by confidence, with supporting evidence.' },
+      ]} />
+      <Body>
+        Requires <Code>OPENAI_API_KEY</Code> in your environment. Uses GPT-4o by default.
+      </Body>
+      <Body>
+        <strong>Use it</strong> for complex multi-agent pipelines, customer-facing outputs,
+        or when deterministic checks show &ldquo;pass&rdquo; but outputs still feel wrong.
+        <strong> Skip it</strong> for simple pipelines, CI/CD speed runs, or if you want
+        zero monitoring costs.
+      </Body>
     </article>
   )
 }

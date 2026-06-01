@@ -4,14 +4,14 @@ import type { RunRecord } from '@/lib/types'
 import { STATUS_DOT } from '@/lib/run-utils'
 
 export default function StatusCard({ run }: { run: RunRecord }) {
-  const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#9ca3af' }
+  const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#5d6370' }
   const rootCause = run.root_cause_chain?.[0] ?? run.first_failure_step
   const confidence = run.llm_investigation?.confidence ?? null
   const confPct = confidence !== null ? Math.round(confidence * 100) : null
-  const confColor = confidence !== null ? (confidence >= 0.75 ? '#10b981' : confidence >= 0.45 ? '#f59e0b' : '#9ca3af') : '#9ca3af'
+  const confColor = confidence !== null ? (confidence >= 0.75 ? '#3d9e7d' : confidence >= 0.45 ? '#d49a2e' : '#5d6370') : '#5d6370'
   const isHealthy = run.overall_status === 'clean'
   const isCrashed = run.overall_status === 'crashed'
-  const statusColor = isHealthy ? '#10b981' : isCrashed ? '#ef4444' : '#f43f5e'
+  const statusColor = isHealthy ? '#3d9e7d' : isCrashed ? '#d65c5c' : '#f43f5e'
   const statusLabel = run.overall_status
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
@@ -54,7 +54,7 @@ export default function StatusCard({ run }: { run: RunRecord }) {
       )}
 
       {run.overall_status === 'clean' && !rootCause && (
-        <div className="flex items-center gap-1.5 text-[12.5px]" style={{ color: '#10b981' }}>
+        <div className="flex items-center gap-1.5 text-[12.5px]" style={{ color: '#3d9e7d' }}>
           <span className="font-bold">{statusInfo.dot === '●' ? '\u2713' : statusInfo.dot}</span>
           <span className="font-semibold">Pipeline Healthy</span>
         </div>

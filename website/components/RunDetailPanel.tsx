@@ -18,19 +18,19 @@ import JsonViewer from './JsonViewer'
 import CliLogViewer from './CliLogViewer'
 
 const STATUS_BG: Record<string, string> = {
-  clean: 'rgba(16,185,129,0.08)',
-  silent_failure: 'rgba(245,158,11,0.08)',
-  crashed: 'rgba(239,68,68,0.08)',
-  semantic_fail: 'rgba(168,85,247,0.08)',
-  interrupted: 'rgba(245,158,11,0.08)',
+  clean: 'rgba(61,158,125,0.08)',
+  silent_failure: 'rgba(212,154,46,0.08)',
+  crashed: 'rgba(214,92,92,0.08)',
+  semantic_fail: 'rgba(154,109,198,0.08)',
+  interrupted: 'rgba(212,154,46,0.08)',
 }
 
 const STATUS_TEXT: Record<string, string> = {
-  clean: '#10b981',
-  silent_failure: '#f59e0b',
-  crashed: '#ef4444',
-  semantic_fail: '#a855f7',
-  interrupted: '#f59e0b',
+  clean: '#3d9e7d',
+  silent_failure: '#d49a2e',
+  crashed: '#d65c5c',
+  semantic_fail: '#9a6dc6',
+  interrupted: '#d49a2e',
 }
 
 const TABS = ['Overview', 'Pipeline', 'AI Analysis', 'Correlations', 'State', 'Logs'] as const
@@ -86,9 +86,9 @@ export default function RunDetailPanel({
     return (
       <div className="h-full flex flex-col items-center justify-center" style={{ background: 'var(--bg-base)' }}>
         <svg width="48" height="48" viewBox="0 0 18 18" fill="none" className="mb-4 opacity-20">
-          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#6366f1" strokeWidth="1.2" fill="none"/>
-          <circle cx="9" cy="9" r="2.2" fill="rgba(99,102,241,0.15)" stroke="#6366f1" strokeWidth="1.1"/>
-          <circle cx="9" cy="9" r="0.9" fill="#6366f1"/>
+          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#7c7fc7" strokeWidth="1.2" fill="none"/>
+          <circle cx="9" cy="9" r="2.2" fill="rgba(124,127,199,0.15)" stroke="#7c7fc7" strokeWidth="1.1"/>
+          <circle cx="9" cy="9" r="0.9" fill="#7c7fc7"/>
         </svg>
         <p className="text-[14px] font-medium" style={{ color: 'var(--text-muted)' }}>Select a run to view details</p>
       </div>
@@ -99,7 +99,7 @@ export default function RunDetailPanel({
     return (
       <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-subtle)', borderTopColor: '#6366f1' }} />
+          <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-subtle)', borderTopColor: '#7c7fc7' }} />
           <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Loading run...</span>
         </div>
       </div>
@@ -109,12 +109,12 @@ export default function RunDetailPanel({
   if (error || !run) {
     return (
       <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <p className="text-[13px]" style={{ color: '#ef4444' }}>Error: {error ?? 'Run not found'}</p>
+        <p className="text-[13px]" style={{ color: '#d65c5c' }}>Error: {error ?? 'Run not found'}</p>
       </div>
     )
   }
 
-  const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#9ca3af' }
+  const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#5d6370' }
   const steps = run.steps ?? []
   const canReturnToPreviousRun = Boolean(previousRunId && previousRunId !== run.run_id)
 
@@ -125,9 +125,9 @@ export default function RunDetailPanel({
   }
 
   return (
-    <div className="h-full flex flex-col panel-slide-in" style={{ background: '#ffffff' }}>
+    <div className="h-full flex flex-col panel-slide-in" style={{ background: '#141519' }}>
       {/* Run header */}
-      <div className="shrink-0 px-5 pt-3 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.86)' }}>
+      <div className="shrink-0 px-5 pt-3 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(20,21,25,0.86)' }}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-3 min-w-0">
@@ -135,7 +135,7 @@ export default function RunDetailPanel({
                 className="w-3.5 h-3.5 rounded-full shrink-0"
                 style={{
                   border: `2px solid ${statusInfo.color}`,
-                  background: run.overall_status === 'clean' ? 'rgba(16,185,129,0.10)' : 'transparent',
+                  background: run.overall_status === 'clean' ? 'rgba(61,158,125,0.10)' : 'transparent',
                 }}
               />
               <span className="text-[17px] font-bold tracking-[-0.03em] leading-none truncate" style={{ color: 'var(--text-primary)' }}>{run.run_id}</span>
@@ -143,15 +143,15 @@ export default function RunDetailPanel({
               className="text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 leading-none"
               style={{
                 background: STATUS_BG[run.overall_status] ?? 'rgba(156,163,175,0.08)',
-                color: STATUS_TEXT[run.overall_status] ?? '#9ca3af',
-                border: `1px solid ${STATUS_TEXT[run.overall_status] ?? '#9ca3af'}20`,
+                color: STATUS_TEXT[run.overall_status] ?? '#5d6370',
+                border: `1px solid ${STATUS_TEXT[run.overall_status] ?? '#5d6370'}20`,
               }}
             >
               {run.overall_status.replace(/_/g, ' ')}
             </span>
-            <button onClick={copyRunId} className="p-1 rounded-md transition-colors hover:bg-black/5 shrink-0" style={{ color: 'var(--text-muted)' }}>
+            <button onClick={copyRunId} className="p-1 rounded-md transition-colors hover:bg-white/5 shrink-0" style={{ color: 'var(--text-muted)' }}>
               {copied ? (
-                <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M3.5 7.5l2 2 5-5" stroke="#10b981" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M3.5 7.5l2 2 5-5" stroke="#3d9e7d" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
               ) : (
                 <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="7.5" height="7.5" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M10 4V3a1.5 1.5 0 00-1.5-1.5H3A1.5 1.5 0 001.5 3v5.5A1.5 1.5 0 003 10h1" stroke="currentColor" strokeWidth="1.2"/></svg>
               )}
@@ -245,12 +245,12 @@ export default function RunDetailPanel({
             onClick={() => setActiveTab(tab)}
             className="text-[13px] font-medium px-4 py-3 transition-colors relative whitespace-nowrap"
             style={{
-              color: activeTab === tab ? '#6366f1' : 'var(--text-secondary)',
+              color: activeTab === tab ? '#7c7fc7' : 'var(--text-secondary)',
             }}
           >
             {tab}
             {activeTab === tab && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full" style={{ background: '#6366f1' }} />
+              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full" style={{ background: '#7c7fc7' }} />
             )}
           </button>
         ))}

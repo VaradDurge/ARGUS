@@ -26,13 +26,13 @@ export default function StepCard({ step, defaultOpen = false, isBreakpoint = fal
   const isPass = step.status === 'pass' && !hasIssues
 
   const borderColor = isBreakpoint
-    ? '#ef4444'
+    ? '#d65c5c'
     : hasIssues
-    ? 'rgba(239,68,68,0.3)'
+    ? 'rgba(214,92,92,0.3)'
     : 'var(--border-default)'
 
   const bgColor = isBreakpoint
-    ? 'rgba(239,68,68,0.08)'
+    ? 'rgba(214,92,92,0.08)'
     : 'var(--bg-surface)'
 
   return (
@@ -42,7 +42,7 @@ export default function StepCard({ step, defaultOpen = false, isBreakpoint = fal
         style={{
           border: `1px solid ${borderColor}`,
           background: bgColor,
-          boxShadow: isBreakpoint ? '0 0 28px rgba(239,68,68,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
+          boxShadow: isBreakpoint ? '0 0 28px rgba(214,92,92,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
         }}
       >
         {/* Breakpoint accent */}
@@ -149,8 +149,8 @@ export default function StepCard({ step, defaultOpen = false, isBreakpoint = fal
                         className="text-xs rounded-lg px-3 py-2 border"
                         style={
                           tf.severity === 'critical'
-                            ? { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }
-                            : { background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)' }
+                            ? { background: 'rgba(214,92,92,0.06)', border: '1px solid rgba(214,92,92,0.15)' }
+                            : { background: 'rgba(212,154,46,0.05)', border: '1px solid rgba(212,154,46,0.15)' }
                         }
                       >
                         <span className={tf.severity === 'critical' ? 'text-red-400' : 'text-amber-400'}>

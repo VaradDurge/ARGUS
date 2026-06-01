@@ -21,18 +21,18 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
   }
 
   const confPct = Math.round(inv.confidence * 100)
-  const confColor = inv.confidence >= 0.75 ? '#10b981' : inv.confidence >= 0.45 ? '#f59e0b' : '#9ca3af'
+  const confColor = inv.confidence >= 0.75 ? '#3d9e7d' : inv.confidence >= 0.45 ? '#d49a2e' : '#5d6370'
   const rootCauseNode = run.root_cause_chain?.[0] ?? run.first_failure_step
   const rootCauseStep = run.steps?.findIndex((s) => s.node_name === rootCauseNode)
 
   return (
-    <div className="card rounded-xl p-3.5" style={{ border: '1px solid rgba(99,102,241,0.10)' }}>
+    <div className="card rounded-xl p-3.5" style={{ border: '1px solid rgba(124,127,199,0.10)' }}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1l1.5 3.5L13 6l-3 2 .5 4L8 10.5 5.5 12l.5-4-3-2 3.5-1.5L8 1Z" fill="rgba(99,102,241,0.10)" stroke="#6366f1" strokeWidth="1"/>
+            <path d="M8 1l1.5 3.5L13 6l-3 2 .5 4L8 10.5 5.5 12l.5-4-3-2 3.5-1.5L8 1Z" fill="rgba(124,127,199,0.10)" stroke="#7c7fc7" strokeWidth="1"/>
           </svg>
-          <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: '#6366f1' }}>AI Analysis</span>
+          <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: '#7c7fc7' }}>AI Analysis</span>
         </div>
         <span
           className="text-[10.5px] font-medium px-2 py-0.5 rounded-full leading-none"
@@ -46,7 +46,7 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
         {rootCauseNode && (
           <p className="text-[12.5px] leading-snug" style={{ color: 'var(--text-primary)' }}>
             <span className="font-semibold">Root cause: </span>
-            <span className="font-mono font-semibold" style={{ color: '#ef4444' }}>{rootCauseNode}</span>
+            <span className="font-mono font-semibold" style={{ color: '#d65c5c' }}>{rootCauseNode}</span>
             {rootCauseStep !== undefined && rootCauseStep >= 0 && (
               <span style={{ color: 'var(--text-muted)' }}> (step {rootCauseStep + 1})</span>
             )}
@@ -64,7 +64,7 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
       <button
         onClick={onViewFull}
         className="mt-2 text-[11.5px] font-semibold inline-flex items-center gap-1 transition-colors"
-        style={{ color: '#6366f1' }}
+        style={{ color: '#7c7fc7' }}
       >
         View Full Analysis
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6l-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -76,13 +76,13 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
 /* ── Execution Timeline Card ─────────────────────────────────── */
 
 function stepVisual(status: string): { color: string; bg: string; borderColor: string; icon: 'check' | 'warn' | 'x' | 'down' | null } {
-  if (status === 'pass')          return { color: '#10b981', bg: 'rgba(16,185,129,0.10)',  borderColor: 'rgba(16,185,129,0.25)',  icon: 'check' }
-  if (status === 'crashed')       return { color: '#ef4444', bg: 'rgba(239,68,68,0.10)',   borderColor: 'rgba(239,68,68,0.25)',   icon: 'x'     }
-  if (status === 'fail')          return { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  borderColor: 'rgba(245,158,11,0.25)',  icon: 'warn'  }
-  if (status === 'semantic_fail') return { color: '#a855f7', bg: 'rgba(168,85,247,0.10)',  borderColor: 'rgba(168,85,247,0.25)',  icon: 'warn'  }
-  if (status === 'interrupted')   return { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  borderColor: 'rgba(245,158,11,0.25)',  icon: 'down'  }
+  if (status === 'pass')          return { color: '#3d9e7d', bg: 'rgba(61,158,125,0.10)',  borderColor: 'rgba(61,158,125,0.25)',  icon: 'check' }
+  if (status === 'crashed')       return { color: '#d65c5c', bg: 'rgba(214,92,92,0.10)',   borderColor: 'rgba(214,92,92,0.25)',   icon: 'x'     }
+  if (status === 'fail')          return { color: '#d49a2e', bg: 'rgba(212,154,46,0.10)',  borderColor: 'rgba(212,154,46,0.25)',  icon: 'warn'  }
+  if (status === 'semantic_fail') return { color: '#9a6dc6', bg: 'rgba(154,109,198,0.10)',  borderColor: 'rgba(154,109,198,0.25)',  icon: 'warn'  }
+  if (status === 'interrupted')   return { color: '#d49a2e', bg: 'rgba(212,154,46,0.10)',  borderColor: 'rgba(212,154,46,0.25)',  icon: 'down'  }
   if (status === 'degraded_input')return { color: '#f97316', bg: 'rgba(249,115,22,0.10)',  borderColor: 'rgba(249,115,22,0.25)',  icon: 'down'  }
-  return                                 { color: '#9ca3af', bg: 'rgba(156,163,175,0.10)', borderColor: 'rgba(156,163,175,0.25)', icon: null    }
+  return                                 { color: '#5d6370', bg: 'rgba(156,163,175,0.10)', borderColor: 'rgba(156,163,175,0.25)', icon: null    }
 }
 
 function StatusCircleIcon({ icon, color }: { icon: ReturnType<typeof stepVisual>['icon']; color: string }) {

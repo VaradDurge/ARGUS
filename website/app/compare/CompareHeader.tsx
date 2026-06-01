@@ -12,7 +12,7 @@ const STATUS_DISPLAY: Record<string, string> = {
 }
 
 function statusColor(s: string) {
-  return STATUS_DOT_COLOR[s] ?? '#9ca3af'
+  return STATUS_DOT_COLOR[s] ?? '#5d6370'
 }
 
 function selectorLabel(run: RunRecord | null, fallback: string): string {
@@ -195,7 +195,7 @@ export default function CompareHeader({
           <button
             type="button"
             className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-            style={{ color: '#10b981', border: '1px solid #10b981' }}
+            style={{ color: '#3d9e7d', border: '1px solid #3d9e7d' }}
           >
             + Rerun from diff
           </button>

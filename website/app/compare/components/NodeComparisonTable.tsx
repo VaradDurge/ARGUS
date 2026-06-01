@@ -15,14 +15,14 @@ function formatDelta(bMs: number | undefined, aMs: number | undefined): string {
 }
 
 function impactLabel(diff: NodeDiff): { text: string; color: string } {
-  if (diff.isFixed) return { text: 'Improved', color: '#10b981' }
-  if (diff.isRegression) return { text: 'Degraded', color: '#ef4444' }
+  if (diff.isFixed) return { text: 'Improved', color: '#3d9e7d' }
+  if (diff.isRegression) return { text: 'Degraded', color: '#d65c5c' }
   if (diff.inspectionDiffs.length > 0 || diff.fieldDiffs.length > 0) {
-    const hasImprovement = diff.inspectionDiffs.some((d) => d.iconColor === '#10b981')
-    if (hasImprovement) return { text: 'Improved', color: '#10b981' }
-    return { text: 'Changed', color: '#f59e0b' }
+    const hasImprovement = diff.inspectionDiffs.some((d) => d.iconColor === '#3d9e7d')
+    if (hasImprovement) return { text: 'Improved', color: '#3d9e7d' }
+    return { text: 'Changed', color: '#d49a2e' }
   }
-  return { text: 'No change', color: '#9ca3af' }
+  return { text: 'No change', color: '#5d6370' }
 }
 
 export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
@@ -69,7 +69,7 @@ export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
                       {diff.before ? formatDur(diff.before.duration_ms) : '\u2014'}
                     </span>
                     {diff.before && (
-                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.before.status] ?? {}).color ?? '#9ca3af' }}>
+                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.before.status] ?? {}).color ?? '#5d6370' }}>
                         {diff.before.status === 'pass' ? 'OK' : diff.before.status === 'fail' ? 'Fail' : diff.before.status}
                       </span>
                     )}
@@ -81,7 +81,7 @@ export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
                       {diff.after ? formatDur(diff.after.duration_ms) : '\u2014'}
                     </span>
                     {diff.after && (
-                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.after.status] ?? {}).color ?? '#9ca3af' }}>
+                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.after.status] ?? {}).color ?? '#5d6370' }}>
                         {diff.after.status === 'pass' ? 'OK' : diff.after.status === 'fail' ? 'Fail' : diff.after.status}
                       </span>
                     )}
@@ -102,7 +102,7 @@ export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
       </table>
 
       <div className="px-2.5 py-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <span className="text-[10px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#6366f1' }}>
+        <span className="text-[10px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#7c7fc7' }}>
           View all node details
           <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M3.5 2L6.5 5l-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </span>

@@ -102,7 +102,7 @@ export default function StructuredDiff({ diffs, selectedNode }: { diffs: NodeDif
             onClick={() => setMode('structured')}
             className="text-[11px] font-semibold px-3 py-1 transition-colors"
             style={{
-              background: mode === 'structured' ? '#6366f1' : 'transparent',
+              background: mode === 'structured' ? '#7c7fc7' : 'transparent',
               color: mode === 'structured' ? '#ffffff' : 'var(--text-muted)',
             }}
           >
@@ -113,7 +113,7 @@ export default function StructuredDiff({ diffs, selectedNode }: { diffs: NodeDif
             onClick={() => setMode('raw')}
             className="text-[11px] font-semibold px-3 py-1 transition-colors"
             style={{
-              background: mode === 'raw' ? '#6366f1' : 'transparent',
+              background: mode === 'raw' ? '#7c7fc7' : 'transparent',
               color: mode === 'raw' ? '#ffffff' : 'var(--text-muted)',
               borderLeft: '1px solid var(--border-default)',
             }}
@@ -126,23 +126,23 @@ export default function StructuredDiff({ diffs, selectedNode }: { diffs: NodeDif
       <div className="flex" style={{ minHeight: '200px' }}>
         <DiffPanel
           label="Base Run (Failed)"
-          labelColor="#ef4444"
+          labelColor="#d65c5c"
           output={activeDiff.before?.output_dict ?? null}
           changedKeys={changedKeys}
-          highlightColor="#ef4444"
+          highlightColor="#d65c5c"
         />
         <div style={{ width: '1px', background: 'var(--border-default)' }} />
         <DiffPanel
           label="Replay 1 (Fixed)"
-          labelColor="#10b981"
+          labelColor="#3d9e7d"
           output={activeDiff.after?.output_dict ?? null}
           changedKeys={changedKeys}
-          highlightColor="#10b981"
+          highlightColor="#3d9e7d"
         />
       </div>
 
       <div className="px-4 py-2.5 flex items-center justify-end" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <span className="text-[11px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#6366f1' }}>
+        <span className="text-[11px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#7c7fc7' }}>
           Open full diff in new tab
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 1h6v6M8.5 1.5L4 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </span>

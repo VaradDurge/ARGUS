@@ -22,11 +22,11 @@ function parseLine(line: string): { timestamp: string; level: LogLevel | null; r
 
 function levelColor(level: LogLevel | null): string {
   switch (level) {
-    case 'INFO':    return '#6b7280'
+    case 'INFO':    return '#8b919e'
     case 'DEBUG':   return '#4b5563'
     case 'WARN':
-    case 'WARNING': return '#f59e0b'
-    case 'ERROR':   return '#ef4444'
+    case 'WARNING': return '#d49a2e'
+    case 'ERROR':   return '#d65c5c'
     case 'FATAL':   return '#dc2626'
     default:        return '#52525e'
   }
@@ -35,8 +35,8 @@ function levelColor(level: LogLevel | null): string {
 function levelBg(level: LogLevel | null): string {
   switch (level) {
     case 'WARN':
-    case 'WARNING': return 'rgba(245,158,11,0.08)'
-    case 'ERROR':   return 'rgba(239,68,68,0.06)'
+    case 'WARNING': return 'rgba(212,154,46,0.08)'
+    case 'ERROR':   return 'rgba(214,92,92,0.06)'
     case 'FATAL':   return 'rgba(220,38,38,0.08)'
     default:        return 'transparent'
   }
@@ -113,12 +113,12 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
           <span className="text-xs font-mono text-[var(--text-secondary)]">{runId}.log</span>
           <div className="flex items-center gap-1.5 ml-1">
             {hasErrors && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: '#d65c5c', background: 'rgba(214,92,92,0.1)', border: '1px solid rgba(214,92,92,0.2)' }}>
                 {parsed.filter(p => p.parsed?.level === 'ERROR' || p.parsed?.level === 'FATAL').length} err
               </span>
             )}
             {hasWarns && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: '#d49a2e', background: 'rgba(212,154,46,0.08)', border: '1px solid rgba(212,154,46,0.2)' }}>
                 {parsed.filter(p => p.parsed?.level === 'WARN' || p.parsed?.level === 'WARNING').length} warn
               </span>
             )}

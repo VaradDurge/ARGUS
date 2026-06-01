@@ -50,16 +50,16 @@ function dagLayers(nodes: string[], edgeMap: Record<string, string[]>): string[]
 }
 
 function nodeVisual(status: string | undefined, diffType?: 'improved' | 'degraded' | 'unchanged') {
-  if (!status) return { color: '#9ca3af', border: '#d0d5dd', bg: '#f8fafc' }
+  if (!status) return { color: '#5d6370', border: '#2c2f3a', bg: '#1c1d24' }
   const colors: Record<string, { color: string; border: string; bg: string }> = {
-    pass:           { color: '#10b981', border: 'rgba(16,185,129,0.32)', bg: 'rgba(16,185,129,0.055)' },
-    crashed:        { color: '#ef4444', border: 'rgba(239,68,68,0.38)', bg: 'rgba(239,68,68,0.075)' },
-    fail:           { color: '#f59e0b', border: 'rgba(245,158,11,0.42)', bg: 'rgba(245,158,11,0.075)' },
-    semantic_fail:  { color: '#a855f7', border: 'rgba(168,85,247,0.38)', bg: 'rgba(168,85,247,0.075)' },
+    pass:           { color: '#3d9e7d', border: 'rgba(61,158,125,0.32)', bg: 'rgba(61,158,125,0.055)' },
+    crashed:        { color: '#d65c5c', border: 'rgba(214,92,92,0.38)', bg: 'rgba(214,92,92,0.075)' },
+    fail:           { color: '#d49a2e', border: 'rgba(212,154,46,0.42)', bg: 'rgba(212,154,46,0.075)' },
+    semantic_fail:  { color: '#9a6dc6', border: 'rgba(154,109,198,0.38)', bg: 'rgba(154,109,198,0.075)' },
     degraded_input: { color: '#f97316', border: 'rgba(249,115,22,0.34)', bg: 'rgba(249,115,22,0.065)' },
-    interrupted:    { color: '#f59e0b', border: 'rgba(245,158,11,0.42)', bg: 'rgba(245,158,11,0.075)' },
+    interrupted:    { color: '#d49a2e', border: 'rgba(212,154,46,0.42)', bg: 'rgba(212,154,46,0.075)' },
   }
-  return colors[status] ?? { color: '#9ca3af', border: '#d0d5dd', bg: '#f8fafc' }
+  return colors[status] ?? { color: '#5d6370', border: '#2c2f3a', bg: '#1c1d24' }
 }
 
 function MiniPipeline({ run, diffMap, label }: { run: RunRecord; diffMap: Map<string, NodeDiff>; label: string }) {
@@ -72,7 +72,7 @@ function MiniPipeline({ run, diffMap, label }: { run: RunRecord; diffMap: Map<st
   return (
     <div>
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="w-1 h-4 rounded-full shrink-0" style={{ background: STATUS_LABEL[run.overall_status] ? (run.overall_status === 'clean' ? '#10b981' : '#ef4444') : '#9ca3af' }} />
+        <span className="w-1 h-4 rounded-full shrink-0" style={{ background: STATUS_LABEL[run.overall_status] ? (run.overall_status === 'clean' ? '#3d9e7d' : '#d65c5c') : '#5d6370' }} />
         <span className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</span>
       </div>
       <div className="flex items-center py-1.5 overflow-x-auto">
@@ -111,7 +111,7 @@ function MiniPipeline({ run, diffMap, label }: { run: RunRecord; diffMap: Map<st
                       </span>
                       {icon && (
                         <span className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
-                          style={{ background: '#ffffff', color: visual.color, boxShadow: '0 2px 6px rgba(0,0,0,0.08)', border: '1px solid var(--border-subtle)' }}
+                          style={{ background: '#141519', color: visual.color, boxShadow: '0 2px 6px rgba(0,0,0,0.25)', border: '1px solid var(--border-subtle)' }}
                         >
                           {icon}
                         </span>
@@ -160,9 +160,9 @@ export default function PipelineComparison({
       <div className="flex items-center justify-between mb-2.5">
         <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>Pipeline Overview</h3>
         <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#10b981' }} /> Improved</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#ef4444' }} /> Degraded</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#9ca3af' }} /> Unchanged</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#3d9e7d' }} /> Improved</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#d65c5c' }} /> Degraded</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#5d6370' }} /> Unchanged</span>
         </div>
       </div>
 

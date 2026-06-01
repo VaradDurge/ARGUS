@@ -55,7 +55,7 @@ export default function CompareTabNav({ active, onChange }: { active: TabId; onC
             onClick={() => onChange(tab.id)}
             className="flex items-center gap-1.5 px-3.5 py-2 text-[12.5px] whitespace-nowrap shrink-0 transition-colors relative"
             style={{
-              color: isActive ? '#10b981' : 'var(--text-muted)',
+              color: isActive ? '#3d9e7d' : 'var(--text-muted)',
               fontWeight: isActive ? 600 : 400,
             }}
           >
@@ -64,7 +64,7 @@ export default function CompareTabNav({ active, onChange }: { active: TabId; onC
             {isActive && (
               <span
                 className="absolute bottom-[-1px] left-0 right-0 h-[2px] rounded-full"
-                style={{ background: '#10b981' }}
+                style={{ background: '#3d9e7d' }}
               />
             )}
           </button>

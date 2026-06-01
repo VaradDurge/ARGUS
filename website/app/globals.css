@@ -10,39 +10,39 @@ html, body {
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Clean light palette — inspired by modern SaaS dashboards */
-  --bg-base:     #fafbfc;
-  --bg-surface:  #ffffff;
-  --bg-elevated: #f6f7f9;
-  --bg-overlay:  #eef1f5;
+  /* Dark palette — professional monitoring dashboard */
+  --bg-base:     #0c0d12;
+  --bg-surface:  #141519;
+  --bg-elevated: #1c1d24;
+  --bg-overlay:  #23252e;
 
   /* Borders */
-  --border-subtle:  #e8ebf0;
-  --border-default: #d7dce4;
-  --border-strong:  #9aa3b2;
+  --border-subtle:  #1f2129;
+  --border-default: #2c2f3a;
+  --border-strong:  #454a58;
 
   /* Text */
-  --text-primary:   #111827;
-  --text-secondary: #667085;
-  --text-muted:     #98a2b3;
-  --text-faint:     #d0d5dd;
+  --text-primary:   #e1e4ea;
+  --text-secondary: #8b919e;
+  --text-muted:     #5d6370;
+  --text-faint:     #3a3f4c;
 
-  /* Accent */
-  --accent-blue:      #6366f1;
-  --accent-blue-dim:  rgba(99,102,241,0.08);
-  --accent-green:     #10b981;
-  --accent-red:       #ef4444;
-  --accent-amber:     #f59e0b;
-  --accent-magenta:   #a855f7;
-  --accent-cyan:      #06b6d4;
+  /* Accent — 30% reduced saturation from original, tuned for dark bg */
+  --accent-blue:      #7c7fc7;
+  --accent-blue-dim:  rgba(124,127,199,0.10);
+  --accent-green:     #3d9e7d;
+  --accent-red:       #d65c5c;
+  --accent-amber:     #d49a2e;
+  --accent-magenta:   #9a6dc6;
+  --accent-cyan:      #3aa7ba;
 
   /* Sidebar */
-  --sidebar-bg:     #ffffff;
-  --sidebar-active: rgba(99,102,241,0.10);
-  --sidebar-text:   #344054;
-  --sidebar-muted:  #98a2b3;
+  --sidebar-bg:     #101116;
+  --sidebar-active: rgba(124,127,199,0.10);
+  --sidebar-text:   #b0b5c0;
+  --sidebar-muted:  #5d6370;
 }
 
 * { box-sizing: border-box; }
@@ -69,15 +69,15 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.14); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
 
-/* JSON viewer syntax highlighting (light-friendly) */
-.json-key     { color: #6366f1; }
-.json-string  { color: #059669; }
-.json-number  { color: #d97706; }
-.json-boolean { color: #7c3aed; }
-.json-null    { color: #9ca3af; }
+/* JSON viewer syntax highlighting (dark-friendly) */
+.json-key     { color: #7c7fc7; }
+.json-string  { color: #3d9e7d; }
+.json-number  { color: #d49a2e; }
+.json-boolean { color: #9a6dc6; }
+.json-null    { color: #5d6370; }
 
 /* Sidebar nav transition */
 .nav-item {
@@ -85,11 +85,11 @@ body {
 }
 
 /* Status dot colors */
-.status-pass    { color: #10b981; }
-.status-warn    { color: #f59e0b; }
-.status-crash   { color: #ef4444; }
-.status-sem     { color: #a855f7; }
-.status-paused  { color: #f59e0b; }
+.status-pass    { color: #3d9e7d; }
+.status-warn    { color: #d49a2e; }
+.status-crash   { color: #d65c5c; }
+.status-sem     { color: #9a6dc6; }
+.status-paused  { color: #d49a2e; }
 
 /* Step row */
 .step-row {
@@ -103,7 +103,7 @@ body {
   transition: background 100ms ease;
 }
 .step-row:hover {
-  background: rgba(99,102,241,0.04);
+  background: rgba(124,127,199,0.06);
 }
 
 /* Cards */
@@ -111,10 +111,10 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.025), 0 6px 18px rgba(16,24,40,0.025);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.15);
 }
 .card:hover {
-  box-shadow: 0 2px 4px rgba(16,24,40,0.035), 0 10px 24px rgba(16,24,40,0.04);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.2);
 }
 
 /* Split panel divider */
@@ -136,10 +136,10 @@ body {
   background: var(--border-subtle);
 }
 .split-divider:hover {
-  background: rgba(99,102,241,0.15);
+  background: rgba(124,127,199,0.15);
 }
 .split-divider:active {
-  background: rgba(99,102,241,0.25);
+  background: rgba(124,127,199,0.25);
 }
 
 /* Panel slide-in animation */
@@ -155,7 +155,7 @@ body {
 .detail-overlay-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 40;
   animation: overlayFadeIn 150ms ease-out;
 }
@@ -167,7 +167,7 @@ body {
   width: 92%;
   max-width: 640px;
   z-index: 50;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
   animation: overlaySlideIn 200ms ease-out;
 }
 @keyframes overlayFadeIn {

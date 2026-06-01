@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import type { RunRecord } from '@/lib/types'
 
-const C_GREEN = '#10b981'
-const C_AMBER = '#f59e0b'
+const C_GREEN = '#3d9e7d'
+const C_AMBER = '#d49a2e'
 
 /** Render text with inline code spans highlighted */
 function renderWithCode(text: string): (string | JSX.Element)[] {
@@ -22,9 +22,9 @@ function renderWithCode(text: string): (string | JSX.Element)[] {
         key={m.index}
         className="text-[12px] font-mono px-1.5 py-0.5 rounded"
         style={{
-          background: 'rgba(99,102,241,0.06)',
+          background: 'rgba(124,127,199,0.06)',
           color: '#818cf8',
-          border: '1px solid rgba(99,102,241,0.12)',
+          border: '1px solid rgba(124,127,199,0.12)',
         }}
       >
         {code}
@@ -47,19 +47,19 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
   const isHealthy = !hasError && run.overall_status === 'clean'
 
   const confColor =
-    inv.confidence >= 0.75 ? C_GREEN : inv.confidence >= 0.45 ? C_AMBER : '#9ca3af'
+    inv.confidence >= 0.75 ? C_GREEN : inv.confidence >= 0.45 ? C_AMBER : '#5d6370'
 
   return (
     <div
       className="card rounded-xl overflow-hidden"
       style={{
-        border: '1px solid rgba(99,102,241,0.15)',
+        border: '1px solid rgba(124,127,199,0.15)',
       }}
     >
       {/* Header */}
-      <div className="px-5 py-3.5 flex items-center gap-3" style={{ background: 'rgba(99,102,241,0.04)' }}>
-        <div className="w-1 h-4 rounded-full" style={{ background: '#6366f1' }} />
-        <span className="text-[13px] font-semibold" style={{ color: '#6366f1' }}>
+      <div className="px-5 py-3.5 flex items-center gap-3" style={{ background: 'rgba(124,127,199,0.04)' }}>
+        <div className="w-1 h-4 rounded-full" style={{ background: '#7c7fc7' }} />
+        <span className="text-[13px] font-semibold" style={{ color: '#7c7fc7' }}>
           AI Analysis
         </span>
         {!hasError && (
@@ -81,8 +81,8 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
         {/* Error state */}
         {hasError && (
           <div className="mt-4 p-4 rounded-lg text-[13px]"
-            style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)' }}>
-            <span className="font-semibold" style={{ color: '#ef4444' }}>Analysis failed: </span>
+            style={{ background: 'rgba(214,92,92,0.04)', border: '1px solid rgba(214,92,92,0.12)' }}>
+            <span className="font-semibold" style={{ color: '#d65c5c' }}>Analysis failed: </span>
             <span style={{ color: '#b91c1c' }}>{inv.error}</span>
           </div>
         )}
@@ -90,7 +90,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
         {/* Healthy run */}
         {!hasError && isHealthy && inv.root_cause_explanation && (
           <div className="mt-4 p-5 rounded-xl"
-            style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
+            style={{ background: 'rgba(61,158,125,0.04)', border: '1px solid rgba(61,158,125,0.12)' }}>
             <div className="flex items-center gap-2.5 mb-3">
               <span style={{ color: C_GREEN }} className="text-lg">{'\u2713'}</span>
               <span className="text-[12px] uppercase tracking-widest font-semibold" style={{ color: C_GREEN }}>
@@ -115,7 +115,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
                 </span>
                 <span
                   className="ml-2 text-[12.5px] font-mono px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                  style={{ background: 'rgba(214,92,92,0.08)', color: '#d65c5c', border: '1px solid rgba(214,92,92,0.2)' }}
                 >
                   {run.root_cause_chain?.[0] ?? run.first_failure_step}
                 </span>
@@ -208,8 +208,8 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
                                 <span
                                   className="inline-flex items-center shrink-0 text-[11px] font-mono font-bold px-2 py-0.5 rounded mt-0.5"
                                   style={{
-                                    background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.10))',
-                                    color: '#7c3aed',
+                                    background: 'linear-gradient(135deg, rgba(124,127,199,0.12), rgba(139,92,246,0.10))',
+                                    color: '#8b6fb5',
                                     border: '1px solid rgba(139,92,246,0.2)',
                                     letterSpacing: '0.01em',
                                   }}
@@ -232,7 +232,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
                                 style={{
                                   background: 'rgba(0,0,0,0.03)',
                                   color: '#818cf8',
-                                  border: '1px solid rgba(99,102,241,0.1)',
+                                  border: '1px solid rgba(124,127,199,0.1)',
                                   lineHeight: '1.7',
                                 }}
                               >
@@ -270,7 +270,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
             {detailsOpen && (
               <div className="mt-4 space-y-3">
                 {inv.causal_hypotheses.map((h, i) => {
-                  const hc = h.confidence >= 0.7 ? C_GREEN : h.confidence >= 0.4 ? C_AMBER : '#9ca3af'
+                  const hc = h.confidence >= 0.7 ? C_GREEN : h.confidence >= 0.4 ? C_AMBER : '#5d6370'
                   return (
                     <div
                       key={i}
@@ -286,7 +286,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
                         </span>
                         <span
                           className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                          style={{ background: 'rgba(99,102,241,0.06)', color: '#6366f1' }}
+                          style={{ background: 'rgba(124,127,199,0.06)', color: '#7c7fc7' }}
                         >
                           {h.category}
                         </span>

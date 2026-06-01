@@ -37,7 +37,7 @@ export default function Topbar({ force = false }: { force?: boolean }) {
       className="h-11 flex items-center justify-between px-6 shrink-0 gap-4"
       style={{
         borderBottom: '1px solid var(--border-subtle)',
-        background: 'rgba(255,255,255,0.85)',
+        background: 'rgba(12,13,18,0.85)',
         backdropFilter: 'blur(12px)',
       }}
     >
@@ -52,8 +52,8 @@ export default function Topbar({ force = false }: { force?: boolean }) {
         style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
-          <circle cx="6" cy="6" r="4.5" stroke="#9ca3af" strokeWidth="1.2"/>
-          <path d="M9.5 9.5L12.5 12.5" stroke="#9ca3af" strokeWidth="1.2" strokeLinecap="round"/>
+          <circle cx="6" cy="6" r="4.5" stroke="#5d6370" strokeWidth="1.2"/>
+          <path d="M9.5 9.5L12.5 12.5" stroke="#5d6370" strokeWidth="1.2" strokeLinecap="round"/>
         </svg>
         <input
           ref={inputRef}
@@ -73,7 +73,7 @@ export default function Topbar({ force = false }: { force?: boolean }) {
       {/* Right: indicators */}
       <div className="flex items-center gap-3 shrink-0">
         <button
-          className="p-1.5 rounded-md transition-colors hover:bg-black/5"
+          className="p-1.5 rounded-md transition-colors hover:bg-white/5"
           style={{ color: 'var(--text-muted)' }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -87,7 +87,7 @@ export default function Topbar({ force = false }: { force?: boolean }) {
           className="flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded-md tracking-wide"
           style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}
         >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981' }} />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#3d9e7d' }} />
           local
         </span>
       </div>

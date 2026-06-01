@@ -681,7 +681,7 @@ def _print_investigation_panel(record: RunRecord) -> None:
     dur_s = inv.investigation_duration_ms / 1000
     conf_pct = f"{inv.confidence:.0%}"
     lines.append(
-        f"  [dim]{inv.model_used}  ·  {tokens:,} tokens  ·  "
+        f"  [dim]{tokens:,} tokens  ·  "
         f"{dur_s:.1f}s  ·  confidence {conf_pct}[/dim]"
     )
 

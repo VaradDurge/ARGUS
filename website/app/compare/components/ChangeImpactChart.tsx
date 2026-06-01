@@ -20,9 +20,9 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
   const uncOffset = posLen + negLen
 
   const segments = [
-    { len: posLen, offset: posOffset, color: '#10b981' },
-    { len: negLen, offset: negOffset, color: '#ef4444' },
-    { len: uncLen, offset: uncOffset, color: '#d1d5db' },
+    { len: posLen, offset: posOffset, color: '#3d9e7d' },
+    { len: negLen, offset: negOffset, color: '#d65c5c' },
+    { len: uncLen, offset: uncOffset, color: '#3a3f4c' },
   ].filter((s) => s.len > 0)
 
   const dominantPct = Math.max(impact.positive, impact.negative, impact.unchanged)
@@ -39,7 +39,7 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
           {/* Background ring */}
           <circle
             cx={center} cy={center} r={radius}
-            fill="none" stroke="#e5e7eb" strokeWidth={stroke}
+            fill="none" stroke="#1f2129" strokeWidth={stroke}
           />
           {/* Segments */}
           {segments.map((seg, i) => (
@@ -70,17 +70,17 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
       {/* Legend */}
       <div className={compact ? 'flex flex-col gap-1.5' : 'flex flex-col gap-2'}>
         <div className="flex items-center gap-2">
-          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#10b981' }} />
+          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#3d9e7d' }} />
           <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>Positive</span>
           <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{impact.positive}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#d1d5db' }} />
+          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#3a3f4c' }} />
           <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>No Change</span>
           <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{impact.unchanged}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#ef4444' }} />
+          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#d65c5c' }} />
           <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>Negative</span>
           <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{impact.negative}%</span>
         </div>

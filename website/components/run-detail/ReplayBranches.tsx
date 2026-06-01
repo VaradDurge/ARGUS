@@ -18,22 +18,22 @@ interface ReplayTreeNode {
 }
 
 function dotColor(status: string): string {
-  if (status === 'clean') return '#10b981'
-  if (status === 'crashed') return '#ef4444'
-  if (status === 'silent_failure') return '#f59e0b'
-  if (status === 'semantic_fail') return '#a855f7'
-  if (status === 'interrupted') return '#f59e0b'
-  return '#9ca3af'
+  if (status === 'clean') return '#3d9e7d'
+  if (status === 'crashed') return '#d65c5c'
+  if (status === 'silent_failure') return '#d49a2e'
+  if (status === 'semantic_fail') return '#9a6dc6'
+  if (status === 'interrupted') return '#d49a2e'
+  return '#5d6370'
 }
 
 function getStatusInfo(status: string, parentFailing: boolean) {
-  if (status === 'clean' && parentFailing) return { label: 'successful recovery', color: '#10b981', bg: 'rgba(16,185,129,0.10)' }
-  if (status === 'clean') return { label: 'clean', color: '#10b981', bg: 'rgba(16,185,129,0.10)' }
-  if (status === 'crashed') return { label: 'crashed', color: '#ef4444', bg: 'rgba(239,68,68,0.10)' }
-  if (status === 'silent_failure') return { label: 'semantic degradation persisted', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' }
-  if (status === 'semantic_fail') return { label: 'changed retrieval prompt', color: '#8b5cf6', bg: 'rgba(139,92,246,0.10)' }
-  if (status === 'interrupted') return { label: 'interrupted', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' }
-  return { label: status.replace(/_/g, ' '), color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' }
+  if (status === 'clean' && parentFailing) return { label: 'successful recovery', color: '#3d9e7d', bg: 'rgba(61,158,125,0.10)' }
+  if (status === 'clean') return { label: 'clean', color: '#3d9e7d', bg: 'rgba(61,158,125,0.10)' }
+  if (status === 'crashed') return { label: 'crashed', color: '#d65c5c', bg: 'rgba(214,92,92,0.10)' }
+  if (status === 'silent_failure') return { label: 'semantic degradation persisted', color: '#d49a2e', bg: 'rgba(212,154,46,0.10)' }
+  if (status === 'semantic_fail') return { label: 'changed retrieval prompt', color: '#9a6dc6', bg: 'rgba(154,109,198,0.10)' }
+  if (status === 'interrupted') return { label: 'interrupted', color: '#d49a2e', bg: 'rgba(212,154,46,0.10)' }
+  return { label: status.replace(/_/g, ' '), color: '#5d6370', bg: 'rgba(93,99,112,0.10)' }
 }
 
 function fmtBranchTime(iso: string): string {
@@ -91,7 +91,7 @@ function ReplayNodeRow({
           <div
             className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer"
             style={{
-              background: '#fafafa',
+              background: '#141519',
               border: '1px solid var(--border-subtle)',
               transition: 'background 100ms',
             }}
@@ -101,7 +101,7 @@ function ReplayNodeRow({
               router.replace(`/?run=${nextRun}&from=${fromRun}`, { scroll: false })
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-elevated)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#141519' }}
           >
             <span className="text-[12.5px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>
               Rerun {label}
@@ -113,7 +113,7 @@ function ReplayNodeRow({
               {info.label}
             </span>
             {isClean && (
-              <svg width="11" height="11" viewBox="0 0 13 13" fill="none" className="shrink-0" style={{ color: '#10b981' }}>
+              <svg width="11" height="11" viewBox="0 0 13 13" fill="none" className="shrink-0" style={{ color: '#3d9e7d' }}>
                 <path d="M2.5 6.5l3 3 5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             )}
@@ -206,7 +206,7 @@ export default function ReplayBranches({
         <button
           onClick={() => onSwitchTab('Pipeline')}
           className="text-[11px] font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-colors"
-          style={{ color: '#6366f1', border: '1px solid rgba(99,102,241,0.22)', background: 'rgba(99,102,241,0.04)' }}
+          style={{ color: '#7c7fc7', border: '1px solid rgba(124,127,199,0.22)', background: 'rgba(124,127,199,0.04)' }}
         >
           + Rerun
         </button>
@@ -224,7 +224,7 @@ export default function ReplayBranches({
 
           <div
             className="flex-1 flex items-center gap-2 min-w-0 px-2.5 py-1.5 rounded-lg"
-            style={{ background: '#fafafa', border: '1px solid var(--border-subtle)' }}
+            style={{ background: '#141519', border: '1px solid var(--border-subtle)' }}
           >
             <span className="text-[12.5px] font-bold" style={{ color: 'var(--text-primary)' }}>
               Original Run
@@ -232,8 +232,8 @@ export default function ReplayBranches({
             <span
               className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md leading-none"
               style={{
-                color: originFailing ? '#ef4444' : '#10b981',
-                background: originFailing ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+                color: originFailing ? '#d65c5c' : '#3d9e7d',
+                background: originFailing ? 'rgba(214,92,92,0.08)' : 'rgba(61,158,125,0.08)',
               }}
             >
               {originLabel}

@@ -61,7 +61,7 @@ function dagLayers(nodes: string[], edgeMap: Record<string, string[]>): string[]
 function statusVisual(status: StepStatus | undefined, degradedDownstream: boolean) {
   if (!status) {
     return {
-      color: '#98a2b3',
+      color: '#5d6370',
       border: '#d0d5dd',
       bg: '#f8fafc',
       soft: 'rgba(152,162,179,0.12)',
@@ -70,16 +70,16 @@ function statusVisual(status: StepStatus | undefined, degradedDownstream: boolea
     }
   }
   if (status === 'pass' && !degradedDownstream) {
-    return { color: '#10b981', border: 'rgba(16,185,129,0.32)', bg: 'rgba(16,185,129,0.055)', soft: 'rgba(16,185,129,0.14)', icon: 'check' as const, dashed: false }
+    return { color: '#3d9e7d', border: 'rgba(61,158,125,0.32)', bg: 'rgba(61,158,125,0.055)', soft: 'rgba(61,158,125,0.14)', icon: 'check' as const, dashed: false }
   }
   if (status === 'crashed') {
-    return { color: '#ef4444', border: 'rgba(239,68,68,0.38)', bg: 'rgba(239,68,68,0.075)', soft: 'rgba(239,68,68,0.14)', icon: 'x' as const, dashed: false }
+    return { color: '#d65c5c', border: 'rgba(214,92,92,0.38)', bg: 'rgba(214,92,92,0.075)', soft: 'rgba(214,92,92,0.14)', icon: 'x' as const, dashed: false }
   }
   if (status === 'fail') {
-    return { color: '#f59e0b', border: 'rgba(245,158,11,0.42)', bg: 'rgba(245,158,11,0.075)', soft: 'rgba(245,158,11,0.14)', icon: 'warn' as const, dashed: false }
+    return { color: '#d49a2e', border: 'rgba(212,154,46,0.42)', bg: 'rgba(212,154,46,0.075)', soft: 'rgba(212,154,46,0.14)', icon: 'warn' as const, dashed: false }
   }
   if (status === 'semantic_fail') {
-    return { color: '#a855f7', border: 'rgba(168,85,247,0.38)', bg: 'rgba(168,85,247,0.075)', soft: 'rgba(168,85,247,0.14)', icon: 'warn' as const, dashed: false }
+    return { color: '#9a6dc6', border: 'rgba(154,109,198,0.38)', bg: 'rgba(154,109,198,0.075)', soft: 'rgba(154,109,198,0.14)', icon: 'warn' as const, dashed: false }
   }
   return { color: '#f97316', border: 'rgba(249,115,22,0.34)', bg: 'rgba(249,115,22,0.065)', soft: 'rgba(249,115,22,0.14)', icon: 'down' as const, dashed: true }
 }
@@ -125,15 +125,15 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
 
   const layerVisual = (layer: string[]) => {
     const targets = layer.map(visualFor)
-    const crashed = targets.find((v) => v.color === '#ef4444')
+    const crashed = targets.find((v) => v.color === '#d65c5c')
     if (crashed) return crashed
-    const silentFailure = targets.find((v) => v.color === '#f59e0b')
+    const silentFailure = targets.find((v) => v.color === '#d49a2e')
     if (silentFailure) return silentFailure
-    const semanticFailure = targets.find((v) => v.color === '#a855f7')
+    const semanticFailure = targets.find((v) => v.color === '#9a6dc6')
     if (semanticFailure) return semanticFailure
     const degraded = targets.find((v) => v.color === '#f97316')
     if (degraded) return degraded
-    const pass = targets.find((v) => v.color === '#10b981')
+    const pass = targets.find((v) => v.color === '#3d9e7d')
     return pass ?? targets[0]
   }
 
@@ -186,7 +186,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
             <button
               type="button"
               onClick={() => zoomBy(-0.1)}
-              className="w-6 h-6 text-[13px] font-bold leading-none transition-colors hover:bg-black/5"
+              className="w-6 h-6 text-[13px] font-bold leading-none transition-colors hover:bg-white/5"
               style={{ color: 'var(--text-muted)' }}
               aria-label="Zoom out pipeline"
             >
@@ -195,7 +195,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
             <button
               type="button"
               onClick={() => zoomBy(0.1)}
-              className="w-6 h-6 text-[13px] font-bold leading-none transition-colors hover:bg-black/5"
+              className="w-6 h-6 text-[13px] font-bold leading-none transition-colors hover:bg-white/5"
               style={{ color: 'var(--text-muted)', borderLeft: '1px solid var(--border-subtle)' }}
               aria-label="Zoom in pipeline"
             >
@@ -268,7 +268,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
                           {step ? formatDur(step.duration_ms) : '—'}
                         </span>
                         {step?.llm_usage?.total_cost_usd != null && step.llm_usage.total_cost_usd > 0 && (
-                          <span className="text-[10px] font-bold tabular-nums" style={{ color: '#10b981' }}>
+                          <span className="text-[10px] font-bold tabular-nums" style={{ color: '#3d9e7d' }}>
                             {fmtCost(step.llm_usage.total_cost_usd)}
                           </span>
                         )}

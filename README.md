@@ -132,6 +132,32 @@ Every API response is saved to disk. During rerun, the recorded responses are se
 
 ---
 
+## Semantic Judge (LLM-powered)
+
+Deterministic checks catch ~80% of production failures (missing fields, empty results, type mismatches, placeholder outputs). For the remaining 20% — subtle quality issues like wrong tone, unhelpful responses, or outdated information — enable the semantic judge:
+
+```python
+watcher = ArgusWatcher(semantic_judge=True)
+```
+
+The LLM judge runs **after** deterministic checks on every node. It evaluates output quality, generates causal hypotheses, and suggests debugging steps.
+
+```python
+# With a specific model
+watcher = ArgusWatcher(semantic_judge=True, judge_model="gpt-4o")
+
+# Combined with HTTP recording for deterministic + intelligent monitoring
+watcher = ArgusWatcher(semantic_judge=True, record_http=True)
+```
+
+Requires `OPENAI_API_KEY` in your environment. Uses GPT-4o by default.
+
+**When to use:** complex multi-agent pipelines, customer-facing outputs, LLM-generated content where quality matters.
+
+**When to skip:** simple pipelines, CI/CD speed runs, zero-cost monitoring.
+
+---
+
 ## Diagnose setup issues
 
 ```bash
@@ -217,4 +243,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.5.0** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.5.0)
+**v0.5.1** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.5.1)

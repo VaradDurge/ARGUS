@@ -188,10 +188,10 @@ const RELEASES: Release[] = [
 ]
 
 const TAG_STYLES: Record<Release['tag'], { bg: string; text: string; label: string }> = {
-  beta: { bg: 'rgba(99,102,241,0.1)', text: '#6366f1', label: 'BETA' },
-  major: { bg: 'rgba(16,185,129,0.1)', text: '#10b981', label: 'MAJOR' },
-  minor: { bg: 'rgba(245,158,11,0.1)', text: '#f59e0b', label: 'MINOR' },
-  patch: { bg: 'rgba(156,163,175,0.1)', text: '#9ca3af', label: 'PATCH' },
+  beta: { bg: 'rgba(124,127,199,0.1)', text: '#7c7fc7', label: 'BETA' },
+  major: { bg: 'rgba(61,158,125,0.1)', text: '#3d9e7d', label: 'MAJOR' },
+  minor: { bg: 'rgba(212,154,46,0.1)', text: '#d49a2e', label: 'MINOR' },
+  patch: { bg: 'rgba(156,163,175,0.1)', text: '#5d6370', label: 'PATCH' },
 }
 
 function ReleaseBadge({ tag }: { tag: Release['tag'] }) {
@@ -238,8 +238,8 @@ export default function ChangelogPage() {
               <div
                 className="absolute left-0 top-[6px] w-[15px] h-[15px] rounded-full border-2 flex items-center justify-center"
                 style={{
-                  borderColor: i === 0 ? '#6366f1' : 'var(--border-subtle)',
-                  background: i === 0 ? '#6366f1' : 'var(--card-bg)',
+                  borderColor: i === 0 ? '#7c7fc7' : 'var(--border-subtle)',
+                  background: i === 0 ? '#7c7fc7' : 'var(--card-bg)',
                 }}
               >
                 {i === 0 && (

@@ -44,17 +44,17 @@ export default function EvalBadge({ run, evalState }: Props) {
   const allPass = passed === total
   const allFail = passed === 0
 
-  const color = allPass ? '#22c55e' : allFail ? '#ef4444' : '#f59e0b'
+  const color = allPass ? '#22c55e' : allFail ? '#d65c5c' : '#d49a2e'
   const bg = allPass
     ? 'rgba(34,197,94,0.1)'
     : allFail
-    ? 'rgba(239,68,68,0.1)'
-    : 'rgba(245,158,11,0.1)'
+    ? 'rgba(214,92,92,0.1)'
+    : 'rgba(212,154,46,0.1)'
   const border = allPass
     ? 'rgba(34,197,94,0.22)'
     : allFail
-    ? 'rgba(239,68,68,0.22)'
-    : 'rgba(245,158,11,0.22)'
+    ? 'rgba(214,92,92,0.22)'
+    : 'rgba(212,154,46,0.22)'
   const label = allPass ? 'pass' : allFail ? 'fail' : `${passed}/${total}`
   const icon = allPass ? '✓' : '✗'
 

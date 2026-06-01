@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import type { RunRecord, LLMInvestigationResult } from '@/lib/types'
 
-const C_GREEN = '#10b981'
-const C_AMBER = '#f59e0b'
-const C_RED = '#ef4444'
-const C_INDIGO = '#6366f1'
+const C_GREEN = '#3d9e7d'
+const C_AMBER = '#d49a2e'
+const C_RED = '#d65c5c'
+const C_INDIGO = '#7c7fc7'
 
 function renderWithCode(text: string): (string | JSX.Element)[] {
   const codeRe = /`([^`]+)`|(\b[a-z_]\w*\s*\([^)]*\))|(\b[A-Z][A-Z0-9_]{2,}\b)|(\b\w+\.\w+(?:\.\w+)+\b)/g
@@ -20,7 +20,7 @@ function renderWithCode(text: string): (string | JSX.Element)[] {
       <code
         key={m.index}
         className="text-[12px] font-mono px-1.5 py-0.5 rounded"
-        style={{ background: 'rgba(99,102,241,0.06)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.12)' }}
+        style={{ background: 'rgba(124,127,199,0.06)', color: '#818cf8', border: '1px solid rgba(124,127,199,0.12)' }}
       >
         {code}
       </code>
@@ -32,7 +32,7 @@ function renderWithCode(text: string): (string | JSX.Element)[] {
 }
 
 function confColor(c: number) {
-  return c >= 0.75 ? C_GREEN : c >= 0.45 ? C_AMBER : '#9ca3af'
+  return c >= 0.75 ? C_GREEN : c >= 0.45 ? C_AMBER : '#5d6370'
 }
 
 function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: RunRecord; label: string }) {
@@ -42,9 +42,9 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
   const cc = confColor(inv.confidence)
 
   return (
-    <div className="card rounded-xl overflow-hidden" style={{ border: '1px solid rgba(99,102,241,0.15)' }}>
+    <div className="card rounded-xl overflow-hidden" style={{ border: '1px solid rgba(124,127,199,0.15)' }}>
       {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'rgba(99,102,241,0.04)' }}>
+      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'rgba(124,127,199,0.04)' }}>
         <div className="w-1 h-4 rounded-full" style={{ background: C_INDIGO }} />
         <span className="text-[12px] font-semibold" style={{ color: C_INDIGO }}>{label}</span>
         {!hasError && (
@@ -60,7 +60,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
       <div className="px-4 pb-4 space-y-4">
         {/* Error */}
         {hasError && (
-          <div className="mt-3 p-3 rounded-lg text-[12px]" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)' }}>
+          <div className="mt-3 p-3 rounded-lg text-[12px]" style={{ background: 'rgba(214,92,92,0.04)', border: '1px solid rgba(214,92,92,0.12)' }}>
             <span className="font-semibold" style={{ color: C_RED }}>Analysis failed: </span>
             <span style={{ color: '#b91c1c' }}>{inv.error}</span>
           </div>
@@ -68,7 +68,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
 
         {/* Healthy */}
         {!hasError && isHealthy && inv.root_cause_explanation && (
-          <div className="mt-3 p-4 rounded-lg" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
+          <div className="mt-3 p-4 rounded-lg" style={{ background: 'rgba(61,158,125,0.04)', border: '1px solid rgba(61,158,125,0.12)' }}>
             <div className="flex items-center gap-2 mb-2">
               <span style={{ color: C_GREEN }} className="text-base">{'\u2713'}</span>
               <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: C_GREEN }}>Pipeline healthy</span>
@@ -86,7 +86,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                 <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Root Cause Node:</span>
                 <span
                   className="ml-2 text-[11px] font-mono px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(239,68,68,0.08)', color: C_RED, border: '1px solid rgba(239,68,68,0.2)' }}
+                  style={{ background: 'rgba(214,92,92,0.08)', color: C_RED, border: '1px solid rgba(214,92,92,0.2)' }}
                 >
                   {run.root_cause_chain?.[0] ?? run.first_failure_step}
                 </span>
@@ -143,7 +143,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                               {nodeName && (
                                 <span
                                   className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-                                  style={{ background: 'rgba(99,102,241,0.1)', color: '#7c3aed', border: '1px solid rgba(139,92,246,0.2)' }}
+                                  style={{ background: 'rgba(124,127,199,0.1)', color: '#8b6fb5', border: '1px solid rgba(154,109,198,0.2)' }}
                                 >
                                   {nodeName}
                                 </span>
@@ -155,7 +155,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                             {codePart && (
                               <pre
                                 className="mt-2 px-3 py-2 rounded-lg text-[11px] font-mono overflow-x-auto whitespace-pre-wrap"
-                                style={{ background: 'rgba(0,0,0,0.03)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.1)' }}
+                                style={{ background: 'rgba(0,0,0,0.15)', color: '#818cf8', border: '1px solid rgba(124,127,199,0.1)' }}
                               >
                                 {codePart}
                               </pre>
@@ -197,7 +197,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: hc, background: `${hc}12` }}>
                           {(h.confidence * 100).toFixed(0)}%
                         </span>
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'rgba(99,102,241,0.06)', color: C_INDIGO }}>
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'rgba(124,127,199,0.06)', color: C_INDIGO }}>
                           {h.category}
                         </span>
                       </div>
@@ -232,7 +232,6 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
         {/* Meta */}
         {!hasError && (
           <div className="flex items-center gap-4 pt-2 text-[10px] font-mono" style={{ color: 'var(--text-faint)', borderTop: '1px solid var(--border-subtle)' }}>
-            {inv.model_used && <span>Model: {inv.model_used}</span>}
             {inv.prompt_tokens > 0 && <span>{inv.prompt_tokens + inv.completion_tokens} tokens</span>}
             {inv.investigation_duration_ms > 0 && <span>{(inv.investigation_duration_ms / 1000).toFixed(1)}s</span>}
           </div>
@@ -255,10 +254,10 @@ function ComparativeSummary({ invA, invB, runA, runB }: { invA: LLMInvestigation
   const fixCountB = invB.debugging_suggestions?.length ?? 0
 
   return (
-    <div className="card rounded-xl overflow-hidden" style={{ border: `1px solid ${fixed ? 'rgba(16,185,129,0.2)' : regressed ? 'rgba(239,68,68,0.2)' : 'var(--border-subtle)'}` }}>
+    <div className="card rounded-xl overflow-hidden" style={{ border: `1px solid ${fixed ? 'rgba(61,158,125,0.2)' : regressed ? 'rgba(214,92,92,0.2)' : 'var(--border-subtle)'}` }}>
       <div
         className="px-4 py-3 flex items-center gap-2.5"
-        style={{ background: fixed ? 'rgba(16,185,129,0.04)' : regressed ? 'rgba(239,68,68,0.04)' : 'var(--bg-elevated)' }}
+        style={{ background: fixed ? 'rgba(61,158,125,0.04)' : regressed ? 'rgba(214,92,92,0.04)' : 'var(--bg-elevated)' }}
       >
         <span className="text-[14px]">{fixed ? '\u2713' : regressed ? '\u2717' : '\u2194'}</span>
         <span className="text-[13px] font-bold" style={{ color: fixed ? C_GREEN : regressed ? C_RED : 'var(--text-primary)' }}>

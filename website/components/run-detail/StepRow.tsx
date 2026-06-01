@@ -17,16 +17,16 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
   const replayBad = ['crashed', 'fail', 'semantic_fail'].includes(diff.replayStep.status)
 
   let verdictLabel = 'Changed'
-  let verdictColor = '#6b7280'
-  let verdictBg = '#6b728010'
+  let verdictColor = '#8b919e'
+  let verdictBg = '#8b919e10'
   if (statusChanged && origBad && replayGood) {
     verdictLabel = 'FIXED'
-    verdictColor = '#10b981'
-    verdictBg = '#10b98110'
+    verdictColor = '#3d9e7d'
+    verdictBg = '#3d9e7d10'
   } else if (statusChanged && replayBad) {
     verdictLabel = 'REGRESSION'
-    verdictColor = '#ef4444'
-    verdictBg = '#ef444410'
+    verdictColor = '#d65c5c'
+    verdictBg = '#d65c5c10'
   } else if (!statusChanged) {
     verdictLabel = 'Unchanged'
   }
@@ -35,16 +35,16 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
     <div className="mx-4 mb-3 mt-1">
       {/* Dotted separator */}
       <div className="flex items-center gap-2 py-2">
-        <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#a855f740' }} />
-        <span className="text-[10px] uppercase tracking-widest font-semibold shrink-0" style={{ color: '#a855f7' }}>
+        <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#9a6dc640' }} />
+        <span className="text-[10px] uppercase tracking-widest font-semibold shrink-0" style={{ color: '#9a6dc6' }}>
           node rerun diff
         </span>
         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ color: verdictColor, background: verdictBg }}>
           {verdictLabel}
         </span>
-        <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#a855f740' }} />
+        <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#9a6dc640' }} />
         {onDismiss && (
-          <button type="button" onClick={onDismiss} className="p-0.5 rounded hover:bg-black/5 transition-colors shrink-0" style={{ color: '#9ca3af' }}>
+          <button type="button" onClick={onDismiss} className="p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" style={{ color: '#5d6370' }}>
             <X size={12} />
           </button>
         )}
@@ -56,31 +56,31 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
           {/* BEFORE */}
           <div className="p-3" style={{ borderRight: '1px solid var(--border-subtle)' }}>
             <div className="flex items-center gap-2 mb-2.5">
-              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#9ca3af' }}>Before</span>
+              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#5d6370' }}>Before</span>
               <span
                 className="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium"
                 style={{ background: `${origDisplay.labelColor}12`, color: origDisplay.labelColor, border: `1px solid ${origDisplay.labelColor}25` }}
               >
                 {origDisplay.icon} {diff.originalStep.status}
               </span>
-              <span className="text-[10px] font-mono italic" style={{ color: '#9ca3af' }}>
+              <span className="text-[10px] font-mono italic" style={{ color: '#5d6370' }}>
                 {formatDur(diff.originalStep.duration_ms)}
               </span>
             </div>
             <div className="mb-2">
-              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#9ca3af' }}>Output</div>
+              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Output</div>
               {diff.originalStep.output_dict !== null ? (
                 <div className="rounded p-2 text-[11px] max-h-[200px] overflow-auto" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
                   <JsonViewer data={diff.originalStep.output_dict} defaultCollapsed={false} />
                 </div>
               ) : (
-                <div className="text-[11px] italic" style={{ color: '#9ca3af' }}>no output (crashed)</div>
+                <div className="text-[11px] italic" style={{ color: '#5d6370' }}>no output (crashed)</div>
               )}
             </div>
             {diff.originalStep.inspection && diff.originalStep.inspection.severity !== 'ok' && (
               <div>
-                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#9ca3af' }}>Inspection</div>
-                <div className="rounded p-2 text-[10px] font-mono" style={{ background: '#ef444408', border: '1px solid #ef444420', color: '#ef4444' }}>
+                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Inspection</div>
+                <div className="rounded p-2 text-[10px] font-mono" style={{ background: '#d65c5c08', border: '1px solid #d65c5c20', color: '#d65c5c' }}>
                   {diff.originalStep.inspection.message}
                 </div>
               </div>
@@ -98,31 +98,31 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
           {/* AFTER */}
           <div className="p-3">
             <div className="flex items-center gap-2 mb-2.5">
-              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#9ca3af' }}>After</span>
+              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#5d6370' }}>After</span>
               <span
                 className="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium"
                 style={{ background: `${replayDisplay.labelColor}12`, color: replayDisplay.labelColor, border: `1px solid ${replayDisplay.labelColor}25` }}
               >
                 {replayDisplay.icon} {diff.replayStep.status}
               </span>
-              <span className="text-[10px] font-mono italic" style={{ color: '#9ca3af' }}>
+              <span className="text-[10px] font-mono italic" style={{ color: '#5d6370' }}>
                 {formatDur(diff.replayStep.duration_ms)}
               </span>
             </div>
             <div className="mb-2">
-              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#9ca3af' }}>Output</div>
+              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Output</div>
               {diff.replayStep.output_dict !== null ? (
                 <div className="rounded p-2 text-[11px] max-h-[200px] overflow-auto" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
                   <JsonViewer data={diff.replayStep.output_dict} defaultCollapsed={false} />
                 </div>
               ) : (
-                <div className="text-[11px] italic" style={{ color: '#9ca3af' }}>no output (crashed)</div>
+                <div className="text-[11px] italic" style={{ color: '#5d6370' }}>no output (crashed)</div>
               )}
             </div>
             {diff.replayStep.inspection && diff.replayStep.inspection.severity !== 'ok' && (
               <div>
-                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#9ca3af' }}>Inspection</div>
-                <div className="rounded p-2 text-[10px] font-mono" style={{ background: '#ef444408', border: '1px solid #ef444420', color: '#ef4444' }}>
+                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Inspection</div>
+                <div className="rounded p-2 text-[10px] font-mono" style={{ background: '#d65c5c08', border: '1px solid #d65c5c20', color: '#d65c5c' }}>
                   {diff.replayStep.inspection.message}
                 </div>
               </div>
@@ -142,7 +142,7 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
         {statusChanged && (
           <div className="flex items-center justify-center gap-3 px-4 py-2 font-mono text-[11px]" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
             <span style={{ color: origDisplay.labelColor }}>{origDisplay.icon} {diff.originalStep.status}</span>
-            <ArrowRight size={12} style={{ color: '#9ca3af' }} />
+            <ArrowRight size={12} style={{ color: '#5d6370' }} />
             <span style={{ color: replayDisplay.labelColor }}>{replayDisplay.icon} {diff.replayStep.status}</span>
             <span className="font-bold ml-1" style={{ color: verdictColor }}>{verdictLabel}</span>
           </div>
@@ -151,7 +151,7 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
 
       {/* Dotted end separator */}
       <div className="pt-2">
-        <div className="border-t-2 border-dashed" style={{ borderColor: '#a855f740' }} />
+        <div className="border-t-2 border-dashed" style={{ borderColor: '#9a6dc640' }} />
       </div>
     </div>
   )
@@ -191,21 +191,21 @@ export default function StepRow({
         onClick={() => setExpanded(!expanded)}
         className="w-full text-left font-mono text-[13px] leading-[34px] flex items-center gap-0 px-4 hover:bg-white/[0.025] transition-colors"
       >
-        <span className="text-[#9ca3af] w-8 text-right shrink-0 tabular-nums">{number}</span>
+        <span className="text-[#5d6370] w-8 text-right shrink-0 tabular-nums">{number}</span>
         <span className="w-3 shrink-0" />
         <span className="text-[var(--text-primary)] font-semibold shrink-0">{event.node_name}</span>
         {event.llm_usage?.total_cost_usd != null && event.llm_usage.total_cost_usd > 0 && (
-          <span className="text-[10px] font-bold tabular-nums shrink-0 ml-1.5" style={{ color: '#10b981' }}>
+          <span className="text-[10px] font-bold tabular-nums shrink-0 ml-1.5" style={{ color: '#3d9e7d' }}>
             {fmtCost(event.llm_usage.total_cost_usd)}
           </span>
         )}
         {event.behavior_type && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded ml-1 shrink-0" style={{ background: 'var(--bg-elevated)', color: '#9ca3af' }}>
+          <span className="text-[10px] px-1.5 py-0.5 rounded ml-1 shrink-0" style={{ background: 'var(--bg-elevated)', color: '#5d6370' }}>
             {event.behavior_type}
           </span>
         )}
         <span className="shrink-0" style={{ width: `${Math.max(0, (nameCol - event.node_name.length)) * 0.55 + 1}em` }} />
-        <span className="text-[#6b7280] italic w-[5.5em] text-right shrink-0 tabular-nums">{formatDur(event.duration_ms)}</span>
+        <span className="text-[#8b919e] italic w-[5.5em] text-right shrink-0 tabular-nums">{formatDur(event.duration_ms)}</span>
         <span className="w-4 shrink-0" />
         <span style={{ color: display.iconColor }} className="shrink-0 w-4 text-center">{display.icon}</span>
         <span className="w-2 shrink-0" />
@@ -216,14 +216,14 @@ export default function StepRow({
 
         {/* Replaying spinner */}
         {isReplaying && (
-          <span className="ml-2 flex items-center gap-1.5 text-[10px] font-medium" style={{ color: '#a855f7' }}>
+          <span className="ml-2 flex items-center gap-1.5 text-[10px] font-medium" style={{ color: '#9a6dc6' }}>
             <span className="inline-block w-3 h-3 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
             replaying...
           </span>
         )}
 
         {event.anomaly_signals && event.anomaly_signals.length > 0 && !isReplaying && (
-          <span className="ml-2 text-[10px] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9ca3af' }}>
+          <span className="ml-2 text-[10px] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#5d6370' }}>
             {event.anomaly_signals.length} anomal{event.anomaly_signals.length === 1 ? 'y' : 'ies'}
           </span>
         )}
@@ -258,7 +258,7 @@ export default function StepRow({
 
         {/* Expand chevron — only when no actions */}
         {!(showActions && (onReplayNode || onReplay)) && (
-          <span className="ml-auto text-[10px] text-[#2a2a30] group-hover:text-[#6b7280] transition-colors">
+          <span className="ml-auto text-[10px] text-[#2a2a30] group-hover:text-[#8b919e] transition-colors">
             {expanded ? '\u25BE' : '\u25B8'}
           </span>
         )}
@@ -278,12 +278,12 @@ export default function StepRow({
             <div key={i} className="flex items-baseline">
               <span className="w-8 shrink-0" />
               <span className="w-3 shrink-0" />
-              <span className="shrink-0 mr-2" style={{ color: '#9ca3af' }}>
+              <span className="shrink-0 mr-2" style={{ color: '#5d6370' }}>
                 {line.indent ? '   ' : '\u2514\u2500'}
               </span>
               <span
                 style={{
-                  color: line.color ?? '#6b7280',
+                  color: line.color ?? '#8b919e',
                   fontStyle: line.italic ? 'italic' : undefined,
                   textDecoration: line.underline ? 'underline' : undefined,
                   fontWeight: line.bold ? 700 : undefined,
@@ -309,13 +309,13 @@ export default function StepRow({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
             {event.input_state !== null && (
               <div className="p-3" style={{ borderRight: '1px solid var(--border-default)' }}>
-                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#6b7280] mb-2">Input</div>
+                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#8b919e] mb-2">Input</div>
                 <JsonViewer data={event.input_state} defaultCollapsed={true} />
               </div>
             )}
             {event.output_dict !== null && (
               <div className="p-3">
-                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#6b7280] mb-2">Output</div>
+                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#8b919e] mb-2">Output</div>
                 <JsonViewer data={event.output_dict} defaultCollapsed={true} />
               </div>
             )}

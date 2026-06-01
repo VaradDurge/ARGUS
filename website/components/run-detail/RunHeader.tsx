@@ -5,19 +5,19 @@ import type { RunRecord } from '@/lib/types'
 import { STATUS_DOT, formatDur, formatTimestamp } from '@/lib/run-utils'
 
 const STATUS_BG: Record<string, string> = {
-  clean: 'rgba(16,185,129,0.08)',
-  silent_failure: 'rgba(245,158,11,0.08)',
-  crashed: 'rgba(239,68,68,0.08)',
-  semantic_fail: 'rgba(168,85,247,0.08)',
-  interrupted: 'rgba(245,158,11,0.08)',
+  clean: 'rgba(61,158,125,0.08)',
+  silent_failure: 'rgba(212,154,46,0.08)',
+  crashed: 'rgba(214,92,92,0.08)',
+  semantic_fail: 'rgba(154,109,198,0.08)',
+  interrupted: 'rgba(212,154,46,0.08)',
 }
 
 const STATUS_TEXT: Record<string, string> = {
-  clean: '#10b981',
-  silent_failure: '#f59e0b',
-  crashed: '#ef4444',
-  semantic_fail: '#a855f7',
-  interrupted: '#f59e0b',
+  clean: '#3d9e7d',
+  silent_failure: '#d49a2e',
+  crashed: '#d65c5c',
+  semantic_fail: '#9a6dc6',
+  interrupted: '#d49a2e',
 }
 
 export default function RunHeader({
@@ -27,7 +27,7 @@ export default function RunHeader({
   run: RunRecord
   actions?: React.ReactNode
 }) {
-  const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#9ca3af' }
+  const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#5d6370' }
   const steps = run.steps ?? []
 
   return (
@@ -38,14 +38,14 @@ export default function RunHeader({
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold tracking-tight flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
               <span style={{ color: statusInfo.color }} className="text-lg leading-none">{statusInfo.dot}</span>
-              <span className="font-mono text-base" style={{ color: '#111827' }}>{run.run_id}</span>
+              <span className="font-mono text-base" style={{ color: '#e1e4ea' }}>{run.run_id}</span>
             </h1>
             <span
               className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
               style={{
-                background: STATUS_BG[run.overall_status] ?? 'rgba(156,163,175,0.08)',
-                color: STATUS_TEXT[run.overall_status] ?? '#9ca3af',
-                border: `1px solid ${STATUS_TEXT[run.overall_status] ?? '#9ca3af'}20`,
+                background: STATUS_BG[run.overall_status] ?? 'rgba(93,99,112,0.08)',
+                color: STATUS_TEXT[run.overall_status] ?? '#5d6370',
+                border: `1px solid ${STATUS_TEXT[run.overall_status] ?? '#5d6370'}20`,
               }}
             >
               {run.overall_status.replace('_', ' ')}
@@ -64,7 +64,7 @@ export default function RunHeader({
             {run.is_cyclic && (
               <>
                 <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
-                <span style={{ color: '#a855f7' }}>cyclic</span>
+                <span style={{ color: '#9a6dc6' }}>cyclic</span>
               </>
             )}
           </div>

@@ -11,13 +11,13 @@ function MetricRow({ label, aVal, bVal, winner }: { label: string; aVal: string;
       style={{ gridTemplateColumns: '160px 1fr 1fr 60px', borderBottom: '1px solid var(--border-subtle)' }}
     >
       <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</span>
-      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'A' ? '#10b981' : 'var(--text-secondary)' }}>
+      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'A' ? '#3d9e7d' : 'var(--text-secondary)' }}>
         {aVal}
       </span>
-      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'B' ? '#10b981' : 'var(--text-secondary)' }}>
+      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'B' ? '#3d9e7d' : 'var(--text-secondary)' }}>
         {bVal}
       </span>
-      <span className="text-[11px] text-right font-semibold" style={{ color: '#10b981' }}>
+      <span className="text-[11px] text-right font-semibold" style={{ color: '#3d9e7d' }}>
         {winner !== 'tie' ? `${winner} \u2713` : ''}
       </span>
     </div>

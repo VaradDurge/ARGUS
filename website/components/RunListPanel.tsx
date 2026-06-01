@@ -52,11 +52,11 @@ function groupByDate(runs: RunSummary[]): { label: string; runs: RunSummary[] }[
 /* ── Status colors ─────────────────────────────────────────── */
 
 const STATUS_DOT_COLOR: Record<string, string> = {
-  clean: '#10b981',
-  silent_failure: '#f59e0b',
-  crashed: '#ef4444',
-  semantic_fail: '#a855f7',
-  interrupted: '#f59e0b',
+  clean: '#3d9e7d',
+  silent_failure: '#d49a2e',
+  crashed: '#d65c5c',
+  semantic_fail: '#9a6dc6',
+  interrupted: '#d49a2e',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -68,11 +68,11 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_PILL_BG: Record<string, string> = {
-  clean: 'rgba(16,185,129,0.1)',
-  silent_failure: 'rgba(245,158,11,0.12)',
-  crashed: 'rgba(239,68,68,0.08)',
-  semantic_fail: 'rgba(168,85,247,0.08)',
-  interrupted: 'rgba(245,158,11,0.08)',
+  clean: 'rgba(61,158,125,0.1)',
+  silent_failure: 'rgba(212,154,46,0.12)',
+  crashed: 'rgba(214,92,92,0.08)',
+  semantic_fail: 'rgba(154,109,198,0.08)',
+  interrupted: 'rgba(212,154,46,0.08)',
 }
 
 /* ── Stat card ─────────────────────────────────────────────── */
@@ -93,10 +93,10 @@ function StatCard({ icon, label, value, valueColor }: { icon: React.ReactNode; l
 
 function IconTotalRuns() {
   return (
-    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
+    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,127,199,0.08)' }}>
       <svg width="14" height="14" viewBox="0 0 17 17" fill="none">
-        <rect x="2.5" y="3" width="12" height="11" rx="2.5" stroke="#6366f1" strokeWidth="1.1"/>
-        <path d="M5.5 6.5h6M5.5 9h4M5.5 11.5h2.5" stroke="#6366f1" strokeWidth="1.1" strokeLinecap="round"/>
+        <rect x="2.5" y="3" width="12" height="11" rx="2.5" stroke="#7c7fc7" strokeWidth="1.1"/>
+        <path d="M5.5 6.5h6M5.5 9h4M5.5 11.5h2.5" stroke="#7c7fc7" strokeWidth="1.1" strokeLinecap="round"/>
       </svg>
     </div>
   )
@@ -104,9 +104,9 @@ function IconTotalRuns() {
 
 function IconClean() {
   return (
-    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.08)' }}>
+    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(61,158,125,0.08)' }}>
       <svg width="14" height="14" viewBox="0 0 17 17" fill="none">
-        <path d="M3.5 9.5l3 3.5c.5.5 1 .3 1.3-.1L13.5 5" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3.5 9.5l3 3.5c.5.5 1 .3 1.3-.1L13.5 5" stroke="#3d9e7d" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </div>
   )
@@ -114,11 +114,11 @@ function IconClean() {
 
 function IconFailed() {
   return (
-    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.07)' }}>
+    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(214,92,92,0.07)' }}>
       <svg width="14" height="14" viewBox="0 0 17 17" fill="none">
-        <path d="M8.5 3L14.5 13.5H2.5L8.5 3Z" stroke="#ef4444" strokeWidth="1.1" strokeLinejoin="round"/>
-        <path d="M8.5 7.5v2" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round"/>
-        <circle cx="8.5" cy="11.5" r="0.6" fill="#ef4444"/>
+        <path d="M8.5 3L14.5 13.5H2.5L8.5 3Z" stroke="#d65c5c" strokeWidth="1.1" strokeLinejoin="round"/>
+        <path d="M8.5 7.5v2" stroke="#d65c5c" strokeWidth="1.3" strokeLinecap="round"/>
+        <circle cx="8.5" cy="11.5" r="0.6" fill="#d65c5c"/>
       </svg>
     </div>
   )
@@ -126,9 +126,9 @@ function IconFailed() {
 
 function IconPassRate() {
   return (
-    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.08)' }}>
+    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(212,154,46,0.08)' }}>
       <svg width="14" height="14" viewBox="0 0 17 17" fill="none">
-        <path d="M3 12c1.5-1 3-4.5 4.5-4s2.5 2 4 1S14 5 14.5 4" stroke="#f59e0b" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 12c1.5-1 3-4.5 4.5-4s2.5 2 4 1S14 5 14.5 4" stroke="#d49a2e" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </div>
   )
@@ -165,7 +165,7 @@ function InlineRename({ run, onDone }: { run: RunSummary; onDone: (alias: string
       onBlur={submit}
       onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onDone(run.alias ?? null) }}
       className="text-[13px] font-semibold bg-transparent outline-none border-b"
-      style={{ color: 'var(--text-primary)', borderColor: '#6366f1', width: '140px' }}
+      style={{ color: 'var(--text-primary)', borderColor: '#7c7fc7', width: '140px' }}
       placeholder="Name this run..."
     />
   )
@@ -248,11 +248,11 @@ export default function RunListPanel({
           <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
             <div
               className="min-w-0 max-w-[320px] flex-1 flex items-center gap-2.5 px-3 py-2 rounded-[10px] transition-colors"
-              style={{ background: '#ffffff', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 2px rgba(16,24,40,0.035)' }}
+              style={{ background: '#141519', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 2px rgba(16,24,40,0.035)' }}
             >
               <svg width="15" height="15" viewBox="0 0 14 14" fill="none" className="shrink-0">
-                <circle cx="6" cy="6" r="4.5" stroke="#98a2b3" strokeWidth="1.35"/>
-                <path d="M9.5 9.5L12.5 12.5" stroke="#98a2b3" strokeWidth="1.35" strokeLinecap="round"/>
+                <circle cx="6" cy="6" r="4.5" stroke="#5d6370" strokeWidth="1.35"/>
+                <path d="M9.5 9.5L12.5 12.5" stroke="#5d6370" strokeWidth="1.35" strokeLinecap="round"/>
               </svg>
               <input
                 type="text"
@@ -270,11 +270,11 @@ export default function RunListPanel({
 
             <button
               className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 transition-colors"
-              style={{ background: '#ffffff', color: '#6366f1', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 2px rgba(16,24,40,0.035)' }}
+              style={{ background: '#141519', color: '#7c7fc7', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 2px rgba(16,24,40,0.035)' }}
             >
               <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
                 <rect x="1.5" y="1.5" width="11" height="11" rx="2.2" stroke="currentColor" strokeWidth="1.2"/>
-                <rect x="4" y="4" width="6" height="6" rx="1.2" fill="rgba(99,102,241,0.12)" stroke="currentColor" strokeWidth="1.1"/>
+                <rect x="4" y="4" width="6" height="6" rx="1.2" fill="rgba(124,127,199,0.12)" stroke="currentColor" strokeWidth="1.1"/>
               </svg>
             </button>
           </div>
@@ -284,18 +284,18 @@ export default function RunListPanel({
         {counts.total > 0 && (
           <div className="grid grid-cols-4 gap-1.5 px-4 pb-3">
             <StatCard icon={<IconTotalRuns />} label="Total Runs" value={counts.total} />
-            <StatCard icon={<IconClean />} label="Clean" value={counts.clean} valueColor="#10b981" />
+            <StatCard icon={<IconClean />} label="Clean" value={counts.clean} valueColor="#3d9e7d" />
             <StatCard
               icon={<IconFailed />}
               label="Failed"
               value={counts.failed}
-              valueColor={counts.failed > 0 ? '#ef4444' : undefined}
+              valueColor={counts.failed > 0 ? '#d65c5c' : undefined}
             />
             <StatCard
               icon={<IconPassRate />}
               label="Pass Rate"
               value={passRate !== null ? `${passRate}%` : '\u2014'}
-              valueColor={passRate === null ? undefined : passRate === 100 ? '#10b981' : passRate >= 70 ? '#f59e0b' : '#ef4444'}
+              valueColor={passRate === null ? undefined : passRate === 100 ? '#3d9e7d' : passRate >= 70 ? '#d49a2e' : '#d65c5c'}
             />
           </div>
         )}
@@ -314,7 +314,7 @@ export default function RunListPanel({
               placeholder="Search runs..."
               className="w-full text-[13px] font-normal pl-9 pr-3 py-[9px] rounded-[10px] outline-none transition-colors"
               style={{
-                background: '#ffffff',
+                background: '#141519',
                 border: '1px solid #e8eaed',
                 color: 'var(--text-primary)',
                 fontFamily: 'var(--font-sans), Inter, sans-serif',
@@ -324,14 +324,14 @@ export default function RunListPanel({
           </div>
           <button
             className="text-[13px] font-bold px-3.5 py-[9px] rounded-[10px] transition-colors flex items-center gap-1.5 shrink-0"
-            style={{ background: '#ffffff', color: '#6b7280', border: '1px solid #e8eaed', fontFamily: 'var(--font-sans), Inter, sans-serif' }}
+            style={{ background: '#141519', color: '#8b919e', border: '1px solid #e8eaed', fontFamily: 'var(--font-sans), Inter, sans-serif' }}
           >
             Status
             <svg width="9" height="9" viewBox="0 0 9 9" fill="none" style={{ marginLeft: '1px' }}><path d="M2.2 3.5l2.3 2.3 2.3-2.3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <button
             className="text-[13px] font-bold px-3.5 py-[9px] rounded-[10px] transition-colors flex items-center gap-2 shrink-0"
-            style={{ background: '#ffffff', color: '#6b7280', border: '1px solid #e8eaed', fontFamily: 'var(--font-sans), Inter, sans-serif' }}
+            style={{ background: '#141519', color: '#8b919e', border: '1px solid #e8eaed', fontFamily: 'var(--font-sans), Inter, sans-serif' }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: '#8b919e' }}>
               <circle cx="3.8" cy="7" r="2" stroke="currentColor" strokeWidth="1"/>
@@ -343,7 +343,7 @@ export default function RunListPanel({
           </button>
           <button
             className="text-[13px] font-bold px-3.5 py-[9px] rounded-[10px] transition-colors flex items-center gap-2 shrink-0"
-            style={{ background: '#ffffff', color: '#6b7280', border: '1px solid #e8eaed', fontFamily: 'var(--font-sans), Inter, sans-serif' }}
+            style={{ background: '#141519', color: '#8b919e', border: '1px solid #e8eaed', fontFamily: 'var(--font-sans), Inter, sans-serif' }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: '#8b919e' }}>
               <rect x="1.5" y="2.8" width="11" height="9" rx="1.8" stroke="currentColor" strokeWidth="1"/>
@@ -354,7 +354,7 @@ export default function RunListPanel({
           </button>
           <button
             className="p-[9px] rounded-[10px] transition-colors shrink-0"
-            style={{ background: '#ffffff', color: '#9ca3af', border: '1px solid #e8eaed' }}
+            style={{ background: '#141519', color: '#5d6370', border: '1px solid #e8eaed' }}
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
               <path d="M2.5 3.5h10M4.5 7.5h6M6.5 11.5h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -388,7 +388,7 @@ export default function RunListPanel({
             <div className="space-y-1.5">
               {group.runs.map((run) => {
                 const isSelected = selectedRunId === run.run_id
-                const dotColor = STATUS_DOT_COLOR[run.overall_status] ?? '#9ca3af'
+                const dotColor = STATUS_DOT_COLOR[run.overall_status] ?? '#5d6370'
                 const statusLabel = STATUS_LABEL[run.overall_status] ?? run.overall_status
                 const pillBg = STATUS_PILL_BG[run.overall_status] ?? 'rgba(156,163,175,0.08)'
                 const alias = getAlias(run)
@@ -402,11 +402,11 @@ export default function RunListPanel({
                       className="group w-full text-left rounded-[14px] px-4 py-3.5 transition-all"
                       style={{
                         background: isSelected
-                          ? 'linear-gradient(90deg, rgba(99,102,241,0.115), rgba(99,102,241,0.055))'
+                          ? 'linear-gradient(90deg, rgba(124,127,199,0.115), rgba(124,127,199,0.055))'
                           : 'var(--bg-surface)',
-                        border: isSelected ? '1px solid rgba(99,102,241,0.46)' : '1px solid var(--border-subtle)',
+                        border: isSelected ? '1px solid rgba(124,127,199,0.46)' : '1px solid var(--border-subtle)',
                         boxShadow: isSelected
-                          ? 'inset 0 0 0 1px rgba(99,102,241,0.18), inset 4px 0 0 rgba(99,102,241,0.86), 0 8px 22px rgba(99,102,241,0.10)'
+                          ? 'inset 0 0 0 1px rgba(124,127,199,0.18), inset 4px 0 0 rgba(124,127,199,0.86), 0 8px 22px rgba(124,127,199,0.10)'
                           : '0 1px 2px rgba(16,24,40,0.035)',
                       }}
                     >
@@ -439,7 +439,7 @@ export default function RunListPanel({
                               <button
                                 onClick={(e) => handleDelete(run.run_id, e)}
                                 className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
-                                style={{ color: '#ef4444' }}
+                                style={{ color: '#d65c5c' }}
                                 title="Delete run"
                               >
                                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -479,7 +479,7 @@ export default function RunListPanel({
                     {/* Replay sub-rows */}
                     {children.map((child) => {
                       const cSelected = selectedRunId === child.run_id
-                      const cDot = STATUS_DOT_COLOR[child.overall_status] ?? '#9ca3af'
+                      const cDot = STATUS_DOT_COLOR[child.overall_status] ?? '#5d6370'
                       const cLabel = STATUS_LABEL[child.overall_status] ?? child.overall_status
                       const cPill = STATUS_PILL_BG[child.overall_status] ?? 'rgba(156,163,175,0.08)'
                       const cAlias = getAlias(child)
@@ -490,9 +490,9 @@ export default function RunListPanel({
                           className="group w-full text-left flex items-center gap-2 ml-4 mt-0.5 rounded-[10px] px-3 py-2 transition-all"
                           style={{
                             background: cSelected
-                              ? 'linear-gradient(90deg, rgba(99,102,241,0.10), rgba(99,102,241,0.04))'
+                              ? 'linear-gradient(90deg, rgba(124,127,199,0.10), rgba(124,127,199,0.04))'
                               : 'var(--bg-surface)',
-                            border: cSelected ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--border-subtle)',
+                            border: cSelected ? '1px solid rgba(124,127,199,0.35)' : '1px solid var(--border-subtle)',
                             borderLeft: `3px solid ${cDot}`,
                           }}
                         >
@@ -521,7 +521,7 @@ export default function RunListPanel({
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDelete(child.run_id, e) }}
                                 className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
-                                style={{ color: '#ef4444' }}
+                                style={{ color: '#d65c5c' }}
                                 title="Delete rerun"
                               >
                                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
@@ -531,7 +531,7 @@ export default function RunListPanel({
                             </>
                           )}
                           {child.replay_from_step && (
-                            <span className="text-[9.5px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.08)', color: '#6366f1' }}>
+                            <span className="text-[9.5px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'rgba(124,127,199,0.08)', color: '#7c7fc7' }}>
                               from {child.replay_from_step}
                             </span>
                           )}

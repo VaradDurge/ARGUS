@@ -271,7 +271,7 @@ export default function EvaluationBuilder({ onEval, currentEval }: Props) {
                   className="text-xs px-1 transition-colors"
                   style={{ color: 'var(--text-muted)', flexShrink: 0, lineHeight: 1 }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'
+                    (e.currentTarget as HTMLButtonElement).style.color = '#d65c5c'
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'

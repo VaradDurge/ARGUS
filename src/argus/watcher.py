@@ -34,6 +34,10 @@ class ArgusWatcher:
             "*": lambda out: ("error" not in out, f"Error: {out.get('error')}"),
         })
 
+    Usage (LLM semantic judge for complex pipelines):
+        watcher = ArgusWatcher(semantic_judge=True)   # requires OPENAI_API_KEY
+        watcher = ArgusWatcher(semantic_judge=True, judge_model="gpt-4o")
+
     Usage (framework-agnostic, without LangGraph):
         from argus import ArgusSession   # use ArgusSession directly
     """
@@ -47,6 +51,8 @@ class ArgusWatcher:
         redact_keys: set[str] | list[str] | None = None,
         persist_state: bool = True,
         record_http: bool = False,
+        semantic_judge: bool = False,
+        judge_model: str = "gpt-4o",
     ) -> None:
         self._max_field_size = max_field_size
         self._validators = validators or {}
@@ -55,6 +61,8 @@ class ArgusWatcher:
         self._redact_keys = redact_keys
         self._persist_state = persist_state
         self._record_http = record_http
+        self._semantic_judge = semantic_judge
+        self._judge_model = judge_model
         self._http_recorder_ctx = None
         self._http_recorder = None
         self._session: ArgusSession | None = None
@@ -127,11 +135,13 @@ class ArgusWatcher:
 
         # Auto-enable LLM investigation if key is available
         llm_inv_config = None
-        if self._investigate and os.environ.get("OPENAI_API_KEY"):
+        if (self._investigate or self._semantic_judge) and os.environ.get("OPENAI_API_KEY"):
             from argus.models import LLMInvestigationConfig
-            always = (self._investigate == "always")
+            always = (self._investigate == "always") or self._semantic_judge
             llm_inv_config = LLMInvestigationConfig(
-                enabled=True, always_investigate=always,
+                enabled=True,
+                always_investigate=always,
+                model=self._judge_model,
             )
 
         self._session = ArgusSession(

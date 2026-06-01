@@ -25,9 +25,9 @@ interface FeedbackPost {
 // ── Constants ────────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<Category, { bg: string; border: string; text: string }> = {
-  feature: { bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.25)', text: '#6366f1' },
-  bug:     { bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.25)',  text: '#ef4444' },
-  failure: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', text: '#f59e0b' },
+  feature: { bg: 'rgba(124,127,199,0.08)', border: 'rgba(124,127,199,0.25)', text: '#7c7fc7' },
+  bug:     { bg: 'rgba(214,92,92,0.08)',  border: 'rgba(214,92,92,0.25)',  text: '#d65c5c' },
+  failure: { bg: 'rgba(212,154,46,0.08)', border: 'rgba(212,154,46,0.25)', text: '#d49a2e' },
 }
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -77,8 +77,8 @@ function Avatar({ name, url, size = 28 }: { name: string; url: string | null; si
       style={{
         width: size,
         height: size,
-        background: 'rgba(99,102,241,0.15)',
-        color: '#6366f1',
+        background: 'rgba(124,127,199,0.15)',
+        color: '#7c7fc7',
       }}
     >
       {initials}
@@ -101,16 +101,16 @@ function UpvoteButton({
       onClick={onClick}
       className="flex flex-col items-center gap-0 px-1.5 py-1 rounded-md transition-all hover:opacity-80"
       style={{
-        background: voted ? 'rgba(99,102,241,0.1)' : 'transparent',
-        border: `1px solid ${voted ? 'rgba(99,102,241,0.3)' : 'var(--border-subtle)'}`,
-        color: voted ? '#6366f1' : 'var(--text-muted)',
+        background: voted ? 'rgba(124,127,199,0.1)' : 'transparent',
+        border: `1px solid ${voted ? 'rgba(124,127,199,0.3)' : 'var(--border-subtle)'}`,
+        color: voted ? '#7c7fc7' : 'var(--text-muted)',
         minWidth: 32,
       }}
     >
       <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
         <path
           d="M7 3L11 9H3L7 3Z"
-          fill={voted ? '#6366f1' : 'none'}
+          fill={voted ? '#7c7fc7' : 'none'}
           stroke="currentColor"
           strokeWidth="1.4"
           strokeLinejoin="round"
@@ -392,7 +392,7 @@ export default function FeedbackBoardPage() {
           }}
           className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all shrink-0"
           style={{
-            background: '#6366f1',
+            background: '#7c7fc7',
             color: '#fff',
           }}
         >
@@ -496,7 +496,7 @@ export default function FeedbackBoardPage() {
               disabled={!title.trim() || !category || !description.trim() || submitting}
               className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
               style={{
-                background: '#6366f1',
+                background: '#7c7fc7',
                 color: '#fff',
                 opacity: (!title.trim() || !category || !description.trim() || submitting) ? 0.5 : 1,
               }}
@@ -526,8 +526,8 @@ export default function FeedbackBoardPage() {
               onClick={() => setSort(s)}
               className="px-3 py-1.5 text-[12px] font-medium transition-all"
               style={{
-                background: sort === s ? 'rgba(99,102,241,0.1)' : 'transparent',
-                color: sort === s ? '#6366f1' : 'var(--text-muted)',
+                background: sort === s ? 'rgba(124,127,199,0.1)' : 'transparent',
+                color: sort === s ? '#7c7fc7' : 'var(--text-muted)',
               }}
             >
               {s === 'most' ? 'Most upvoted' : 'Least upvoted'}

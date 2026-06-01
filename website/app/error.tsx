@@ -18,8 +18,8 @@ export default function Error({
       <div
         className="rounded-xl px-6 py-5 space-y-3 max-w-lg w-full"
         style={{
-          background: 'rgba(239,68,68,0.04)',
-          border: '1px solid rgba(239,68,68,0.2)',
+          background: 'rgba(214,92,92,0.04)',
+          border: '1px solid rgba(214,92,92,0.2)',
         }}
       >
         <p className="text-xs font-medium text-red-400">Something went wrong</p>

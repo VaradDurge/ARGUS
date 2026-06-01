@@ -7,14 +7,14 @@ import type { EvalState } from './EvaluationBuilder'
 
 function getRunShape(run: RunSummary): { label: string; color: string } | null {
   if (run.overall_status === 'clean' && !run.first_failure_step) {
-    return { label: 'clean', color: '#10b981' }
+    return { label: 'clean', color: '#3d9e7d' }
   }
   if (!run.first_failure_step) return null
   const firstNode = run.graph_node_names.find((n) => !n.startsWith('__'))
   if (run.first_failure_step === firstNode) {
-    return { label: 'early fail', color: '#ef4444' }
+    return { label: 'early fail', color: '#d65c5c' }
   }
-  return { label: 'partial', color: '#f59e0b' }
+  return { label: 'partial', color: '#d49a2e' }
 }
 
 function relativeTime(iso: string): string {
@@ -65,8 +65,8 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
           style={{ background: 'var(--bg-elevated)' }}
         >
           <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
-            <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#d1d5db" strokeWidth="1.2" fill="none"/>
-            <circle cx="9" cy="9" r="2" stroke="#d1d5db" strokeWidth="1"/>
+            <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#3a3f4c" strokeWidth="1.2" fill="none"/>
+            <circle cx="9" cy="9" r="2" stroke="#3a3f4c" strokeWidth="1"/>
           </svg>
         </div>
         <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No runs found</div>
@@ -111,7 +111,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLTableRowElement
-                  el.style.background = isFailed ? 'rgba(239,68,68,0.03)' : 'rgba(99,102,241,0.03)'
+                  el.style.background = isFailed ? 'rgba(214,92,92,0.03)' : 'rgba(124,127,199,0.03)'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLTableRowElement
@@ -182,7 +182,7 @@ export default function RunTable({ runs, evalState }: RunTableProps) {
                     {run.first_failure_step ? (
                       <span
                         className="text-[12px] font-mono font-medium"
-                        style={{ color: '#ef4444' }}
+                        style={{ color: '#d65c5c' }}
                       >
                         {run.first_failure_step}
                       </span>

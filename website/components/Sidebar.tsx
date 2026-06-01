@@ -158,17 +158,17 @@ function NavLink({
       className="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] relative group"
       style={{
         background: active ? 'var(--sidebar-active)' : 'transparent',
-        color: active ? '#6366f1' : 'var(--sidebar-text)',
+        color: active ? '#7c7fc7' : 'var(--sidebar-text)',
         fontWeight: active ? 700 : 600,
       }}
     >
       {active && (
         <span
           className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-          style={{ background: '#6366f1' }}
+          style={{ background: '#7c7fc7' }}
         />
       )}
-      <span className="shrink-0" style={{ color: active ? '#6366f1' : 'var(--sidebar-muted)' }}>
+      <span className="shrink-0" style={{ color: active ? '#7c7fc7' : 'var(--sidebar-muted)' }}>
         {icon}
       </span>
       <span>{label}</span>
@@ -180,12 +180,12 @@ function SoonItem({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[13px] cursor-not-allowed select-none">
       <div className="flex items-center gap-3">
-        <span className="shrink-0" style={{ color: '#d1d5db' }}>{icon}</span>
-        <span style={{ color: '#d1d5db' }}>{label}</span>
+        <span className="shrink-0" style={{ color: '#3a3f4c' }}>{icon}</span>
+        <span style={{ color: '#3a3f4c' }}>{label}</span>
       </div>
       <span
         className="text-[9px] px-1.5 py-0.5 rounded-md font-medium"
-        style={{ color: '#9ca3af', background: '#f3f4f6', letterSpacing: '0.05em' }}
+        style={{ color: '#5d6370', background: '#1c1d24', letterSpacing: '0.05em' }}
       >
         soon
       </span>
@@ -227,16 +227,16 @@ export default function Sidebar() {
         style={{ borderBottom: '1px solid var(--border-subtle)' }}
       >
         <svg width="20" height="20" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#6366f1" strokeWidth="1.2" fill="none"/>
-          <circle cx="9" cy="9" r="2.2" fill="rgba(99,102,241,0.15)" stroke="#6366f1" strokeWidth="1.1"/>
-          <circle cx="9" cy="9" r="0.9" fill="#6366f1"/>
+          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#7c7fc7" strokeWidth="1.2" fill="none"/>
+          <circle cx="9" cy="9" r="2.2" fill="rgba(124,127,199,0.15)" stroke="#7c7fc7" strokeWidth="1.1"/>
+          <circle cx="9" cy="9" r="0.9" fill="#7c7fc7"/>
         </svg>
         <span className="text-[15px] font-extrabold tracking-[-0.035em]" style={{ color: 'var(--text-primary)' }}>
           ARGUS
         </span>
         <span
           className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md ml-0.5"
-          style={{ color: '#6366f1', background: 'rgba(99,102,241,0.08)', letterSpacing: '0.05em' }}
+          style={{ color: '#7c7fc7', background: 'rgba(124,127,199,0.08)', letterSpacing: '0.05em' }}
         >
           BETA
         </span>
@@ -286,7 +286,7 @@ export default function Sidebar() {
               ) : (
                 <div
                   className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold"
-                  style={{ background: '#6366f1', color: '#fff' }}
+                  style={{ background: '#7c7fc7', color: '#fff' }}
                 >
                   {initials}
                 </div>
@@ -308,7 +308,7 @@ export default function Sidebar() {
           <div className="flex items-center gap-2">
             <span
               className="w-2 h-2 rounded-full"
-              style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.4)' }}
+              style={{ background: '#3d9e7d', boxShadow: '0 0 4px rgba(61,158,125,0.4)' }}
             />
             <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Connected</span>
           </div>

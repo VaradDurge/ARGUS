@@ -10,8 +10,8 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
 
   const primary = corr.degradation_origins[0] ?? null
   const confColor = primary
-    ? primary.confidence >= 0.8 ? C_RED : primary.confidence >= 0.5 ? C_AMBER : '#9ca3af'
-    : '#9ca3af'
+    ? primary.confidence >= 0.8 ? C_RED : primary.confidence >= 0.5 ? C_AMBER : '#5d6370'
+    : '#5d6370'
 
   return (
     <div>
