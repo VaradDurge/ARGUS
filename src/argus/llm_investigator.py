@@ -715,3 +715,123 @@ def investigate(
             investigation_duration_ms=duration_ms,
             error=f"OpenAI API call failed: {exc}",
         )
+
+
+# ── Comparative analysis ─────────────────────────────────────────────────────
+
+_COMPARE_SYSTEM_PROMPT = """\
+You are a comparative analysis engine for ARGUS, an agent pipeline monitoring system.
+
+You receive compressed execution intelligence from TWO pipeline runs and must \
+analyze their differences. Focus on actionable insights that help the developer \
+understand what changed between runs and why.
+
+Respond with a JSON object containing these fields:
+{
+  "structural_summary": "<1-2 sentences about structural differences — different nodes, topology changes, or identical structure>",
+  "performance_comparison": "<how timing, throughput, or resource usage changed between runs>",
+  "failure_analysis": "<what failed in each run, whether failures are related, and key differences in failure patterns>",
+  "root_cause_delta": "<if one run fixed issues from the other, explain what changed and why. If unrelated runs, explain the different failure modes>",
+  "key_insights": ["<insight 1>", "<insight 2>", ...],
+  "recommendation": "<what the developer should do next based on this comparison>",
+  "confidence": <0.0-1.0>
+}
+
+Be specific about node names, field names, and status transitions. \
+If the runs have completely different pipeline structures, focus on \
+structural comparison rather than per-node diffs.
+"""
+
+
+def compare_runs(
+    record_a: RunRecord,
+    record_b: RunRecord,
+    model: str = "gpt-4o-mini",
+    max_tokens: int = 2048,
+) -> dict[str, Any]:
+    """Generate comparative AI analysis between two runs.
+
+    Returns a dict with the comparison result or an error key.
+    """
+    # Load .env if present
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+    except ImportError:
+        pass
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return {"error": "No OPENAI_API_KEY found in environment"}
+
+    try:
+        import openai  # type: ignore[import-untyped]
+    except ImportError:
+        return {"error": "openai package not installed (pip install openai)"}
+
+    briefing_a = compress_intelligence(record_a)
+    briefing_b = compress_intelligence(record_b)
+
+    # Compute structural overlap
+    nodes_a = set(record_a.graph_node_names)
+    nodes_b = set(record_b.graph_node_names)
+    shared = nodes_a & nodes_b
+    only_a = nodes_a - nodes_b
+    only_b = nodes_b - nodes_a
+    union = nodes_a | nodes_b
+    overlap = len(shared) / len(union) if union else 1.0
+
+    user_content = (
+        "## Run A\n"
+        f"Status: **{record_a.overall_status}** | "
+        f"Nodes: {len(record_a.graph_node_names)} | "
+        f"Steps: {len(record_a.steps)} | "
+        f"Duration: {record_a.duration_ms}ms\n"
+        f"Topology: {' -> '.join(record_a.graph_node_names)}\n\n"
+        "## Run B\n"
+        f"Status: **{record_b.overall_status}** | "
+        f"Nodes: {len(record_b.graph_node_names)} | "
+        f"Steps: {len(record_b.steps)} | "
+        f"Duration: {record_b.duration_ms}ms\n"
+        f"Topology: {' -> '.join(record_b.graph_node_names)}\n\n"
+        "## Structural Analysis\n"
+        f"Node overlap: {overlap:.0%} | "
+        f"Shared: {sorted(shared) if shared else 'none'} | "
+        f"Only in A: {sorted(only_a) if only_a else 'none'} | "
+        f"Only in B: {sorted(only_b) if only_b else 'none'}\n\n"
+        f"Is replay: {record_b.parent_run_id == record_a.run_id}\n\n"
+        "## Run A Intelligence\n"
+        + json.dumps(briefing_a, indent=2, default=str)
+        + "\n\n## Run B Intelligence\n"
+        + json.dumps(briefing_b, indent=2, default=str)
+    )
+
+    messages = [
+        {"role": "system", "content": _COMPARE_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+    client = openai.OpenAI(api_key=api_key)
+    t0 = time.perf_counter()
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,  # type: ignore[arg-type]
+            max_tokens=max_tokens,
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        duration_ms = (time.perf_counter() - t0) * 1000
+
+        raw = response.choices[0].message.content or ""
+        usage = response.usage
+        result = _parse_response(raw)
+        result["model_used"] = model
+        result["prompt_tokens"] = usage.prompt_tokens if usage else 0
+        result["completion_tokens"] = usage.completion_tokens if usage else 0
+        result["duration_ms"] = round(duration_ms)
+        return result
+
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - t0) * 1000
+        return {"error": f"OpenAI API call failed: {exc}", "duration_ms": round(duration_ms)}

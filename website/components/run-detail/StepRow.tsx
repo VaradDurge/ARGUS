@@ -88,7 +88,7 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
             {diff.originalStep.exception && (
               <div className="mt-2">
                 <div className="text-[9px] uppercase tracking-widest font-semibold mb-1 text-red-400">Exception</div>
-                <pre className="text-[10px] text-red-400 bg-red-50 border border-red-200 rounded p-2 overflow-x-auto whitespace-pre-wrap leading-4 font-mono max-h-[120px] overflow-auto">
+                <pre className="text-[10px] text-red-400 rounded p-2 overflow-x-auto whitespace-pre-wrap leading-4 font-mono max-h-[120px] overflow-auto" style={{ background: 'rgba(214,92,92,0.06)', border: '1px solid rgba(214,92,92,0.15)' }}>
                   {diff.originalStep.exception}
                 </pre>
               </div>
@@ -130,7 +130,7 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
             {diff.replayStep.exception && (
               <div className="mt-2">
                 <div className="text-[9px] uppercase tracking-widest font-semibold mb-1 text-red-400">Exception</div>
-                <pre className="text-[10px] text-red-400 bg-red-50 border border-red-200 rounded p-2 overflow-x-auto whitespace-pre-wrap leading-4 font-mono max-h-[120px] overflow-auto">
+                <pre className="text-[10px] text-red-400 rounded p-2 overflow-x-auto whitespace-pre-wrap leading-4 font-mono max-h-[120px] overflow-auto" style={{ background: 'rgba(214,92,92,0.06)', border: '1px solid rgba(214,92,92,0.15)' }}>
                   {diff.replayStep.exception}
                 </pre>
               </div>
@@ -235,7 +235,7 @@ export default function StepRow({
               <Button
                 variant="dashed"
                 size="sm"
-                className="font-mono text-[10px] h-6 px-2 text-purple-500 border-purple-300 hover:bg-purple-50 hover:text-purple-600"
+                className="font-mono text-[10px] h-6 px-2 text-purple-500 border-purple-300 hover:bg-purple-500/10 hover:text-purple-400"
                 onClick={(e) => { e.stopPropagation(); onReplayNode(event.node_name) }}
               >
                 <RotateCcw className="text-purple-400" />
@@ -246,7 +246,7 @@ export default function StepRow({
               <Button
                 variant="outline"
                 size="sm"
-                className="font-mono text-[10px] h-6 px-2 text-indigo-500 border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                className="font-mono text-[10px] h-6 px-2 text-indigo-500 border-indigo-300 hover:bg-indigo-500/10 hover:text-indigo-400"
                 onClick={(e) => { e.stopPropagation(); onReplay(event.node_name) }}
               >
                 <Play className="text-indigo-400" />
@@ -320,6 +320,39 @@ export default function StepRow({
               </div>
             )}
           </div>
+          {event.semantic_check && (
+            <div className="p-3 flex items-center gap-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+              <div className="flex items-center gap-2">
+                <span style={{ color: event.semantic_check.passed ? '#3d9e7d' : '#d65c5c' }}>
+                  {event.semantic_check.passed ? '\u2713' : '\u2717'}
+                </span>
+                <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#8b919e' }}>
+                  Semantic Check
+                </span>
+              </div>
+              <span
+                className="text-[11px] font-mono px-1.5 py-0.5 rounded"
+                style={{
+                  color: event.semantic_check.passed ? '#3d9e7d' : '#d65c5c',
+                  background: event.semantic_check.passed ? '#3d9e7d10' : '#d65c5c10',
+                  border: `1px solid ${event.semantic_check.passed ? '#3d9e7d25' : '#d65c5c25'}`,
+                }}
+              >
+                {event.semantic_check.passed ? 'coherent' : 'incoherent'}
+              </span>
+              <span className="text-[11px] font-mono" style={{ color: '#5d6370' }}>
+                {Math.round(event.semantic_check.confidence * 100)}% confidence
+              </span>
+              {event.semantic_check.reason && (
+                <span className="text-[11px] italic" style={{ color: event.semantic_check.passed ? '#5d6370' : '#d65c5c' }}>
+                  {event.semantic_check.reason}
+                </span>
+              )}
+              <span className="text-[10px] font-mono ml-auto" style={{ color: '#3a3f4c' }}>
+                {event.semantic_check.model} &middot; {event.semantic_check.duration_ms.toFixed(0)}ms
+              </span>
+            </div>
+          )}
           {event.exception && (
             <div className="p-3" style={{ borderTop: '1px solid var(--border-default)' }}>
               <div className="text-[10px] uppercase tracking-widest font-semibold text-red-400 mb-2">Full Exception</div>

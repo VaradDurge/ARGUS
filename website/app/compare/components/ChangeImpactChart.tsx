@@ -3,7 +3,8 @@
 import type { ChangeImpact } from '../lib/compare-utils'
 
 export default function ChangeImpactChart({ impact, compact = false }: { impact: ChangeImpact; compact?: boolean }) {
-  const total = impact.positive + impact.negative + impact.unchanged
+  const structural = impact.structural ?? 0
+  const total = impact.positive + impact.negative + impact.unchanged + structural
   if (total === 0) return null
 
   const radius = compact ? 38 : 70
@@ -14,22 +15,22 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
   const posLen = (impact.positive / 100) * circumference
   const negLen = (impact.negative / 100) * circumference
   const uncLen = (impact.unchanged / 100) * circumference
-
-  const posOffset = 0
-  const negOffset = posLen
-  const uncOffset = posLen + negLen
+  const strLen = (structural / 100) * circumference
 
   const segments = [
-    { len: posLen, offset: posOffset, color: '#3d9e7d' },
-    { len: negLen, offset: negOffset, color: '#d65c5c' },
-    { len: uncLen, offset: uncOffset, color: '#3a3f4c' },
+    { len: posLen, offset: 0, color: '#3d9e7d' },
+    { len: negLen, offset: posLen, color: '#d65c5c' },
+    { len: uncLen, offset: posLen + negLen, color: '#3a3f4c' },
+    { len: strLen, offset: posLen + negLen + uncLen, color: '#7c7fc7' },
   ].filter((s) => s.len > 0)
 
-  const dominantPct = Math.max(impact.positive, impact.negative, impact.unchanged)
-  const dominantLabel =
-    dominantPct === impact.positive ? 'Positive Impact'
-    : dominantPct === impact.negative ? 'Negative Impact'
-    : 'No Change'
+  const values = [
+    { pct: impact.positive, label: 'Positive Impact' },
+    { pct: impact.negative, label: 'Negative Impact' },
+    { pct: impact.unchanged, label: 'No Change' },
+    { pct: structural, label: 'Structural' },
+  ]
+  const dominant = values.reduce((a, b) => (b.pct > a.pct ? b : a))
 
   return (
     <div className={`flex items-center ${compact ? 'gap-3' : 'gap-5'}`}>
@@ -59,31 +60,28 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={`${compact ? 'text-[14px]' : 'text-[18px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>
-            {dominantPct}%
+            {dominant.pct}%
           </span>
           <span className={`${compact ? 'text-[8.5px]' : 'text-[10px]'} font-medium`} style={{ color: 'var(--text-muted)' }}>
-            {dominantLabel}
+            {dominant.label}
           </span>
         </div>
       </div>
 
       {/* Legend */}
       <div className={compact ? 'flex flex-col gap-1.5' : 'flex flex-col gap-2'}>
-        <div className="flex items-center gap-2">
-          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#3d9e7d' }} />
-          <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>Positive</span>
-          <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{impact.positive}%</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#3a3f4c' }} />
-          <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>No Change</span>
-          <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{impact.unchanged}%</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: '#d65c5c' }} />
-          <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>Negative</span>
-          <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{impact.negative}%</span>
-        </div>
+        {[
+          { color: '#3d9e7d', label: 'Positive', pct: impact.positive },
+          { color: '#3a3f4c', label: 'No Change', pct: impact.unchanged },
+          { color: '#d65c5c', label: 'Negative', pct: impact.negative },
+          ...(structural > 0 ? [{ color: '#7c7fc7', label: 'Structural', pct: structural }] : []),
+        ].map((entry) => (
+          <div key={entry.label} className="flex items-center gap-2">
+            <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: entry.color }} />
+            <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>{entry.label}</span>
+            <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{entry.pct}%</span>
+          </div>
+        ))}
       </div>
     </div>
   )

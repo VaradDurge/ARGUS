@@ -341,6 +341,17 @@ def _make_handler(
                 self._compare(a, b)
             elif path == "/api/config":
                 self._send_json({"app": app_module_str or _load_config_app_factory() or ""})
+            elif path == "/api/candidates":
+                from argus.candidate_store import load_candidates  # noqa: PLC0415
+                data = load_candidates()
+                self._send_json({
+                    "candidates": data.get("candidates", []),
+                    "rejected_count": len(data.get("rejected_patterns", [])),
+                })
+            elif path == "/api/custom-signatures":
+                from argus.candidate_store import load_custom_signatures  # noqa: PLC0415
+                data = load_custom_signatures()
+                self._send_json(data.get("signatures", []))
             elif path.startswith("/api/replay/status/"):
                 job_id = path[len("/api/replay/status/"):]
                 with _replay_lock:
@@ -375,6 +386,39 @@ def _make_handler(
                     return
                 _save_config_app_factory(new_app)
                 self._send_json({"app": new_app})
+            elif path == "/api/compare-analysis":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+
+                id_a = (data.get("a") or "").strip()
+                id_b = (data.get("b") or "").strip()
+                if not id_a or not id_b:
+                    self._send_json({"error": "a and b run IDs are required"}, 400)
+                    return
+
+                from argus.storage import load_run as _load_run  # noqa: PLC0415
+                try:
+                    rec_a = _load_run(id_a)
+                except (FileNotFoundError, ValueError):
+                    self._send_json({"error": f"run '{id_a}' not found"}, 404)
+                    return
+                try:
+                    rec_b = _load_run(id_b)
+                except (FileNotFoundError, ValueError):
+                    self._send_json({"error": f"run '{id_b}' not found"}, 404)
+                    return
+
+                try:
+                    from argus.llm_investigator import compare_runs  # noqa: PLC0415
+                    result = compare_runs(rec_a, rec_b)
+                    self._send_json(result)
+                except Exception as exc:
+                    self._send_json({"error": str(exc)}, 500)
             elif path == "/api/replay":
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length)
@@ -437,6 +481,23 @@ def _make_handler(
                 t.start()
 
                 self._send_json({"job_id": job_id}, 202)
+            elif path.startswith("/api/candidates/") and path.endswith("/approve"):
+                cand_id = path[len("/api/candidates/"):-len("/approve")]
+                from argus.candidate_store import approve_candidate  # noqa: PLC0415
+                from argus.registry import reload_registry  # noqa: PLC0415
+                result = approve_candidate(cand_id)
+                if result is None:
+                    self._send_json({"error": "candidate not found"}, 404)
+                else:
+                    reload_registry()
+                    self._send_json(result)
+            elif path.startswith("/api/candidates/") and path.endswith("/reject"):
+                cand_id = path[len("/api/candidates/"):-len("/reject")]
+                from argus.candidate_store import reject_candidate  # noqa: PLC0415
+                if reject_candidate(cand_id):
+                    self._send_json({"ok": True})
+                else:
+                    self._send_json({"error": "candidate not found"}, 404)
             else:
                 self._send_json({"error": "not found"}, 404)
 
@@ -474,6 +535,15 @@ def _make_handler(
                 aliases.pop(rid, None)
                 _save_aliases(aliases, _project_dir)
                 self._send_json({"run_id": rid, "alias": None})
+            elif path.startswith("/api/custom-signatures/"):
+                sig_id = path[len("/api/custom-signatures/"):]
+                from argus.candidate_store import delete_custom_signature  # noqa: PLC0415
+                from argus.registry import reload_registry  # noqa: PLC0415
+                if delete_custom_signature(sig_id):
+                    reload_registry()
+                    self._send_json({"ok": True})
+                else:
+                    self._send_json({"error": "not found"}, 404)
             elif path.startswith("/api/runs/"):
                 rid = path[len("/api/runs/"):]
                 deleted = False

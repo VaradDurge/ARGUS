@@ -36,6 +36,18 @@ function IconCompare() {
   )
 }
 
+function IconPatterns() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2.5 8h3M6.5 4.5h3M10.5 8h3M6.5 11.5h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <circle cx="5.5" cy="8" r="1.2" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="9.5" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="10.5" cy="8" r="1.2" stroke="currentColor" strokeWidth="1"/>
+      <circle cx="9.5" cy="11.5" r="1.2" stroke="currentColor" strokeWidth="1"/>
+    </svg>
+  )
+}
+
 function IconEval() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -253,6 +265,7 @@ export default function Sidebar() {
 
         <SectionLabel label="Analyze" />
         <NavLink href="/compare" icon={<IconCompare />} label="Compare" exact={false} />
+        <NavLink href="/patterns" icon={<IconPatterns />} label="Patterns" exact={true} />
         <SoonItem icon={<IconEval />} label="Evaluation" />
 
         <Divider />

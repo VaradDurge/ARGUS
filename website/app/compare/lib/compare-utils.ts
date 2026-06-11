@@ -36,6 +36,45 @@ export const STATUS_LABEL: Record<string, string> = {
   interrupted:    'interrupted',
 }
 
+// ── Replay detection ──────────────────────────────────────────────────────
+
+export function isReplayOf(a: RunRecord, b: RunRecord): boolean {
+  return b.parent_run_id === a.run_id
+}
+
+export function runBLabel(a: RunRecord, b: RunRecord): string {
+  return isReplayOf(a, b) ? 'Replay' : 'Run B'
+}
+
+// ── Structural analysis ───────────────────────────────────────────────────
+
+export interface StructuralAnalysis {
+  overlapRatio: number
+  isStructurallyDifferent: boolean
+  sharedNodes: string[]
+  onlyInA: string[]
+  onlyInB: string[]
+}
+
+export function computeStructuralAnalysis(a: RunRecord, b: RunRecord): StructuralAnalysis {
+  const setA = new Set((a.steps ?? []).map((s) => s.node_name))
+  const setB = new Set((b.steps ?? []).map((s) => s.node_name))
+  const arrA = Array.from(setA)
+  const arrB = Array.from(setB)
+  const shared = arrA.filter((n) => setB.has(n))
+  const onlyInA = arrA.filter((n) => !setB.has(n))
+  const onlyInB = arrB.filter((n) => !setA.has(n))
+  const union = new Set(arrA.concat(arrB)).size
+  const overlapRatio = union > 0 ? shared.length / union : 1
+  return {
+    overlapRatio,
+    isStructurallyDifferent: overlapRatio < 0.5,
+    sharedNodes: shared,
+    onlyInA,
+    onlyInB,
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 export function getEventColor(event: NodeEvent): string {
@@ -178,6 +217,17 @@ export function formatDurDiff(bMs: number | undefined, aMs: number | undefined):
 export function computeDiffs(runA: RunRecord, runB: RunRecord): { nodes: NodeDiff[]; stats: Record<string, number> } {
   const mapA = buildNodeMap(runA)
   const mapB = buildNodeMap(runB)
+
+  // When B is a replay of A, inherit A's pre-replay steps into B
+  // so the comparison shows the full pipeline, not just re-run nodes
+  if (isReplayOf(runA, runB) && runB.replay_from_step) {
+    for (const step of runA.steps ?? []) {
+      if (!mapB.has(step.node_name)) {
+        mapB.set(step.node_name, step)
+      }
+    }
+  }
+
   const names = orderedNodes(runA, runB)
   const stats = { changed: 0, fixed: 0, regressed: 0, new_: 0, frozen: 0 }
 
@@ -397,16 +447,19 @@ export interface ChangeImpact {
   positive: number
   negative: number
   unchanged: number
+  structural: number
 }
 
 export function computeChangeImpact(nodes: NodeDiff[]): ChangeImpact {
-  if (nodes.length === 0) return { positive: 0, negative: 0, unchanged: 100 }
+  if (nodes.length === 0) return { positive: 0, negative: 0, unchanged: 100, structural: 0 }
   let positive = 0
   let negative = 0
   let unchanged = 0
+  let structural = 0
 
   for (const n of nodes) {
-    if (n.isFixed) positive++
+    if (n.isFrozen || n.isNew) structural++
+    else if (n.isFixed) positive++
     else if (n.isRegression) negative++
     else if (n.statusChanged) {
       const bBad = n.before && ['crashed', 'fail', 'semantic_fail'].includes(n.before.status)
@@ -421,6 +474,7 @@ export function computeChangeImpact(nodes: NodeDiff[]): ChangeImpact {
     positive: Math.round((positive / total) * 100),
     negative: Math.round((negative / total) * 100),
     unchanged: Math.round((unchanged / total) * 100),
+    structural: Math.round((structural / total) * 100),
   }
 }
 
@@ -429,11 +483,17 @@ export function computeChangeImpact(nodes: NodeDiff[]): ChangeImpact {
 export interface KeyChange {
   nodeName: string
   description: string
-  type: 'improved' | 'degraded' | 'unchanged'
+  type: 'improved' | 'degraded' | 'unchanged' | 'structural'
 }
 
 export function computeKeyChanges(nodes: NodeDiff[]): KeyChange[] {
   return nodes.map((n) => {
+    if (n.isFrozen) {
+      return { nodeName: n.name, description: 'Only present in Run A', type: 'structural' as const }
+    }
+    if (n.isNew) {
+      return { nodeName: n.name, description: 'Only present in Run B', type: 'structural' as const }
+    }
     if (n.isFixed) {
       const desc = n.inspectionDiffs.length > 0
         ? n.inspectionDiffs[0].text

@@ -26,6 +26,9 @@ def _load_registry() -> list[dict[str, Any]]:
     Uses importlib.resources.files() for correct path resolution from both
     editable installs and built wheels. Regex patterns are pre-compiled at
     load time so they are not recompiled on every scan call.
+
+    Also loads `.argus/custom_signatures.json` if it exists, appending
+    user-approved learned patterns to the registry.
     """
     ref = importlib.resources.files("argus").joinpath("data/signatures.json")
     data: dict[str, Any] = json.loads(ref.read_text(encoding="utf-8"))
@@ -33,6 +36,21 @@ def _load_registry() -> list[dict[str, Any]]:
     for sig in sigs:
         if sig["match_strategy"] == "regex":
             sig["_compiled"] = re.compile(sig["pattern"], re.IGNORECASE)
+
+    # Append custom (learned) signatures if present
+    from pathlib import Path  # noqa: PLC0415
+
+    custom_path = Path(".argus/custom_signatures.json")
+    if custom_path.exists():
+        try:
+            custom_data = json.loads(custom_path.read_text(encoding="utf-8"))
+            for sig in custom_data.get("signatures", []):
+                if sig.get("match_strategy") == "regex" and sig.get("pattern"):
+                    sig["_compiled"] = re.compile(sig["pattern"], re.IGNORECASE)
+                sigs.append(sig)
+        except Exception:
+            pass  # malformed file — skip silently
+
     return sigs
 
 
@@ -42,6 +60,12 @@ _REGISTRY: list[dict[str, Any]] = _load_registry()
 def get_registry() -> list[dict[str, Any]]:
     """Return the cached flat list of signature dicts."""
     return _REGISTRY
+
+
+def reload_registry() -> None:
+    """Reload the registry from disk, picking up newly approved signatures."""
+    global _REGISTRY  # noqa: PLW0603
+    _REGISTRY = _load_registry()
 
 
 # ── Matchers ──────────────────────────────────────────────────────────────────

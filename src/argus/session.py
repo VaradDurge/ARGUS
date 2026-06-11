@@ -43,6 +43,7 @@ from argus.models import (
     LLMUsage,
     NodeEvent,
     RunRecord,
+    SemanticCheckResult,
     ValidatorResult,
 )
 from argus.storage import save_run
@@ -482,6 +483,30 @@ class ArgusSession:
                 ):
                     status = "semantic_fail"
 
+            # per-node semantic coherence check (LLM, only on still-passing nodes)
+            semantic_check_result: SemanticCheckResult | None = None
+            if (
+                status == "pass"
+                and output_snap is not None
+                and input_snap
+                and self._llm_investigation_config
+                and self._llm_investigation_config.enabled
+                and self._llm_investigation_config.semantic_check
+            ):
+                try:
+                    from argus.semantic_checker import check_semantic_coherence  # noqa: PLC0415
+                    semantic_check_result = check_semantic_coherence(
+                        node_name=node_name,
+                        input_state=input_snap,
+                        output_dict=output_snap,
+                        model=self._llm_investigation_config.semantic_check_model,
+                        api_key=self._llm_investigation_config.api_key,
+                    )
+                    if not semantic_check_result.passed and semantic_check_result.confidence >= 0.7:
+                        status = "semantic_fail"
+                except Exception:
+                    pass
+
             event = NodeEvent(
                 step_index=step_idx,
                 node_name=node_name,
@@ -497,6 +522,7 @@ class ArgusSession:
                 llm_usage=llm_usage,
                 behavior_type=behavior_type_val,
                 anomaly_signals=anomaly_signals,
+                semantic_check=semantic_check_result,
             )
 
             self._events.append(event)
@@ -692,6 +718,10 @@ class ArgusSession:
                 record.llm_investigation = investigate(
                     record, self._llm_investigation_config,
                 )
+                if record.llm_investigation and record.llm_investigation.suggested_signatures:
+                    from argus.candidate_store import add_candidate  # noqa: PLC0415
+                    for _sig in record.llm_investigation.suggested_signatures:
+                        add_candidate(_sig, record.run_id)
             except Exception:
                 pass
 

@@ -15,6 +15,8 @@ function formatDelta(bMs: number | undefined, aMs: number | undefined): string {
 }
 
 function impactLabel(diff: NodeDiff): { text: string; color: string } {
+  if (diff.isFrozen) return { text: 'Only in A', color: '#d49a2e' }
+  if (diff.isNew) return { text: 'Only in B', color: '#7c7fc7' }
   if (diff.isFixed) return { text: 'Improved', color: '#3d9e7d' }
   if (diff.isRegression) return { text: 'Degraded', color: '#d65c5c' }
   if (diff.inspectionDiffs.length > 0 || diff.fieldDiffs.length > 0) {
@@ -25,7 +27,7 @@ function impactLabel(diff: NodeDiff): { text: string; color: string } {
   return { text: 'No change', color: '#5d6370' }
 }
 
-export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
+export default function NodeComparisonTable({ diffs, runBColumnLabel = 'Replay' }: { diffs: NodeDiff[]; runBColumnLabel?: string }) {
   return (
     <div className="card rounded-xl overflow-hidden">
       <div className="px-2.5 py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -37,7 +39,7 @@ export default function NodeComparisonTable({ diffs }: { diffs: NodeDiff[] }) {
           <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             <th className="text-left px-2.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '30%' }}>Node</th>
             <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Base</th>
-            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Replay</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>{runBColumnLabel}</th>
             <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '22%' }}>Change</th>
             <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '18%' }}>Impact</th>
           </tr>

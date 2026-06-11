@@ -28,6 +28,11 @@ def _is_truncated(s: str) -> bool:
     tail = s[-12:]
     if _TERMINAL_PUNCT.search(tail):
         return False
+    # If the string ends with a complete number (year, etc.) it's likely
+    # a topic/title, not truncated mid-word
+    last_word = s.rsplit(None, 1)[-1] if s.rsplit(None, 1) else ""
+    if re.fullmatch(r'\d{2,}', last_word):
+        return False
     return True
 
 

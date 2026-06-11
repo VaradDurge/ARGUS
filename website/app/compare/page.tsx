@@ -146,7 +146,7 @@ function CompareContent() {
       case 'node-comparison': return <NodeComparisonTab runA={runA} runB={runB} />
       case 'diff-view': return <DiffViewTab runA={runA} runB={runB} />
       case 'metrics': return <MetricsTab runA={runA} runB={runB} />
-      case 'ai-analysis': return <AIAnalysisTab runA={runA} runB={runB} />
+      case 'ai-analysis': return <AIAnalysisTab runA={runA} runB={runB} isLocal={isLocal === true} />
       case 'timeline': return <TimelineTab runA={runA} runB={runB} />
       case 'logs': return <LogsTab />
       default: return null

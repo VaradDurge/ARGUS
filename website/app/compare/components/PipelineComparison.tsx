@@ -147,8 +147,9 @@ export default function PipelineComparison({
 }) {
   const diffMap = new Map(diffs.map((d) => [d.name, d]))
 
-  const labelA = runA.parent_run_id ? 'Replay (Original)' : 'Base Run'
-  const labelB = runB.parent_run_id ? `Replay ${runB.run_id.includes('-R') ? runB.run_id.split('-R').pop() : '1'}` : 'Comparison Run'
+  const isReplay = runB.parent_run_id === runA.run_id
+  const labelA = 'Base Run'
+  const labelB = isReplay ? `Replay ${runB.run_id.includes('-R') ? runB.run_id.split('-R').pop() : '1'}` : 'Run B'
 
   const statusA = runA.overall_status === 'clean' ? '' : ` (${STATUS_LABEL[runA.overall_status] ?? 'Failed'})`
   const statusB = runB.overall_status === 'clean' ? ' (Fixed)' : ` (${STATUS_LABEL[runB.overall_status] ?? ''})`

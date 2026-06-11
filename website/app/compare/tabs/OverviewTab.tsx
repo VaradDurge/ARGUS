@@ -1,7 +1,7 @@
 'use client'
 
 import type { RunRecord } from '@/lib/types'
-import { computeDiffs, computeSummaryMetrics, computeChangeImpact, computeKeyChanges } from '../lib/compare-utils'
+import { computeDiffs, computeSummaryMetrics, computeChangeImpact, computeKeyChanges, computeStructuralAnalysis, isReplayOf, runBLabel } from '../lib/compare-utils'
 import SummaryMetrics from '../components/SummaryMetrics'
 import PipelineComparison from '../components/PipelineComparison'
 import KeyChangesSummary from '../components/KeyChangesSummary'
@@ -14,9 +14,35 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
   const summaryMetrics = computeSummaryMetrics(runA, runB)
   const impact = computeChangeImpact(nodes)
   const keyChanges = computeKeyChanges(nodes)
+  const structural = computeStructuralAnalysis(runA, runB)
+  const replay = isReplayOf(runA, runB)
+  const bLabel = runBLabel(runA, runB)
+
+  const infoBannerText = structural.isStructurallyDifferent
+    ? `These runs have different pipeline structures (${Math.round(structural.overlapRatio * 100)}% node overlap). Node-level comparison is limited to shared nodes.`
+    : replay
+      ? 'Comparison shows differences between the original run and its replay.'
+      : 'Comparison shows differences between two executions of the same pipeline.'
 
   return (
     <div className="space-y-2.5 py-2.5">
+      {/* Structural warning */}
+      {structural.isStructurallyDifferent && (
+        <div
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px] font-medium"
+          style={{ background: 'rgba(124,127,199,0.06)', color: '#7c7fc7', border: '1px solid rgba(124,127,199,0.15)' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2l5.5 9H1.5L7 2Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinejoin="round"/>
+            <path d="M7 5.5v2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <circle cx="7" cy="10" r="0.5" fill="currentColor"/>
+          </svg>
+          Different pipeline structures detected ({Math.round(structural.overlapRatio * 100)}% node overlap).
+          {structural.onlyInA.length > 0 && ` ${structural.onlyInA.length} node${structural.onlyInA.length !== 1 ? 's' : ''} only in Run A.`}
+          {structural.onlyInB.length > 0 && ` ${structural.onlyInB.length} node${structural.onlyInB.length !== 1 ? 's' : ''} only in ${bLabel}.`}
+        </div>
+      )}
+
       {/* Summary Metrics */}
       <SummaryMetrics metrics={summaryMetrics} />
 
@@ -24,7 +50,7 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
         <div className="lg:col-span-7 flex flex-col gap-2.5">
           <PipelineComparison runA={runA} runB={runB} diffs={nodes} />
-          <NodeComparisonTable diffs={nodes} />
+          <NodeComparisonTable diffs={nodes} runBColumnLabel={bLabel} />
         </div>
         <div className="lg:col-span-5 flex flex-col gap-2.5">
           <div className="card rounded-xl p-3.5">
@@ -51,7 +77,7 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
           <path d="M7 4.5v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           <circle cx="7" cy="9.5" r="0.6" fill="currentColor"/>
         </svg>
-        Comparison shows differences between base run (failed) and rerun. Use &quot;Rerun from diff&quot; to create a new run starting from the first differing node.
+        {infoBannerText}
       </div>
     </div>
   )

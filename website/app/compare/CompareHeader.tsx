@@ -163,7 +163,7 @@ export default function CompareHeader({
             minWidth: '200px',
           }}
         >
-          <option value="">{selectorLabel(runB, 'Select rerun...')}</option>
+          <option value="">{selectorLabel(runB, 'Select comparison run...')}</option>
           <RunSelectOptions runs={runs} />
         </select>
 

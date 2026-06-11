@@ -20,6 +20,7 @@ from argus.models import (
     ReplayImpact,
     RunRecord,
     SemanticHypothesis,
+    SemanticCheckResult,
     SemanticSignal,
     SuggestedSignature,
     TimelineEvent,
@@ -402,6 +403,8 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
     anomaly_signals = [
         AnomalySignal(**a) for a in data.get("anomaly_signals", [])
     ]
+    sc = data.get("semantic_check")
+    semantic_check = SemanticCheckResult(**sc) if sc else None
     return NodeEvent(
         step_index=data.get("step_index", 0),
         node_name=data.get("node_name", ""),
@@ -418,4 +421,5 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
         subgraph_run_id=data.get("subgraph_run_id"),
         behavior_type=data.get("behavior_type"),
         anomaly_signals=anomaly_signals,
+        semantic_check=semantic_check,
     )

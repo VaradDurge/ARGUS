@@ -109,10 +109,10 @@
     {
       "id": "CM-008",
       "category": "corrupted_markers",
-      "pattern": "={2,}\\s*$",
+      "pattern": "[A-Za-z0-9+/]={1,2}\\s*$",
       "match_strategy": "regex",
       "severity": "warning",
-      "description": "String ends with only equals signs — probable base64 padding artifact",
+      "description": "String ends with base64 padding pattern (e.g. 'abc==') — probable encoding artifact",
       "source": "builtin",
       "metadata": {
         "confidence": null,

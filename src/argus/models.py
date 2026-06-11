@@ -11,6 +11,19 @@ class ValidatorResult:
     message: str
 
 
+@dataclass(frozen=True)
+class SemanticCheckResult:
+    """Result of the per-node LLM semantic coherence check."""
+
+    passed: bool
+    reason: str          # why it passed or failed (from the LLM)
+    confidence: float    # 0.0–1.0
+    model: str           # e.g. "gpt-4o-mini"
+    prompt_tokens: int
+    completion_tokens: int
+    duration_ms: float
+
+
 @dataclass
 class FieldMismatch:
     field_name: str
@@ -119,6 +132,7 @@ class NodeEvent:
     llm_usage: LLMUsage | None = None
     behavior_type: str | None = None
     anomaly_signals: list[AnomalySignal] = field(default_factory=list)
+    semantic_check: SemanticCheckResult | None = None
 
 
 @dataclass
@@ -284,3 +298,5 @@ class LLMInvestigationConfig:
     max_origins_for_ambiguity: int = 2       # trigger if >= this many competing origins
     always_investigate: bool = False          # bypass trigger logic (for debugging)
     suggest_signatures: bool = True          # whether to ask LLM for new patterns
+    semantic_check: bool = True              # per-node coherence check on passing nodes
+    semantic_check_model: str = "gpt-4o-mini"  # cheap model for per-node checks

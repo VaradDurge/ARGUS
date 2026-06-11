@@ -178,7 +178,7 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
   }
 
   return (
-    <div className="card rounded-xl p-3.5 min-h-[130px] max-h-[190px] overflow-hidden">
+    <div className="card rounded-xl p-3.5 min-h-[130px] max-h-[190px] overflow-clip">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <h3 className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>Pipeline Overview</h3>
@@ -223,12 +223,12 @@ export default function PipelineOverview({ run, onViewFull }: { run: RunRecord; 
         onMouseUp={stopDragging}
         onMouseLeave={stopDragging}
         style={{
-          background: 'linear-gradient(180deg, rgba(28,29,36,0.7), rgba(20,21,25,0.2))',
+          background: 'rgba(28,29,36,0.18)',
           cursor: isDragging ? 'grabbing' : 'grab',
         }}
       >
         <div
-          className="absolute left-0 top-1/2 flex items-center py-3 min-w-max"
+          className="absolute left-0 top-1/2 flex items-center py-5 min-w-max"
           style={{
             transform: `translate(${viewport.x + 10}px, calc(-50% + ${viewport.y}px)) scale(${viewport.scale})`,
             transformOrigin: 'left center',

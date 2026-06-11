@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { RunRecord, LLMInvestigationResult } from '@/lib/types'
+import { isReplayOf, runBLabel } from '../lib/compare-utils'
 
 const C_GREEN = '#3d9e7d'
 const C_AMBER = '#d49a2e'
@@ -241,7 +242,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
   )
 }
 
-function ComparativeSummary({ invA, invB, runA, runB }: { invA: LLMInvestigationResult; invB: LLMInvestigationResult; runA: RunRecord; runB: RunRecord }) {
+function ComparativeSummary({ invA, invB, runA, runB, bLabel }: { invA: LLMInvestigationResult; invB: LLMInvestigationResult; runA: RunRecord; runB: RunRecord; bLabel: string }) {
   const confDelta = invB.confidence - invA.confidence
   const aFailed = runA.overall_status !== 'clean'
   const bFailed = runB.overall_status !== 'clean'
@@ -261,7 +262,7 @@ function ComparativeSummary({ invA, invB, runA, runB }: { invA: LLMInvestigation
       >
         <span className="text-[14px]">{fixed ? '\u2713' : regressed ? '\u2717' : '\u2194'}</span>
         <span className="text-[13px] font-bold" style={{ color: fixed ? C_GREEN : regressed ? C_RED : 'var(--text-primary)' }}>
-          {fixed ? 'Issue Resolved in Replay' : regressed ? 'Regression Detected' : 'Comparative Summary'}
+          {fixed ? `Issue Resolved in ${bLabel}` : regressed ? 'Regression Detected' : 'Comparative Summary'}
         </span>
       </div>
 
@@ -314,7 +315,7 @@ function ComparativeSummary({ invA, invB, runA, runB }: { invA: LLMInvestigation
             <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Suggested fixes:</span>
             <span style={{ color: 'var(--text-secondary)' }}>{fixCountA} (base)</span>
             <span style={{ color: 'var(--text-faint)' }}>{'\u2192'}</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{fixCountB} (replay)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{fixCountB} ({bLabel.toLowerCase()})</span>
           </div>
         )}
 
@@ -327,7 +328,7 @@ function ComparativeSummary({ invA, invB, runA, runB }: { invA: LLMInvestigation
         )}
         {invB.trigger_reasons?.length > 0 && (
           <div className="text-[12px]">
-            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Replay triggers: </span>
+            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>{bLabel} triggers: </span>
             <span style={{ color: 'var(--text-secondary)' }}>{invB.trigger_reasons.join(', ')}</span>
           </div>
         )}
@@ -336,51 +337,164 @@ function ComparativeSummary({ invA, invB, runA, runB }: { invA: LLMInvestigation
   )
 }
 
-export default function AIAnalysisTab({ runA, runB }: { runA: RunRecord; runB: RunRecord }) {
+interface CompareAnalysisResult {
+  structural_summary: string
+  performance_comparison: string
+  failure_analysis: string
+  root_cause_delta: string
+  key_insights: string[]
+  recommendation: string
+  confidence: number
+  error?: string | null
+}
+
+function CompareAnalysisCard({ analysis }: { analysis: CompareAnalysisResult }) {
+  const cc = confColor(analysis.confidence)
+  const sections = [
+    { label: 'Structural Summary', content: analysis.structural_summary },
+    { label: 'Performance', content: analysis.performance_comparison },
+    { label: 'Failure Analysis', content: analysis.failure_analysis },
+    { label: 'Root Cause Delta', content: analysis.root_cause_delta },
+    { label: 'Recommendation', content: analysis.recommendation },
+  ].filter((s) => s.content)
+
+  return (
+    <div className="card rounded-xl overflow-hidden" style={{ border: '1px solid rgba(124,127,199,0.2)' }}>
+      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'rgba(124,127,199,0.06)' }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1l1.5 3.5L13 6l-3 2 .5 4L8 10.5 5.5 12l.5-4-3-2 3.5-1.5L8 1Z" fill="rgba(124,127,199,0.15)" stroke="#7c7fc7" strokeWidth="1"/>
+        </svg>
+        <span className="text-[13px] font-bold" style={{ color: C_INDIGO }}>Comparative AI Analysis</span>
+        <span
+          className="ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full"
+          style={{ color: cc, background: `${cc}12`, border: `1px solid ${cc}25` }}
+        >
+          {(analysis.confidence * 100).toFixed(0)}% confidence
+        </span>
+      </div>
+
+      <div className="px-4 pb-4 space-y-3.5">
+        {sections.map((s) => (
+          <div key={s.label} className="mt-3">
+            <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{s.label}</p>
+            <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{renderWithCode(s.content!)}</p>
+          </div>
+        ))}
+
+        {analysis.key_insights.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[12px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Key Insights</p>
+            <div className="space-y-1.5">
+              {analysis.key_insights.map((insight, i) => (
+                <div key={i} className="flex items-start gap-2 text-[12px]">
+                  <span
+                    className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold mt-0.5"
+                    style={{ background: `${C_INDIGO}15`, color: C_INDIGO }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{renderWithCode(insight)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function AIAnalysisTab({ runA, runB, isLocal = false }: { runA: RunRecord; runB: RunRecord; isLocal?: boolean }) {
   const invA = runA.llm_investigation
   const invB = runB.llm_investigation
+  const bLabel = runBLabel(runA, runB)
 
-  if (!invA?.triggered && !invB?.triggered) {
-    return (
-      <div className="py-16 text-center">
-        <div className="text-[28px] mb-3" style={{ color: 'var(--text-faint)' }}>{'\u2B50'}</div>
-        <p className="text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>No AI analysis available for these runs.</p>
-        <p className="text-[11px] mt-1" style={{ color: 'var(--text-faint)' }}>
-          AI analysis is triggered automatically when failures are detected during a run.
-        </p>
-      </div>
-    )
-  }
+  const [compareAnalysis, setCompareAnalysis] = useState<CompareAnalysisResult | null>(null)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareError, setCompareError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isLocal) return
+    setCompareLoading(true)
+    setCompareError(null)
+    fetch('/api/compare-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ a: runA.run_id, b: runB.run_id }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data: CompareAnalysisResult) => {
+        if (data.error) setCompareError(data.error)
+        else setCompareAnalysis(data)
+      })
+      .catch((e) => setCompareError(e.message))
+      .finally(() => setCompareLoading(false))
+  }, [runA.run_id, runB.run_id, isLocal])
 
   const bothTriggered = invA?.triggered && invB?.triggered
+  const noPerRunAnalysis = !invA?.triggered && !invB?.triggered
 
   return (
     <div className="py-4 space-y-4">
-      {/* Comparative summary when both have analysis */}
-      {bothTriggered && (
-        <ComparativeSummary invA={invA!} invB={invB!} runA={runA} runB={runB} />
+      {/* Compare-specific AI analysis */}
+      {compareLoading && (
+        <div className="card rounded-xl p-8 flex flex-col items-center justify-center gap-3" style={{ border: '1px solid rgba(124,127,199,0.15)' }}>
+          <span className="inline-block w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(124,127,199,0.2)', borderTopColor: '#7c7fc7' }} />
+          <p className="text-[12px] font-medium" style={{ color: 'var(--text-muted)' }}>Generating comparative analysis...</p>
+        </div>
       )}
 
-      {/* Side-by-side analysis panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Run A */}
-        {invA?.triggered ? (
-          <AnalysisPanel inv={invA} run={runA} label="Base Run Analysis" />
-        ) : (
-          <div className="card rounded-xl p-6 flex items-center justify-center" style={{ border: '1px solid var(--border-subtle)' }}>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No AI analysis triggered for the base run.</p>
-          </div>
-        )}
+      {compareError && (
+        <div className="card rounded-xl p-4" style={{ border: '1px solid rgba(214,92,92,0.15)' }}>
+          <p className="text-[12px]" style={{ color: C_RED }}>
+            Compare analysis unavailable: {compareError}
+          </p>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-faint)' }}>
+            Ensure OPENAI_API_KEY is set and argus ui is running locally.
+          </p>
+        </div>
+      )}
 
-        {/* Run B */}
-        {invB?.triggered ? (
-          <AnalysisPanel inv={invB} run={runB} label="Replay Analysis" />
-        ) : (
-          <div className="card rounded-xl p-6 flex items-center justify-center" style={{ border: '1px solid var(--border-subtle)' }}>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No AI analysis triggered for the replay.</p>
-          </div>
-        )}
-      </div>
+      {compareAnalysis && <CompareAnalysisCard analysis={compareAnalysis} />}
+
+      {/* Comparative summary when both have per-run analysis */}
+      {bothTriggered && (
+        <ComparativeSummary invA={invA!} invB={invB!} runA={runA} runB={runB} bLabel={bLabel} />
+      )}
+
+      {/* Side-by-side per-run analysis panels */}
+      {!noPerRunAnalysis && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {invA?.triggered ? (
+            <AnalysisPanel inv={invA} run={runA} label="Base Run Analysis" />
+          ) : (
+            <div className="card rounded-xl p-6 flex items-center justify-center" style={{ border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No AI analysis triggered for the base run.</p>
+            </div>
+          )}
+          {invB?.triggered ? (
+            <AnalysisPanel inv={invB} run={runB} label={`${bLabel} Analysis`} />
+          ) : (
+            <div className="card rounded-xl p-6 flex items-center justify-center" style={{ border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No AI analysis triggered for {bLabel.toLowerCase()}.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state — only if no compare analysis AND no per-run analysis */}
+      {noPerRunAnalysis && !compareAnalysis && !compareLoading && !compareError && (
+        <div className="py-16 text-center">
+          <div className="text-[28px] mb-3" style={{ color: 'var(--text-faint)' }}>{'\u2B50'}</div>
+          <p className="text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>No AI analysis available for these runs.</p>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-faint)' }}>
+            AI analysis is triggered automatically when failures are detected during a run.
+          </p>
+        </div>
+      )}
 
       {/* Suggested signatures comparison */}
       {bothTriggered && ((invA!.suggested_signatures?.length ?? 0) > 0 || (invB!.suggested_signatures?.length ?? 0) > 0) && (
@@ -389,7 +503,7 @@ export default function AIAnalysisTab({ runA, runB }: { runA: RunRecord; runB: R
             <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Suggested Failure Signatures</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            {[{ sigs: invA!.suggested_signatures ?? [], label: 'Base Run' }, { sigs: invB!.suggested_signatures ?? [], label: 'Replay' }].map(({ sigs, label }) => (
+            {[{ sigs: invA!.suggested_signatures ?? [], label: 'Base Run' }, { sigs: invB!.suggested_signatures ?? [], label: bLabel }].map(({ sigs, label }) => (
               <div key={label} className="p-3" style={{ borderRight: '1px solid var(--border-subtle)' }}>
                 <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
                 {sigs.length === 0 ? (

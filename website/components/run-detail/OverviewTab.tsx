@@ -179,7 +179,7 @@ function ExecutionTimelineCard({ run }: { run: RunRecord }) {
                   {outputTag && (
                     <span
                       className="text-[9.5px] font-medium px-1.5 py-0.5 rounded shrink-0"
-                      style={{ background: 'rgba(246,247,249,0.6)', color: 'var(--text-muted)' }}
+                      style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
                     >
                       {outputTag}
                     </span>

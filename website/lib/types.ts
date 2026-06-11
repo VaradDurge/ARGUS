@@ -85,6 +85,16 @@ export interface LLMUsage {
   total_cost_usd: number | null
 }
 
+export interface SemanticCheckResult {
+  passed: boolean
+  reason: string
+  confidence: number
+  model: string
+  prompt_tokens: number
+  completion_tokens: number
+  duration_ms: number
+}
+
 export interface NodeEvent {
   step_index: number
   node_name: string
@@ -102,6 +112,7 @@ export interface NodeEvent {
   llm_usage?: LLMUsage | null
   behavior_type?: BehaviorType | null
   anomaly_signals?: AnomalySignal[]
+  semantic_check?: SemanticCheckResult | null
 }
 
 export interface PropagationLink {
