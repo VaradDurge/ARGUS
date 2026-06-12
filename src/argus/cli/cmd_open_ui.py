@@ -352,6 +352,14 @@ def _make_handler(
                 from argus.candidate_store import load_custom_signatures  # noqa: PLC0415
                 data = load_custom_signatures()
                 self._send_json(data.get("signatures", []))
+            elif path == "/api/shared-signatures":
+                from argus.cloud import pull_shared_signatures  # noqa: PLC0415
+                sigs = pull_shared_signatures()
+                self._send_json(sigs)
+            elif path == "/api/shared-signatures/sync":
+                from argus.registry import sync_shared_signatures  # noqa: PLC0415
+                count = sync_shared_signatures()
+                self._send_json({"synced": count})
             elif path.startswith("/api/replay/status/"):
                 job_id = path[len("/api/replay/status/"):]
                 with _replay_lock:
@@ -481,6 +489,17 @@ def _make_handler(
                 t.start()
 
                 self._send_json({"job_id": job_id}, 202)
+            elif path.startswith("/api/candidates/") and path.endswith("/approve-shared"):
+                cand_id = path[len("/api/candidates/"):-len("/approve-shared")]
+                from argus.candidate_store import approve_candidate_shared  # noqa: PLC0415
+                from argus.registry import reload_registry, sync_shared_signatures  # noqa: PLC0415
+                result = approve_candidate_shared(cand_id)
+                if result is None:
+                    self._send_json({"error": "candidate not found or not logged in"}, 400)
+                else:
+                    sync_shared_signatures()
+                    reload_registry()
+                    self._send_json(result)
             elif path.startswith("/api/candidates/") and path.endswith("/approve"):
                 cand_id = path[len("/api/candidates/"):-len("/approve")]
                 from argus.candidate_store import approve_candidate  # noqa: PLC0415

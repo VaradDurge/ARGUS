@@ -728,12 +728,12 @@ understand what changed between runs and why.
 
 Respond with a JSON object containing these fields:
 {
-  "structural_summary": "<1-2 sentences about structural differences — different nodes, topology changes, or identical structure>",
-  "performance_comparison": "<how timing, throughput, or resource usage changed between runs>",
-  "failure_analysis": "<what failed in each run, whether failures are related, and key differences in failure patterns>",
-  "root_cause_delta": "<if one run fixed issues from the other, explain what changed and why. If unrelated runs, explain the different failure modes>",
+  "structural_summary": "<1-2 sentences about structural differences>",
+  "performance_comparison": "<timing/resource usage changes>",
+  "failure_analysis": "<what failed, whether related, key diffs>",
+  "root_cause_delta": "<what changed and why between runs>",
   "key_insights": ["<insight 1>", "<insight 2>", ...],
-  "recommendation": "<what the developer should do next based on this comparison>",
+  "recommendation": "<what to do next>",
   "confidence": <0.0-1.0>
 }
 

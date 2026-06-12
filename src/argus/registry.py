@@ -37,7 +37,7 @@ def _load_registry() -> list[dict[str, Any]]:
         if sig["match_strategy"] == "regex":
             sig["_compiled"] = re.compile(sig["pattern"], re.IGNORECASE)
 
-    # Append custom (learned) signatures if present
+    # Append custom (learned, private) signatures if present
     from pathlib import Path  # noqa: PLC0415
 
     custom_path = Path(".argus/custom_signatures.json")
@@ -50,6 +50,30 @@ def _load_registry() -> list[dict[str, Any]]:
                 sigs.append(sig)
         except Exception:
             pass  # malformed file — skip silently
+
+    # Append shared (community) signatures from Supabase if logged in.
+    # Uses a cached local copy to avoid blocking on network calls.
+    shared_cache = Path(".argus/shared_signatures_cache.json")
+    if shared_cache.exists():
+        try:
+            shared_data = json.loads(
+                shared_cache.read_text(encoding="utf-8"),
+            )
+            seen_patterns = {
+                (s.get("pattern"), s.get("match_strategy")) for s in sigs
+            }
+            for sig in shared_data:
+                key = (sig.get("pattern"), sig.get("match_strategy"))
+                if key in seen_patterns:
+                    continue  # skip duplicates
+                if sig.get("match_strategy") == "regex" and sig.get("pattern"):
+                    sig["_compiled"] = re.compile(
+                        sig["pattern"], re.IGNORECASE,
+                    )
+                sigs.append(sig)
+                seen_patterns.add(key)
+        except Exception:
+            pass
 
     return sigs
 
@@ -66,6 +90,30 @@ def reload_registry() -> None:
     """Reload the registry from disk, picking up newly approved signatures."""
     global _REGISTRY  # noqa: PLW0603
     _REGISTRY = _load_registry()
+
+
+def sync_shared_signatures() -> int:
+    """Pull shared signatures from Supabase and cache locally.
+
+    Returns the number of shared signatures cached. Runs synchronously
+    — call from a background thread if needed.
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    try:
+        from argus.cloud import pull_shared_signatures  # noqa: PLC0415
+        sigs = pull_shared_signatures()
+    except Exception:
+        return 0
+
+    if not sigs:
+        return 0
+
+    cache_path = Path(".argus/shared_signatures_cache.json")
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(sigs, indent=2), encoding="utf-8")
+    reload_registry()
+    return len(sigs)
 
 
 # ── Matchers ──────────────────────────────────────────────────────────────────

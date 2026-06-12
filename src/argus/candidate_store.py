@@ -189,6 +189,63 @@ def reject_candidate(candidate_id: str) -> bool:
     return False
 
 
+def approve_candidate_shared(candidate_id: str) -> dict[str, Any] | None:
+    """Approve a candidate and push it to the shared community registry.
+
+    The candidate is removed from the local pending list and pushed to
+    Supabase so all users benefit from the pattern. Requires the user
+    to be logged in (``argus login``).
+
+    Returns the signature dict on success, or None if the candidate was
+    not found or the push failed.
+    """
+    data = load_candidates()
+    cand = None
+    for i, c in enumerate(data["candidates"]):
+        if c["id"] == candidate_id:
+            cand = data["candidates"].pop(i)
+            break
+    if cand is None:
+        return None
+
+    save_candidates(data)
+
+    # Build the signature in the same format as approve_candidate
+    now = datetime.now(timezone.utc).isoformat()
+    sig_id = f"SH-{uuid.uuid4().hex[:6].upper()}"
+
+    new_sig: dict[str, Any] = {
+        "id": sig_id,
+        "category": cand["proposed_category"],
+        "pattern": cand["pattern"],
+        "match_strategy": cand["match_strategy"],
+        "severity": cand["severity"],
+        "description": cand["description"],
+        "source": "shared",
+        "source_run_ids": cand.get("source_run_ids", []),
+        "source_nodes": cand.get("source_nodes", []),
+        "reasoning": cand.get("reasoning", ""),
+        "metadata": {
+            "confidence": cand.get("confidence"),
+            "frequency": cand.get("times_seen", 1),
+            "approval_status": "approved",
+            "approved_at": now,
+            "framework_specific": None,
+        },
+    }
+
+    from argus.cloud import push_shared_signature  # noqa: PLC0415
+
+    if not push_shared_signature(new_sig):
+        # Push failed — re-add candidate so it's not lost
+        data = load_candidates()
+        data["candidates"].append(cand)
+        save_candidates(data)
+        return None
+
+    return new_sig
+
+
 def delete_custom_signature(sig_id: str) -> bool:
     """Remove an approved custom signature."""
     custom = load_custom_signatures()

@@ -48,6 +48,16 @@ function IconPatterns() {
   )
 }
 
+function IconApprovals() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="1.5" width="12" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+      <path d="M5.5 7l1.8 1.8 3.2-3.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 11h6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  )
+}
+
 function IconEval() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -266,6 +276,7 @@ export default function Sidebar() {
         <SectionLabel label="Analyze" />
         <NavLink href="/compare" icon={<IconCompare />} label="Compare" exact={false} />
         <NavLink href="/patterns" icon={<IconPatterns />} label="Patterns" exact={true} />
+        <NavLink href="/approvals" icon={<IconApprovals />} label="Approvals" exact={true} />
         <SoonItem icon={<IconEval />} label="Evaluation" />
 
         <Divider />

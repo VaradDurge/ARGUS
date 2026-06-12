@@ -483,16 +483,38 @@ class ArgusSession:
                 ):
                     status = "semantic_fail"
 
-            # per-node semantic coherence check (LLM, only on still-passing nodes)
+            # per-node semantic coherence check (LLM)
+            #
+            # Runs in two modes:
+            #   1. Still-passing nodes → can DOWNGRADE to semantic_fail
+            #   2. Heuristic-only failures → can OVERRIDE back to pass
+            #      (the heuristic scanner is context-blind; the LLM sees
+            #       input+output and can determine if the output is
+            #       actually valid for this node's purpose)
             semantic_check_result: SemanticCheckResult | None = None
-            if (
-                status == "pass"
-                and output_snap is not None
+            _heuristic_only_fail = (
+                status == "semantic_fail"
+                and inspection is not None
+                and inspection.semantic_signals
+                and not inspection.is_silent_failure
+                and not inspection.has_tool_failure
+                and not inspection.missing_fields
+                and not any(
+                    not r.is_valid for r in validator_results
+                )
+                and not any(
+                    a.severity == "critical" for a in anomaly_signals
+                )
+            )
+            _should_run_judge = (
+                output_snap is not None
                 and input_snap
                 and self._llm_investigation_config
                 and self._llm_investigation_config.enabled
                 and self._llm_investigation_config.semantic_check
-            ):
+                and (status == "pass" or _heuristic_only_fail)
+            )
+            if _should_run_judge:
                 try:
                     from argus.semantic_checker import check_semantic_coherence  # noqa: PLC0415
                     semantic_check_result = check_semantic_coherence(
@@ -502,8 +524,14 @@ class ArgusSession:
                         model=self._llm_investigation_config.semantic_check_model,
                         api_key=self._llm_investigation_config.api_key,
                     )
-                    if not semantic_check_result.passed and semantic_check_result.confidence >= 0.7:
+                    sc_passed = semantic_check_result.passed
+                    sc_confident = semantic_check_result.confidence >= 0.7
+                    if status == "pass" and not sc_passed and sc_confident:
+                        # LLM says output is incoherent → downgrade
                         status = "semantic_fail"
+                    elif _heuristic_only_fail and sc_passed and sc_confident:
+                        # LLM overrides heuristic false positive → restore
+                        status = "pass"
                 except Exception:
                     pass
 

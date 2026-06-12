@@ -111,3 +111,47 @@ $$ language plpgsql security definer;
 create trigger trg_feedback_vote_count
   after insert or delete on public.feedback_votes
   for each row execute function update_feedback_vote_count();
+
+-- ============================================================
+-- Shared Signatures (community-approved detection patterns)
+-- ============================================================
+
+create table public.shared_signatures (
+  id              uuid        default gen_random_uuid() primary key,
+  user_id         uuid        references auth.users(id) on delete set null,
+  sig_id          text        not null unique,
+  category        text        not null,
+  pattern         text        not null,
+  match_strategy  text        not null check (
+    match_strategy in ('exact_ci', 'contains_ci', 'prefix_ci', 'regex', 'repetition')
+  ),
+  severity        text        not null check (severity in ('critical', 'warning')),
+  description     text        not null,
+  reasoning       text,
+  evidence        jsonb       default '[]'::jsonb,
+  confidence      real,
+  source_run_ids  jsonb       default '[]'::jsonb,
+  source_nodes    jsonb       default '[]'::jsonb,
+  times_seen      integer     default 1,
+  contributed_by  text,
+  created_at      timestamptz default now() not null,
+
+  unique(pattern, match_strategy)
+);
+
+create index idx_shared_sigs_created on public.shared_signatures (created_at desc);
+create index idx_shared_sigs_category on public.shared_signatures (category);
+
+alter table public.shared_signatures enable row level security;
+
+-- All authenticated users can read shared signatures
+create policy "read_shared_sigs" on public.shared_signatures for select
+  using (auth.role() = 'authenticated');
+
+-- Authenticated users can contribute new signatures
+create policy "insert_shared_sigs" on public.shared_signatures for insert
+  with check (auth.role() = 'authenticated');
+
+-- Users can only delete their own contributions
+create policy "delete_own_shared_sigs" on public.shared_signatures for delete
+  using (auth.uid() = user_id);

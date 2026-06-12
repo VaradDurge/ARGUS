@@ -184,3 +184,104 @@ def push_run_async(run_data: dict[str, Any]) -> None:
     """Push a run in a background thread (fire-and-forget)."""
     thread = threading.Thread(target=push_run, args=(run_data,), daemon=True)
     thread.start()
+
+
+# ── Shared Signatures ───────────────────────────────────────────────────
+
+
+def push_shared_signature(sig_data: dict[str, Any]) -> bool:
+    """Push an approved signature to the shared community table.
+
+    Returns True on success, False if not logged in or on error.
+    """
+    creds = _get_valid_credentials()
+    if creds is None:
+        return False
+
+    row = {
+        "user_id": creds.user_id,
+        "sig_id": sig_data["id"],
+        "category": sig_data["category"],
+        "pattern": sig_data["pattern"],
+        "match_strategy": sig_data["match_strategy"],
+        "severity": sig_data["severity"],
+        "description": sig_data["description"],
+        "reasoning": sig_data.get("reasoning"),
+        "evidence": sig_data.get("evidence", []),
+        "confidence": sig_data.get("metadata", {}).get("confidence"),
+        "source_run_ids": sig_data.get("source_run_ids", []),
+        "source_nodes": sig_data.get("source_nodes", []),
+        "times_seen": sig_data.get("metadata", {}).get("frequency", 1),
+        "contributed_by": creds.email,
+    }
+
+    try:
+        _supabase_request(
+            "POST",
+            "shared_signatures",
+            body=row,
+            access_token=creds.access_token,
+            extra_headers={"Prefer": "resolution=merge-duplicates"},
+        )
+        return True
+    except Exception:
+        return False
+
+
+def pull_shared_signatures() -> list[dict[str, Any]]:
+    """Pull all shared signatures from Supabase.
+
+    Returns a list of signature dicts ready for the registry, or an
+    empty list if not logged in or on error.
+    """
+    creds = _get_valid_credentials()
+    if creds is None:
+        return []
+
+    try:
+        rows = _supabase_request(
+            "GET",
+            "shared_signatures?select=*&order=created_at.desc",
+            access_token=creds.access_token,
+        )
+        if not isinstance(rows, list):
+            return []
+
+        sigs: list[dict[str, Any]] = []
+        for row in rows:
+            sigs.append({
+                "id": row["sig_id"],
+                "category": row["category"],
+                "pattern": row["pattern"],
+                "match_strategy": row["match_strategy"],
+                "severity": row["severity"],
+                "description": row["description"],
+                "source": "shared",
+                "metadata": {
+                    "confidence": row.get("confidence"),
+                    "frequency": row.get("times_seen", 1),
+                    "approval_status": "approved",
+                    "contributed_by": row.get("contributed_by"),
+                    "framework_specific": None,
+                },
+            })
+        return sigs
+    except Exception:
+        return []
+
+
+def pull_shared_signatures_async(
+    callback: Any = None,
+) -> threading.Thread:
+    """Pull shared signatures in a background thread.
+
+    If callback is provided, it is called with the result list.
+    """
+    def _run() -> None:
+        result = pull_shared_signatures()
+        if callback is not None:
+            callback(result)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    return thread
