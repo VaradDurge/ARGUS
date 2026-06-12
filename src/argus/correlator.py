@@ -9,6 +9,7 @@ Analyzes a completed RunRecord and produces a CorrelationReport containing:
 
 All logic is deterministic — no LLM calls.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -92,8 +93,7 @@ def _is_behavioral_only(event: NodeEvent) -> bool:
     has_structural = False
     if insp is not None:
         has_structural = bool(
-            insp.tool_failures or insp.semantic_signals
-            or insp.missing_fields or insp.empty_fields
+            insp.tool_failures or insp.semantic_signals or insp.missing_fields or insp.empty_fields
         )
     return not has_structural and bool(event.anomaly_signals)
 
@@ -142,6 +142,7 @@ def _brief_signal_summary(event: NodeEvent) -> str:
 
 
 # ── Graph helpers ──────────────────────────────────────────────────────────────
+
 
 def _build_reachable(
     edge_map: dict[str, list[str]],
@@ -201,6 +202,7 @@ def _dedup_links(links: list[PropagationLink]) -> list[PropagationLink]:
 
 # ── Origin detection ───────────────────────────────────────────────────────────
 
+
 def _find_degradation_origins(
     events: list[NodeEvent],
     edge_map: dict[str, list[str]],
@@ -242,18 +244,12 @@ def _find_degradation_origins(
 
         # Use structural weight for predecessor suppression — behavioral
         # anomalies alone should not suppress downstream origins.
-        pred_structural = [
-            structural_weights.get(p, 0.0)
-            for p in predecessor_map.get(node, [])
-        ]
+        pred_structural = [structural_weights.get(p, 0.0) for p in predecessor_map.get(node, [])]
         max_pred_structural = max(pred_structural, default=0.0)
 
         # Origin criterion: structural signal jumped from clean predecessors
         # OR ≥50% of weight is new relative to predecessor structural weight
-        is_jump = (
-            max_pred_structural == 0.0
-            or ((w - max_pred_structural) / w) >= 0.5
-        )
+        is_jump = max_pred_structural == 0.0 or ((w - max_pred_structural) / w) >= 0.5
         if not is_jump:
             continue
 
@@ -267,9 +263,7 @@ def _find_degradation_origins(
             confidence = min(confidence, 0.40)
 
         if not predecessor_map.get(node):
-            reason = (
-                f"first node in execution with degradation signals (weight {w:.1f})"
-            )
+            reason = f"first node in execution with degradation signals (weight {w:.1f})"
         elif max_pred_structural == 0.0:
             if _is_behavioral_only(event):
                 reason = (
@@ -277,10 +271,7 @@ def _find_degradation_origins(
                     f"no structural evidence of degradation"
                 )
             else:
-                reason = (
-                    f"all predecessors were clean; degradation starts here "
-                    f"(weight {w:.1f})"
-                )
+                reason = f"all predecessors were clean; degradation starts here (weight {w:.1f})"
         else:
             reason = (
                 f"weight jumped from {max_pred_structural:.1f} "
@@ -288,13 +279,15 @@ def _find_degradation_origins(
                 f"likely degradation onset"
             )
 
-        origins.append(DegradationOrigin(
-            node_name=node,
-            step_index=event.step_index,
-            signal_types=tuple(sig_types),
-            confidence=round(confidence, 3),
-            reason=reason,
-        ))
+        origins.append(
+            DegradationOrigin(
+                node_name=node,
+                step_index=event.step_index,
+                signal_types=tuple(sig_types),
+                confidence=round(confidence, 3),
+                reason=reason,
+            )
+        )
 
     # Sort: highest confidence first, then prefer crashes over behavioral-only
     def _origin_sort_key(o: DegradationOrigin) -> tuple[float, int]:
@@ -307,6 +300,7 @@ def _find_degradation_origins(
 
 
 # ── Propagation detectors ──────────────────────────────────────────────────────
+
 
 def _detect_field_drop_cascade(
     events: list[NodeEvent],
@@ -340,10 +334,7 @@ def _detect_field_drop_cascade(
     for event_i in events:
         if event_i.inspection is None:
             continue
-        flagged = set(
-            event_i.inspection.missing_fields
-            + event_i.inspection.empty_fields
-        )
+        flagged = set(event_i.inspection.missing_fields + event_i.inspection.empty_fields)
         if not flagged:
             continue
 
@@ -359,41 +350,41 @@ def _detect_field_drop_cascade(
                 if event_j.step_index <= event_i.step_index:
                     continue
                 j_insp = event_j.inspection
-                j_missing = set(
-                    getattr(j_insp, "missing_fields", [])
-                    + getattr(j_insp, "empty_fields", [])
-                ) if j_insp else set()
+                j_missing = (
+                    set(
+                        getattr(j_insp, "missing_fields", []) + getattr(j_insp, "empty_fields", [])
+                    )
+                    if j_insp
+                    else set()
+                )
 
                 overlap = dropped & j_missing
                 if overlap:
                     field = next(iter(overlap))
-                    links.append(PropagationLink(
-                        source_node=event_i.node_name,
-                        target_node=event_j.node_name,
-                        signal_type="field_drop",
-                        confidence=0.85,
-                        evidence=(
-                            f"field '{field}' dropped at source, "
-                            f"missing at target"
-                        ),
-                    ))
-
-                exc = event_j.exception or ""
-                for field in dropped:
-                    if (
-                        f"KeyError: '{field}'" in exc
-                        or f'KeyError: "{field}"' in exc
-                    ):
-                        links.append(PropagationLink(
+                    links.append(
+                        PropagationLink(
                             source_node=event_i.node_name,
                             target_node=event_j.node_name,
                             signal_type="field_drop",
-                            confidence=0.95,
-                            evidence=(
-                                f"field '{field}' dropped at source, "
-                                f"caused KeyError at target"
-                            ),
-                        ))
+                            confidence=0.85,
+                            evidence=(f"field '{field}' dropped at source, missing at target"),
+                        )
+                    )
+
+                exc = event_j.exception or ""
+                for field in dropped:
+                    if f"KeyError: '{field}'" in exc or f'KeyError: "{field}"' in exc:
+                        links.append(
+                            PropagationLink(
+                                source_node=event_i.node_name,
+                                target_node=event_j.node_name,
+                                signal_type="field_drop",
+                                confidence=0.95,
+                                evidence=(
+                                    f"field '{field}' dropped at source, caused KeyError at target"
+                                ),
+                            )
+                        )
                         break
 
     return _dedup_links(links)
@@ -414,7 +405,8 @@ def _detect_placeholder_propagation(
         if event_i.inspection is None:
             continue
         ph_signals = [
-            s for s in event_i.inspection.semantic_signals
+            s
+            for s in event_i.inspection.semantic_signals
             if s.sig_id.startswith(_PLACEHOLDER_PREFIXES) and len(s.evidence) > 4
         ]
         if not ph_signals:
@@ -425,39 +417,40 @@ def _detect_placeholder_propagation(
                 if event_j.step_index <= event_i.step_index:
                     continue
                 input_str = str(event_j.input_state or {})
-                j_signals = (
-                    event_j.inspection.semantic_signals
-                    if event_j.inspection else []
-                )
+                j_signals = event_j.inspection.semantic_signals if event_j.inspection else []
                 linked = False
                 for sig in ph_signals:
                     if sig.evidence and sig.evidence in input_str:
-                        links.append(PropagationLink(
-                            source_node=event_i.node_name,
-                            target_node=event_j.node_name,
-                            signal_type="placeholder",
-                            confidence=0.90,
-                            evidence=(
-                                f"[{sig.sig_id}] text '{sig.evidence[:40]}' "
-                                f"found in downstream input"
-                            ),
-                        ))
+                        links.append(
+                            PropagationLink(
+                                source_node=event_i.node_name,
+                                target_node=event_j.node_name,
+                                signal_type="placeholder",
+                                confidence=0.90,
+                                evidence=(
+                                    f"[{sig.sig_id}] text '{sig.evidence[:40]}' "
+                                    f"found in downstream input"
+                                ),
+                            )
+                        )
                         linked = True
                         break
 
                 if not linked:
                     j_ph = [s for s in j_signals if s.sig_id.startswith(_PLACEHOLDER_PREFIXES)]
                     if j_ph:
-                        links.append(PropagationLink(
-                            source_node=event_i.node_name,
-                            target_node=event_j.node_name,
-                            signal_type="semantic_collapse",
-                            confidence=0.70,
-                            evidence=(
-                                f"placeholder degradation in both nodes "
-                                f"({ph_signals[0].sig_id} → {j_ph[0].sig_id})"
-                            ),
-                        ))
+                        links.append(
+                            PropagationLink(
+                                source_node=event_i.node_name,
+                                target_node=event_j.node_name,
+                                signal_type="semantic_collapse",
+                                confidence=0.70,
+                                evidence=(
+                                    f"placeholder degradation in both nodes "
+                                    f"({ph_signals[0].sig_id} → {j_ph[0].sig_id})"
+                                ),
+                            )
+                        )
 
     return _dedup_links(links)
 
@@ -496,18 +489,21 @@ def _detect_anomaly_cascade(
                 matching = source_ids & j_ids
                 if matching:
                     mid = next(iter(matching))
-                    links.append(PropagationLink(
-                        source_node=event_i.node_name,
-                        target_node=event_j.node_name,
-                        signal_type="anomaly_cascade",
-                        confidence=0.65,
-                        evidence=f"anomaly {mid} present in both nodes",
-                    ))
+                    links.append(
+                        PropagationLink(
+                            source_node=event_i.node_name,
+                            target_node=event_j.node_name,
+                            signal_type="anomaly_cascade",
+                            confidence=0.65,
+                            evidence=f"anomaly {mid} present in both nodes",
+                        )
+                    )
 
     return _dedup_links(links)
 
 
 # ── Chain assembly ─────────────────────────────────────────────────────────────
+
 
 def _classify_chain(chain_links: list[PropagationLink], origin_has_tool_failure: bool) -> str:
     if origin_has_tool_failure:
@@ -515,30 +511,30 @@ def _classify_chain(chain_links: list[PropagationLink], origin_has_tool_failure:
     if not chain_links:
         return "mixed_degradation"
     from collections import Counter
+
     counts = Counter(lnk.signal_type for lnk in chain_links)
     types_present = set(counts.keys())
     if len(types_present) >= 2:
         return "mixed_degradation"
     dominant = counts.most_common(1)[0][0]
     mapping = {
-        "field_drop":       "field_drop_cascade",
-        "placeholder":      "placeholder_propagation",
+        "field_drop": "field_drop_cascade",
+        "placeholder": "placeholder_propagation",
         "semantic_collapse": "semantic_collapse",
-        "anomaly_cascade":  "anomaly_cascade",
+        "anomaly_cascade": "anomaly_cascade",
     }
     return mapping.get(dominant, "mixed_degradation")
 
 
 _CHAIN_TEMPLATES = {
-    "tool_failure_cascade":   "{origin} returned tool failure; {downstream} degraded as a result",
-    "semantic_collapse":      "semantic degradation at {origin} propagated through {downstream}",
+    "tool_failure_cascade": "{origin} returned tool failure; {downstream} degraded as a result",
+    "semantic_collapse": "semantic degradation at {origin} propagated through {downstream}",
     "placeholder_propagation": (
-        "placeholder output at {origin} flowed into "
-        "downstream inputs at {downstream}"
+        "placeholder output at {origin} flowed into downstream inputs at {downstream}"
     ),
-    "field_drop_cascade":     "{origin} dropped field(s); caused silent failure at {downstream}",
-    "anomaly_cascade":        "behavioral anomaly at {origin} cascaded into {downstream}",
-    "mixed_degradation":      "mixed degradation starting at {origin} affected {downstream}",
+    "field_drop_cascade": "{origin} dropped field(s); caused silent failure at {downstream}",
+    "anomaly_cascade": "behavioral anomaly at {origin} cascaded into {downstream}",
+    "mixed_degradation": "mixed degradation starting at {origin} affected {downstream}",
 }
 
 
@@ -589,24 +585,25 @@ def _assemble_chains(
         _dfs_chain(root, by_source, path, chain_links, visited=set())
 
         root_events = by_name.get(root, [])
-        origin_has_tf = any(
-            (e.inspection and e.inspection.has_tool_failure) for e in root_events
-        )
+        origin_has_tf = any((e.inspection and e.inspection.has_tool_failure) for e in root_events)
         chain_type = _classify_chain(chain_links, origin_has_tf)
         summary = _build_chain_summary(chain_type, path)
 
-        chains.append(PropagationChain(
-            chain_type=chain_type,
-            nodes=tuple(path),
-            links=tuple(chain_links),
-            summary=summary,
-        ))
+        chains.append(
+            PropagationChain(
+                chain_type=chain_type,
+                nodes=tuple(path),
+                links=tuple(chain_links),
+                summary=summary,
+            )
+        )
 
     chains.sort(key=lambda c: -sum(lnk.confidence for lnk in c.links))
     return chains
 
 
 # ── Timeline ───────────────────────────────────────────────────────────────────
+
 
 def _build_timeline(
     events: list[NodeEvent],
@@ -640,18 +637,21 @@ def _build_timeline(
             label = f"{event.node_name}: minor signals"
             signal_summary = _brief_signal_summary(event)
 
-        timeline.append(TimelineEvent(
-            step_index=event.step_index,
-            node_name=event.node_name,
-            event_type=event_type,
-            label=label,
-            signal_summary=signal_summary,
-        ))
+        timeline.append(
+            TimelineEvent(
+                step_index=event.step_index,
+                node_name=event.node_name,
+                event_type=event_type,
+                label=label,
+                signal_summary=signal_summary,
+            )
+        )
 
     return timeline
 
 
 # ── Causal summary ─────────────────────────────────────────────────────────────
+
 
 def _build_causal_summary(
     origins: list[DegradationOrigin],
@@ -672,9 +672,11 @@ def _build_causal_summary(
 
     # Flag low-confidence or behavioral-only origins
     is_low_confidence = primary.confidence < 0.5
-    is_behavioral = all(
-        st == "behavioral_anomaly" for st in primary.signal_types
-    ) if primary.signal_types else False
+    is_behavioral = (
+        all(st == "behavioral_anomaly" for st in primary.signal_types)
+        if primary.signal_types
+        else False
+    )
 
     if not chains:
         sigs = ", ".join(primary.signal_types) if primary.signal_types else "unknown"
@@ -714,18 +716,15 @@ def _build_causal_summary(
 
 # ── Replay impact ──────────────────────────────────────────────────────────────
 
+
 def compare_replay(replay: RunRecord, original: RunRecord) -> ReplayImpact:
     """Compare replay signal weights against the original run to identify improvements."""
     orig_weights = _compute_weights(original.steps)
     replay_weights = _compute_weights(replay.steps)
     common = set(orig_weights) & set(replay_weights)
 
-    improved_nodes = sorted(
-        n for n in common if orig_weights[n] - replay_weights[n] > 0.5
-    )
-    regressed_nodes = sorted(
-        n for n in common if replay_weights[n] - orig_weights[n] > 0.5
-    )
+    improved_nodes = sorted(n for n in common if orig_weights[n] - replay_weights[n] > 0.5)
+    regressed_nodes = sorted(n for n in common if replay_weights[n] - orig_weights[n] > 0.5)
 
     edge_map = replay.graph_edge_map or {}
     key_fix_node: str | None = None
@@ -733,7 +732,8 @@ def compare_replay(replay: RunRecord, original: RunRecord) -> ReplayImpact:
     for node in improved_nodes:
         successors = edge_map.get(node, [])
         count = sum(
-            1 for s in successors
+            1
+            for s in successors
             if s in improved_nodes
             or (s in common and replay_weights.get(s, 0.0) < orig_weights.get(s, 0.0))
         )
@@ -768,6 +768,7 @@ def compare_replay(replay: RunRecord, original: RunRecord) -> ReplayImpact:
 
 
 # ── Main entry point ───────────────────────────────────────────────────────────
+
 
 def correlate(record: RunRecord) -> CorrelationReport:
     """Produce a CorrelationReport for a completed RunRecord."""

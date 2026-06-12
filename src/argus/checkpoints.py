@@ -1,4 +1,5 @@
 """Checkpoint persistence for interrupted (human-approval) runs."""
+
 from __future__ import annotations
 
 import json

@@ -10,6 +10,7 @@ detector, never mutates runtime execution, and never auto-modifies heuristics.
 
 Requires: pip install openai   (or argus-agents[llm])
 """
+
 from __future__ import annotations
 
 import json
@@ -51,7 +52,8 @@ def should_investigate(
             fields = event.inspection.missing_fields if event.inspection else []
             tf_types = (
                 [tf.failure_type for tf in event.inspection.tool_failures]
-                if event.inspection else []
+                if event.inspection
+                else []
             )
             detail = f"silent failure at '{event.node_name}'"
             if fields:
@@ -60,12 +62,8 @@ def should_investigate(
                 detail += f" (tool failures: {', '.join(tf_types)})"
             reasons.append(detail)
         elif event.status == "degraded_input":
-            upstream = (
-                event.inspection.degraded_upstream_node if event.inspection else None
-            )
-            degraded_fields = (
-                event.inspection.degraded_fields if event.inspection else []
-            )
+            upstream = event.inspection.degraded_upstream_node if event.inspection else None
+            degraded_fields = event.inspection.degraded_fields if event.inspection else []
             detail = f"degraded input at '{event.node_name}'"
             if upstream:
                 detail += f" (from: {upstream})"
@@ -79,8 +77,7 @@ def should_investigate(
             signals = []
             if event.inspection and event.inspection.semantic_signals:
                 signals = [
-                    f"{s.sig_id} on {s.dotted_path}"
-                    for s in event.inspection.semantic_signals[:3]
+                    f"{s.sig_id} on {s.dotted_path}" for s in event.inspection.semantic_signals[:3]
                 ]
             failed_validators = [
                 v.validator_name for v in event.validator_results if not v.is_valid
@@ -95,14 +92,12 @@ def should_investigate(
             insp = event.inspection
             if insp.tool_failures:
                 tf_detail = ", ".join(
-                    f"{tf.failure_type} on '{tf.field_name}'"
-                    for tf in insp.tool_failures[:3]
+                    f"{tf.failure_type} on '{tf.field_name}'" for tf in insp.tool_failures[:3]
                 )
                 reasons.append(f"tool warning at '{event.node_name}': {tf_detail}")
             if insp.empty_fields:
                 reasons.append(
-                    f"empty fields at '{event.node_name}': "
-                    f"{', '.join(insp.empty_fields)}"
+                    f"empty fields at '{event.node_name}': {', '.join(insp.empty_fields)}"
                 )
 
     if not reasons:
@@ -111,8 +106,16 @@ def should_investigate(
     # Skip investigation only if the run is clean AND no failure signals were found.
     # If any node has semantic degradation, tool failures, etc., always investigate.
     has_real_signals = any(
-        r.startswith(("silent failure", "crash", "semantic failure",
-                      "degraded input", "tool warning", "empty fields"))
+        r.startswith(
+            (
+                "silent failure",
+                "crash",
+                "semantic failure",
+                "degraded input",
+                "tool warning",
+                "empty fields",
+            )
+        )
         for r in reasons
     )
     if not cfg.always_investigate and record.overall_status == "clean" and not has_real_signals:
@@ -122,6 +125,7 @@ def should_investigate(
 
 
 # ── Intelligence compression ──────────────────────────────────────────────────
+
 
 def _compress_node_summary(record: RunRecord) -> list[dict[str, Any]]:
     """Compress node events into concise summaries for the LLM prompt."""
@@ -142,8 +146,12 @@ def _compress_node_summary(record: RunRecord) -> list[dict[str, Any]]:
             signals: dict[str, Any] = {}
             if insp.tool_failures:
                 signals["tool_failures"] = [
-                    {"type": tf.failure_type, "field": tf.field_name,
-                     "severity": tf.severity, "evidence": tf.evidence[:80]}
+                    {
+                        "type": tf.failure_type,
+                        "field": tf.field_name,
+                        "severity": tf.severity,
+                        "evidence": tf.evidence[:80],
+                    }
                     for tf in insp.tool_failures
                 ]
             if insp.missing_fields:
@@ -152,9 +160,13 @@ def _compress_node_summary(record: RunRecord) -> list[dict[str, Any]]:
                 signals["empty_fields"] = insp.empty_fields
             if insp.semantic_signals:
                 signals["semantic_signals"] = [
-                    {"id": s.sig_id, "category": s.category,
-                     "severity": s.severity, "path": s.dotted_path,
-                     "evidence": s.evidence[:60]}
+                    {
+                        "id": s.sig_id,
+                        "category": s.category,
+                        "severity": s.severity,
+                        "path": s.dotted_path,
+                        "evidence": s.evidence[:60],
+                    }
                     for s in insp.semantic_signals
                 ]
             if signals:
@@ -163,8 +175,12 @@ def _compress_node_summary(record: RunRecord) -> list[dict[str, Any]]:
         # Compact anomaly signals
         if event.anomaly_signals:
             summary["anomalies"] = [
-                {"id": a.anomaly_id, "severity": a.severity,
-                 "score": a.suspicion_score, "reason": a.reason[:80]}
+                {
+                    "id": a.anomaly_id,
+                    "severity": a.severity,
+                    "score": a.suspicion_score,
+                    "reason": a.reason[:80],
+                }
                 for a in event.anomaly_signals
             ]
 
@@ -172,8 +188,7 @@ def _compress_node_summary(record: RunRecord) -> list[dict[str, Any]]:
         failed_validators = [v for v in event.validator_results if not v.is_valid]
         if failed_validators:
             summary["failed_validators"] = [
-                {"name": v.validator_name, "message": v.message[:80]}
-                for v in failed_validators
+                {"name": v.validator_name, "message": v.message[:80]} for v in failed_validators
             ]
 
         # Truncated output snapshot (key fields only, max 200 chars per value)
@@ -240,25 +255,40 @@ def compress_intelligence(record: RunRecord) -> dict[str, Any]:
         briefing["correlation"] = {
             "causal_summary": corr.causal_summary,
             "degradation_origins": [
-                {"node": o.node_name, "step": o.step_index,
-                 "signals": list(o.signal_types), "confidence": o.confidence,
-                 "reason": o.reason}
+                {
+                    "node": o.node_name,
+                    "step": o.step_index,
+                    "signals": list(o.signal_types),
+                    "confidence": o.confidence,
+                    "reason": o.reason,
+                }
                 for o in corr.degradation_origins
             ],
             "propagation_chains": [
-                {"type": c.chain_type, "nodes": list(c.nodes),
-                 "summary": c.summary,
-                 "links": [
-                     {"from": lnk.source_node, "to": lnk.target_node,
-                      "signal": lnk.signal_type, "confidence": lnk.confidence,
-                      "evidence": lnk.evidence}
-                     for lnk in c.links
-                 ]}
+                {
+                    "type": c.chain_type,
+                    "nodes": list(c.nodes),
+                    "summary": c.summary,
+                    "links": [
+                        {
+                            "from": lnk.source_node,
+                            "to": lnk.target_node,
+                            "signal": lnk.signal_type,
+                            "confidence": lnk.confidence,
+                            "evidence": lnk.evidence,
+                        }
+                        for lnk in c.links
+                    ],
+                }
                 for c in corr.propagation_chains
             ],
             "timeline": [
-                {"step": t.step_index, "node": t.node_name,
-                 "event": t.event_type, "label": t.label}
+                {
+                    "step": t.step_index,
+                    "node": t.node_name,
+                    "event": t.event_type,
+                    "label": t.label,
+                }
                 for t in corr.timeline
                 if t.event_type != "node_ok"  # omit clean nodes to save tokens
             ],
@@ -442,8 +472,7 @@ def build_prompt(
         "empty field, what the node was trying to do, and how the failure propagated. "
         "Be specific about field names, values, and the causal chain. "
         "If the correlator's attribution seems wrong, say so.\n"
-        "\n## Full Execution Intelligence\n"
-        + json.dumps(briefing, indent=2, default=str)
+        "\n## Full Execution Intelligence\n" + json.dumps(briefing, indent=2, default=str)
     )
 
     return [
@@ -453,6 +482,7 @@ def build_prompt(
 
 
 # ── Response parsing ──────────────────────────────────────────────────────────
+
 
 def _parse_response(raw: str) -> dict[str, Any]:
     """Parse LLM response JSON, handling markdown code fences."""
@@ -474,12 +504,14 @@ def _extract_hypotheses(data: dict[str, Any]) -> list[SemanticHypothesis]:
     for h in raw:
         if not isinstance(h, dict):
             continue
-        hypotheses.append(SemanticHypothesis(
-            hypothesis=str(h.get("hypothesis", "")),
-            confidence=float(h.get("confidence", 0.0)),
-            supporting_evidence=tuple(str(e) for e in h.get("supporting_evidence", [])),
-            category=str(h.get("category", "other")),
-        ))
+        hypotheses.append(
+            SemanticHypothesis(
+                hypothesis=str(h.get("hypothesis", "")),
+                confidence=float(h.get("confidence", 0.0)),
+                supporting_evidence=tuple(str(e) for e in h.get("supporting_evidence", [])),
+                category=str(h.get("category", "other")),
+            )
+        )
     hypotheses.sort(key=lambda x: -x.confidence)
     return hypotheses
 
@@ -493,16 +525,18 @@ def _extract_suggested_signatures(data: dict[str, Any]) -> list[SuggestedSignatu
         confidence = float(s.get("confidence", 0.0))
         if confidence < 0.7:
             continue  # reject low-confidence suggestions
-        sigs.append(SuggestedSignature(
-            pattern=str(s.get("pattern", "")),
-            match_strategy=str(s.get("match_strategy", "contains_ci")),
-            proposed_category=str(s.get("proposed_category", "unknown")),
-            severity=str(s.get("severity", "warning")),
-            description=str(s.get("description", "")),
-            evidence=tuple(str(e) for e in s.get("evidence", [])),
-            confidence=confidence,
-            reasoning=str(s.get("reasoning", "")),
-        ))
+        sigs.append(
+            SuggestedSignature(
+                pattern=str(s.get("pattern", "")),
+                match_strategy=str(s.get("match_strategy", "contains_ci")),
+                proposed_category=str(s.get("proposed_category", "unknown")),
+                severity=str(s.get("severity", "warning")),
+                description=str(s.get("description", "")),
+                evidence=tuple(str(e) for e in s.get("evidence", [])),
+                confidence=confidence,
+                reasoning=str(s.get("reasoning", "")),
+            )
+        )
     return sigs
 
 
@@ -598,6 +632,7 @@ def _not_triggered_result() -> LLMInvestigationResult:
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
+
 def investigate(
     record: RunRecord,
     config: LLMInvestigationConfig | None = None,
@@ -625,6 +660,7 @@ def investigate(
     # Load .env if present (no-op if python-dotenv not installed)
     try:
         from dotenv import load_dotenv
+
         load_dotenv(override=True)
     except ImportError:
         pass
@@ -756,6 +792,7 @@ def compare_runs(
     # Load .env if present
     try:
         from dotenv import load_dotenv
+
         load_dotenv(override=True)
     except ImportError:
         pass

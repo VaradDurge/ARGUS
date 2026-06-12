@@ -20,6 +20,7 @@ class SignatureMatch:
 
 # ── Singleton registry load ───────────────────────────────────────────────────
 
+
 def _load_registry() -> list[dict[str, Any]]:
     """Load signatures.json from the package data directory.
 
@@ -59,16 +60,15 @@ def _load_registry() -> list[dict[str, Any]]:
             shared_data = json.loads(
                 shared_cache.read_text(encoding="utf-8"),
             )
-            seen_patterns = {
-                (s.get("pattern"), s.get("match_strategy")) for s in sigs
-            }
+            seen_patterns = {(s.get("pattern"), s.get("match_strategy")) for s in sigs}
             for sig in shared_data:
                 key = (sig.get("pattern"), sig.get("match_strategy"))
                 if key in seen_patterns:
                     continue  # skip duplicates
                 if sig.get("match_strategy") == "regex" and sig.get("pattern"):
                     sig["_compiled"] = re.compile(
-                        sig["pattern"], re.IGNORECASE,
+                        sig["pattern"],
+                        re.IGNORECASE,
                     )
                 sigs.append(sig)
                 seen_patterns.add(key)
@@ -102,6 +102,7 @@ def sync_shared_signatures() -> int:
 
     try:
         from argus.cloud import pull_shared_signatures  # noqa: PLC0415
+
         sigs = pull_shared_signatures()
     except Exception:
         return 0
@@ -117,6 +118,7 @@ def sync_shared_signatures() -> int:
 
 
 # ── Matchers ──────────────────────────────────────────────────────────────────
+
 
 def _match_exact_ci(pattern: str, value: str) -> bool:
     """True if the stripped, lowercased value equals the lowercased pattern."""
@@ -139,17 +141,91 @@ def _match_prefix_ci(pattern: str, value: str) -> bool:
     return value.lower().startswith(pattern.lower())
 
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-    "being", "have", "has", "had", "do", "does", "did", "will", "would",
-    "could", "should", "may", "might", "shall", "can", "it", "its",
-    "this", "that", "these", "those", "i", "we", "you", "he", "she",
-    "they", "them", "their", "my", "our", "your", "his", "her", "as",
-    "if", "not", "no", "so", "up", "out", "about", "into", "than",
-    "also", "which", "who", "what", "when", "where", "how", "all",
-    "each", "every", "both", "more", "most", "other", "some", "such",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "it",
+        "its",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "we",
+        "you",
+        "he",
+        "she",
+        "they",
+        "them",
+        "their",
+        "my",
+        "our",
+        "your",
+        "his",
+        "her",
+        "as",
+        "if",
+        "not",
+        "no",
+        "so",
+        "up",
+        "out",
+        "about",
+        "into",
+        "than",
+        "also",
+        "which",
+        "who",
+        "what",
+        "when",
+        "where",
+        "how",
+        "all",
+        "each",
+        "every",
+        "both",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+    }
+)
 
 
 def _match_repetition(value: str, threshold: int = 3) -> bool:
@@ -213,6 +289,7 @@ def _dispatch(sig: dict[str, Any], value: str) -> bool:
 
 
 # ── Scanner ───────────────────────────────────────────────────────────────────
+
 
 def scan_value(
     value: str,

@@ -23,6 +23,7 @@ Usage — automatic playback during replay::
 The recorded interactions are stored in ``.argus/runs/<run-id>.http.json``
 alongside the normal run JSON.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -84,7 +85,8 @@ class HttpRecorder:
             "method": method,
             "url": url,
             "request_body_hash": hashlib.sha256(
-                (request_body or b"") if isinstance(request_body, bytes)
+                (request_body or b"")
+                if isinstance(request_body, bytes)
                 else (request_body or "").encode()
             ).hexdigest()[:16],
             "status": status,
@@ -113,7 +115,10 @@ class HttpPlayer:
         self._miss_count = 0
 
     def lookup(
-        self, method: str, url: str, body: bytes | str | None,
+        self,
+        method: str,
+        url: str,
+        body: bytes | str | None,
     ) -> dict[str, Any] | None:
         """Find a recorded response for this request. Returns None on miss."""
         key = _request_key(method, url, body)
@@ -147,6 +152,7 @@ def _make_patched_urlopen(recorder: HttpRecorder | None, player: HttpPlayer | No
             if recorded is not None:
                 # Build a fake urllib3 response
                 from unittest.mock import MagicMock
+
                 resp = MagicMock()
                 resp.status = recorded["status"]
                 resp.data = recorded["response_body"].encode("utf-8")
@@ -198,6 +204,7 @@ def record_http() -> Generator[HttpRecorder, None, None]:
 
     try:
         import urllib3  # type: ignore[import]
+
         pool_cls = urllib3.HTTPConnectionPool
         _original_urlopen = pool_cls.urlopen
         pool_cls.urlopen = _make_patched_urlopen(recorder, None)
@@ -231,6 +238,7 @@ def playback_http(interactions: list[dict[str, Any]]) -> Generator[HttpPlayer, N
 
     try:
         import urllib3  # type: ignore[import]
+
         pool_cls = urllib3.HTTPConnectionPool
         _original_urlopen = pool_cls.urlopen
         pool_cls.urlopen = _make_patched_urlopen(None, player)
@@ -251,6 +259,7 @@ def playback_http(interactions: list[dict[str, Any]]) -> Generator[HttpPlayer, N
 def save_http_interactions(run_id: str, interactions: list[dict[str, Any]]) -> Path:
     """Save recorded HTTP interactions alongside the run JSON."""
     from argus.storage import _runs_path
+
     path = _runs_path() / f"{run_id}.http.json"
     path.write_text(json.dumps(interactions, indent=2), encoding="utf-8")
     return path
@@ -259,11 +268,13 @@ def save_http_interactions(run_id: str, interactions: list[dict[str, Any]]) -> P
 def load_http_interactions(run_id: str) -> list[dict[str, Any]] | None:
     """Load recorded HTTP interactions for a run. Returns None if not found."""
     from argus.storage import _runs_path
+
     path = _runs_path() / f"{run_id}.http.json"
     if not path.exists():
         # Search subdirectories
         import os
         from pathlib import Path as P
+
         cwd = P(os.getcwd())
         for sub_runs in cwd.rglob(".argus/runs"):
             candidate = sub_runs / f"{run_id}.http.json"

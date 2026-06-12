@@ -3,6 +3,7 @@
 Validates that ARGUS can function correctly in the current environment:
 LangGraph version, Python version, storage health, and replay readiness.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -29,10 +30,12 @@ def _check_python_version() -> tuple[bool, str]:
 def _check_langgraph() -> tuple[bool, str]:
     try:
         import langgraph  # type: ignore[import]
+
         version = getattr(langgraph, "__version__", None)
         if not version:
             try:
                 from importlib.metadata import version as pkg_version
+
                 version = pkg_version("langgraph")
             except Exception:
                 version = "unknown"
@@ -42,6 +45,7 @@ def _check_langgraph() -> tuple[bool, str]:
         # Check for compile kwargs support (checkpointer, interrupt_before)
         try:
             import re
+
             nums = re.findall(r"\d+", version)
             major = int(nums[0]) if nums else 0
             minor = int(nums[1]) if len(nums) > 1 else 0
@@ -111,6 +115,7 @@ def _check_replay_readiness() -> tuple[bool, str]:
 
     # Try importing each node function
     import os
+
     cwd = os.getcwd()
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
@@ -147,6 +152,7 @@ def _check_optional_deps() -> tuple[bool, str]:
         import os  # noqa: E401
 
         import openai  # type: ignore[import]  # noqa: F401
+
         if os.environ.get("OPENAI_API_KEY"):
             parts.append("openai (key set)")
         else:
@@ -157,6 +163,7 @@ def _check_optional_deps() -> tuple[bool, str]:
     # python-dotenv
     try:
         import dotenv  # type: ignore[import]  # noqa: F401
+
         parts.append("dotenv")
     except ImportError:
         parts.append("dotenv (not installed)")

@@ -74,7 +74,9 @@ def _pattern_in_custom(pattern: str, strategy: str, custom: dict[str, Any]) -> b
 
 
 def add_candidate(
-    sig: SuggestedSignature, run_id: str, node_name: str = "",
+    sig: SuggestedSignature,
+    run_id: str,
+    node_name: str = "",
 ) -> str | None:
     """Queue a suggested signature as a candidate for review.
 

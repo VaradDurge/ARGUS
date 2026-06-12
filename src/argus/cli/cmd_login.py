@@ -3,6 +3,7 @@
 Opens the browser for Google auth via Supabase, captures the
 callback on a temporary local server.
 """
+
 from __future__ import annotations
 
 import json
@@ -93,10 +94,12 @@ def login() -> None:
     redirect_url = f"http://localhost:{port}/callback"
 
     # Build the Supabase OAuth URL
-    params = urlencode({
-        "provider": "google",
-        "redirect_to": redirect_url,
-    })
+    params = urlencode(
+        {
+            "provider": "google",
+            "redirect_to": redirect_url,
+        }
+    )
     auth_url = f"{SUPABASE_URL}/auth/v1/authorize?{params}"
 
     result: dict[str, str] = {}
@@ -167,6 +170,7 @@ def login() -> None:
 
     # Fetch user info from Supabase
     import urllib.request
+
     req = urllib.request.Request(
         f"{SUPABASE_URL}/auth/v1/user",
         headers={

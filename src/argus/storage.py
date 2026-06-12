@@ -65,6 +65,7 @@ def save_run(record: RunRecord) -> Path:
     # Cloud sync — push synchronously so the thread isn't killed on process exit
     try:
         from argus.cloud import is_logged_in, push_run
+
         if is_logged_in():
             push_run(data)
     except Exception:
@@ -134,13 +135,15 @@ def list_runs() -> list[dict[str, Any]]:
     for f in _run_json_files_newest_first(runs_dir):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            summaries.append({
-                "run_id": data.get("run_id", f.stem),
-                "started_at": data.get("started_at", ""),
-                "overall_status": data.get("overall_status", "unknown"),
-                "duration_ms": data.get("duration_ms"),
-                "step_count": len(data.get("steps", [])),
-            })
+            summaries.append(
+                {
+                    "run_id": data.get("run_id", f.stem),
+                    "started_at": data.get("started_at", ""),
+                    "overall_status": data.get("overall_status", "unknown"),
+                    "duration_ms": data.get("duration_ms"),
+                    "step_count": len(data.get("steps", [])),
+                }
+            )
         except Exception:
             continue
     return summaries
@@ -177,15 +180,17 @@ def list_replay_children(run_id: str) -> list[dict[str, Any]]:
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
             if data.get("parent_run_id") == run_id:
-                children.append({
-                    "run_id": data.get("run_id", f.stem),
-                    "started_at": data.get("started_at", ""),
-                    "overall_status": data.get("overall_status", "unknown"),
-                    "duration_ms": data.get("duration_ms"),
-                    "step_count": len(data.get("steps", [])),
-                    "replay_from_step": data.get("replay_from_step"),
-                    "parent_run_id": run_id,
-                })
+                children.append(
+                    {
+                        "run_id": data.get("run_id", f.stem),
+                        "started_at": data.get("started_at", ""),
+                        "overall_status": data.get("overall_status", "unknown"),
+                        "duration_ms": data.get("duration_ms"),
+                        "step_count": len(data.get("steps", [])),
+                        "replay_from_step": data.get("replay_from_step"),
+                        "parent_run_id": run_id,
+                    }
+                )
         except Exception:
             continue
     children.sort(key=lambda r: r.get("started_at", ""))
@@ -365,12 +370,8 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
     insp_data = data.get("inspection")
     inspection = None
     if insp_data:
-        mismatches = [
-            FieldMismatch(**m) for m in insp_data.get("type_mismatches", [])
-        ]
-        tool_failures = [
-            ToolFailure(**tf) for tf in insp_data.get("tool_failures", [])
-        ]
+        mismatches = [FieldMismatch(**m) for m in insp_data.get("type_mismatches", [])]
+        tool_failures = [ToolFailure(**tf) for tf in insp_data.get("tool_failures", [])]
         semantic_signals = [
             SemanticSignal(
                 sig_id=s["sig_id"],
@@ -397,12 +398,8 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
             degraded_fields=insp_data.get("degraded_fields", []),
             degraded_upstream_node=insp_data.get("degraded_upstream_node"),
         )
-    validator_results = [
-        ValidatorResult(**v) for v in data.get("validator_results", [])
-    ]
-    anomaly_signals = [
-        AnomalySignal(**a) for a in data.get("anomaly_signals", [])
-    ]
+    validator_results = [ValidatorResult(**v) for v in data.get("validator_results", [])]
+    anomaly_signals = [AnomalySignal(**a) for a in data.get("anomaly_signals", [])]
     sc = data.get("semantic_check")
     semantic_check = SemanticCheckResult(**sc) if sc else None
     return NodeEvent(

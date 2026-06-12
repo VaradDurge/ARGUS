@@ -63,6 +63,7 @@ def extract_fields(state_type: type) -> dict[str, dict[str, Any]]:
 
     # dataclass
     import dataclasses
+
     if dataclasses.is_dataclass(state_type) and isinstance(state_type, type):
         result = {}
         for f in dataclasses.fields(state_type):

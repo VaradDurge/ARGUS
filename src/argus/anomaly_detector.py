@@ -9,6 +9,7 @@ Supports 3-level behavior context:
   2. Pipeline-level default (ArgusSession parameter)
   3. Per-node override (ArgusSession parameter)
 """
+
 from __future__ import annotations
 
 import json
@@ -66,29 +67,32 @@ _RETRIEVAL_KEYS = re.compile(
 _TOOL_KEYS = re.compile(r"(status|result|response|data|output)$", re.IGNORECASE)
 _STEP_KEYS = re.compile(r"(steps?|chain|reasoning|thought|trace)", re.IGNORECASE)
 
-_GENERIC_PHRASES = frozenset([
-    "i'm sorry",
-    "i cannot",
-    "i can't",
-    "as an ai",
-    "i don't have",
-    "i am unable",
-    "not available",
-    "no data",
-    "no information",
-    "please provide",
-    "try again",
-    "something went wrong",
-    "an error occurred",
-    "unable to process",
-    "no results found",
-    "nothing to display",
-])
+_GENERIC_PHRASES = frozenset(
+    [
+        "i'm sorry",
+        "i cannot",
+        "i can't",
+        "as an ai",
+        "i don't have",
+        "i am unable",
+        "not available",
+        "no data",
+        "no information",
+        "please provide",
+        "try again",
+        "something went wrong",
+        "an error occurred",
+        "unable to process",
+        "no results found",
+        "nothing to display",
+    ]
+)
 
 _WORD_RE = re.compile(r"[a-zA-Z0-9]+")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _extract_all_strings(obj: Any, path: str = "") -> list[tuple[str, str]]:
     """Recursively extract all string values with their dotted paths."""
@@ -144,6 +148,7 @@ def _is_empty(value: Any) -> bool:
 
 # ── Auto-inference ───────────────────────────────────────────────────────────
 
+
 def infer_behavior_type(output_dict: dict[str, Any]) -> str:
     """Infer expected behavior type from output shape."""
     if not output_dict:
@@ -189,6 +194,7 @@ def infer_behavior_type(output_dict: dict[str, Any]) -> str:
 
 # ── Behavior type resolution ────────────────────────────────────────────────
 
+
 def resolve_behavior_type(
     node_name: str,
     output_dict: dict[str, Any],
@@ -203,6 +209,7 @@ def resolve_behavior_type(
 
 
 # ── Anomaly checks ──────────────────────────────────────────────────────────
+
 
 def _check_length_collapse(
     output_dict: dict[str, Any],
@@ -392,8 +399,7 @@ def _check_structural_malformation(
     # Check step expectation (reasoning chain)
     if profile.get("expects_steps", False):
         has_steps = any(
-            _STEP_KEYS.search(k) and isinstance(v, (list, dict))
-            for k, v in output_dict.items()
+            _STEP_KEYS.search(k) and isinstance(v, (list, dict)) for k, v in output_dict.items()
         )
         if not has_steps:
             signals.append((0.5, "expected step/chain structure, not found"))
@@ -559,6 +565,7 @@ def _check_abnormal_tool_response(
 
 
 # ── Main entry point ─────────────────────────────────────────────────────────
+
 
 def detect_anomalies(
     node_name: str,

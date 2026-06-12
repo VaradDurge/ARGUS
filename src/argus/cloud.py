@@ -2,6 +2,7 @@
 
 Uses only stdlib (urllib) to avoid adding dependencies.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,6 +29,7 @@ _CREDENTIALS_FILE = _CREDENTIALS_DIR / "credentials.json"
 
 # ── Credentials ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class Credentials:
     access_token: str
@@ -40,13 +42,16 @@ class Credentials:
 def save_credentials(creds: Credentials) -> None:
     _CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
     _CREDENTIALS_FILE.write_text(
-        json.dumps({
-            "access_token": creds.access_token,
-            "refresh_token": creds.refresh_token,
-            "user_id": creds.user_id,
-            "email": creds.email,
-            "expires_at": creds.expires_at,
-        }, indent=2),
+        json.dumps(
+            {
+                "access_token": creds.access_token,
+                "refresh_token": creds.refresh_token,
+                "user_id": creds.user_id,
+                "email": creds.email,
+                "expires_at": creds.expires_at,
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
@@ -72,6 +77,7 @@ def is_logged_in() -> bool:
 
 
 # ── Token refresh ────────────────────────────────────────────────────────
+
 
 def _refresh_if_needed(creds: Credentials) -> Credentials:
     """Refresh the access token if it expires within 60 seconds."""
@@ -114,6 +120,7 @@ def _get_valid_credentials() -> Credentials | None:
 
 # ── REST helpers ─────────────────────────────────────────────────────────
 
+
 def _supabase_request(
     method: str,
     path: str,
@@ -143,6 +150,7 @@ def _supabase_request(
 
 
 # ── Public API ───────────────────────────────────────────────────────────
+
 
 def push_run(run_data: dict[str, Any]) -> bool:
     """Push a run record to Supabase. Returns True on success."""
@@ -249,22 +257,24 @@ def pull_shared_signatures() -> list[dict[str, Any]]:
 
         sigs: list[dict[str, Any]] = []
         for row in rows:
-            sigs.append({
-                "id": row["sig_id"],
-                "category": row["category"],
-                "pattern": row["pattern"],
-                "match_strategy": row["match_strategy"],
-                "severity": row["severity"],
-                "description": row["description"],
-                "source": "shared",
-                "metadata": {
-                    "confidence": row.get("confidence"),
-                    "frequency": row.get("times_seen", 1),
-                    "approval_status": "approved",
-                    "contributed_by": row.get("contributed_by"),
-                    "framework_specific": None,
-                },
-            })
+            sigs.append(
+                {
+                    "id": row["sig_id"],
+                    "category": row["category"],
+                    "pattern": row["pattern"],
+                    "match_strategy": row["match_strategy"],
+                    "severity": row["severity"],
+                    "description": row["description"],
+                    "source": "shared",
+                    "metadata": {
+                        "confidence": row.get("confidence"),
+                        "frequency": row.get("times_seen", 1),
+                        "approval_status": "approved",
+                        "contributed_by": row.get("contributed_by"),
+                        "framework_specific": None,
+                    },
+                }
+            )
         return sigs
     except Exception:
         return []
@@ -277,6 +287,7 @@ def pull_shared_signatures_async(
 
     If callback is provided, it is called with the result list.
     """
+
     def _run() -> None:
         result = pull_shared_signatures()
         if callback is not None:

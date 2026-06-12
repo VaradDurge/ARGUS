@@ -1,4 +1,5 @@
 """Hardcoded LLM pricing table for automatic cost calculation."""
+
 from __future__ import annotations
 
 # (prompt_cost, completion_cost) per 1M tokens in USD
@@ -37,7 +38,9 @@ _MODEL_PRICING: dict[str, tuple[float, float]] = {
 
 
 def calculate_cost(
-    model_name: str, prompt_tokens: int, completion_tokens: int,
+    model_name: str,
+    prompt_tokens: int,
+    completion_tokens: int,
 ) -> float | None:
     """Calculate cost in USD from model name and token counts.
 

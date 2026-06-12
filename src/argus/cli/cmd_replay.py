@@ -100,11 +100,14 @@ def replay_run(
     try:
         if only:
             new_run_id = engine.replay_node(
-                run_id=run_id, node_name=from_step,
+                run_id=run_id,
+                node_name=from_step,
             )
         else:
             new_run_id = engine.replay(
-                run_id=run_id, from_node=from_step, app_factory=factory,
+                run_id=run_id,
+                from_node=from_step,
+                app_factory=factory,
             )
     except Exception as e:
         console.print(f"[red]Replay failed:[/red] {e}")
@@ -114,33 +117,33 @@ def replay_run(
         console.print("[yellow]Warning:[/yellow] Could not locate the new replay run.")
         return
     new_record = load_run(new_run_id)
-    name_col   = max(len(s.node_name) for s in new_record.steps) + 2
+    name_col = max(len(s.node_name) for s in new_record.steps) + 2
 
     for step in new_record.steps:
         number = str(step.step_index + 1)
-        pad    = " " * (name_col - len(step.node_name))
-        dur    = f"[italic dim]{step.duration_ms:.0f} ms[/italic dim]"
+        pad = " " * (name_col - len(step.node_name))
+        dur = f"[italic dim]{step.duration_ms:.0f} ms[/italic dim]"
 
         if step.status == "pass":
-            name   = f"[bold]{step.node_name}[/bold]"
-            icon   = "[bold green]✓[/bold green]"
-            label  = "[bold green]pass[/bold green]"
+            name = f"[bold]{step.node_name}[/bold]"
+            icon = "[bold green]✓[/bold green]"
+            label = "[bold green]pass[/bold green]"
         elif step.status == "fail":
-            name   = f"[bold]{step.node_name}[/bold]"
-            icon   = "[bold yellow]⚠[/bold yellow]"
-            label  = "[bold yellow]silent failure[/bold yellow]"
+            name = f"[bold]{step.node_name}[/bold]"
+            icon = "[bold yellow]⚠[/bold yellow]"
+            label = "[bold yellow]silent failure[/bold yellow]"
         elif step.status == "semantic_fail":
-            name   = f"[bold]{step.node_name}[/bold]"
-            icon   = "[bold magenta]⊗[/bold magenta]"
-            label  = "[bold magenta]semantic fail[/bold magenta]"
+            name = f"[bold]{step.node_name}[/bold]"
+            icon = "[bold magenta]⊗[/bold magenta]"
+            label = "[bold magenta]semantic fail[/bold magenta]"
         elif step.status == "interrupted":
-            name   = f"[bold]{step.node_name}[/bold]"
-            icon   = "[bold yellow]⏸[/bold yellow]"
-            label  = "[bold yellow]interrupted[/bold yellow]"
+            name = f"[bold]{step.node_name}[/bold]"
+            icon = "[bold yellow]⏸[/bold yellow]"
+            label = "[bold yellow]interrupted[/bold yellow]"
         else:
-            name   = f"[bold red]{step.node_name}[/bold red]"
-            icon   = "[bold red]✗[/bold red]"
-            label  = "[bold red]crashed[/bold red]"
+            name = f"[bold red]{step.node_name}[/bold red]"
+            icon = "[bold red]✗[/bold red]"
+            label = "[bold red]crashed[/bold red]"
 
         console.print(f"  [dim]{number:>2}[/dim]  {name}{pad}  {dur}   {icon}  {label}")
 
@@ -168,7 +171,9 @@ def replay_run(
 
 
 def _print_inline_diff(
-    original: RunRecord, replay: RunRecord, only: bool = False,
+    original: RunRecord,
+    replay: RunRecord,
+    only: bool = False,
 ) -> None:
     """Print a compact inline diff comparing original vs replay."""
     from argus.cli.cmd_diff import (
@@ -177,6 +182,7 @@ def _print_inline_diff(
         _diff_output,
         _diff_validators,
     )
+
     orig_map = _build_node_map(original)
     replay_map = _build_node_map(replay)
 
@@ -236,8 +242,7 @@ def _print_inline_diff(
                 )
             else:
                 console.print(
-                    f"  [bold]{name}[/bold]  "
-                    f"[dim]{b.status}[/dim] → [dim]{a.status}[/dim]"
+                    f"  [bold]{name}[/bold]  [dim]{b.status}[/dim] → [dim]{a.status}[/dim]"
                 )
         else:
             console.print(f"  [bold]{name}[/bold]  [dim]{a.status}[/dim]")
@@ -289,6 +294,7 @@ def _import_factory(spec: str) -> Callable[[], Any] | None:
 
 def inspect_step(run_id: str, step_name: str) -> None:
     import json
+
     try:
         record = load_run(run_id)
     except FileNotFoundError as e:

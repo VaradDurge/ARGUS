@@ -28,6 +28,7 @@ def _get_cli_auth() -> dict | None:
     """Return CLI credentials for auto-login in the local UI, refreshing if needed."""
     try:
         from argus.cloud import _get_valid_credentials  # noqa: PLC0415
+
         creds = _get_valid_credentials()
         if creds is None:
             return None
@@ -51,6 +52,8 @@ def _content_type(suffix: str) -> str:
 
 
 _CONFIG_PATH = Path(".") / ".argus" / "config.json"
+
+
 def _aliases_path(project_dir: Path) -> Path:
     return project_dir / ".argus" / "aliases.json"
 
@@ -108,11 +111,15 @@ def _import_factory_for_ui(spec: str):
 
 
 def _run_replay_worker(
-    job_id: str, run_id: str, from_node: str, app_module_str: str | None,
+    job_id: str,
+    run_id: str,
+    from_node: str,
+    app_module_str: str | None,
     mode: str = "full",
 ) -> None:
     """Background thread: runs ReplayEngine and updates _replay_jobs on completion."""
     from argus.replay import ReplayEngine  # noqa: PLC0415
+
     try:
         engine = ReplayEngine()
         if mode == "node":
@@ -120,7 +127,9 @@ def _run_replay_worker(
         else:
             factory = _import_factory_for_ui(app_module_str) if app_module_str else None
             new_run_id = engine.replay(
-                run_id=run_id, from_node=from_node, app_factory=factory,
+                run_id=run_id,
+                from_node=from_node,
+                app_factory=factory,
             )
         with _replay_lock:
             _replay_jobs[job_id] = {"status": "done", "run_id": new_run_id, "error": None}
@@ -143,8 +152,10 @@ def _all_log_dirs(project_dir: Path) -> list[Path]:
 
 
 def _make_handler(
-    runs_dir: Path, logs_dir: Path,
-    app_module_str: str | None, project_dir: Path | None = None,
+    runs_dir: Path,
+    logs_dir: Path,
+    app_module_str: str | None,
+    project_dir: Path | None = None,
 ) -> type:
     _project_dir = project_dir or runs_dir.parent.parent
 
@@ -201,19 +212,21 @@ def _make_handler(
                     if rid in seen:
                         continue
                     seen.add(rid)
-                    summaries.append({
-                        "run_id": rid,
-                        "overall_status": run["overall_status"],
-                        "started_at": run["started_at"],
-                        "duration_ms": run.get("duration_ms"),
-                        "step_count": len(run.get("steps", [])),
-                        "first_failure_step": run.get("first_failure_step"),
-                        "graph_node_names": run.get("graph_node_names", []),
-                        "argus_version": run.get("argus_version", ""),
-                        "parent_run_id": run.get("parent_run_id"),
-                        "replay_from_step": run.get("replay_from_step"),
-                        "alias": aliases.get(rid),
-                    })
+                    summaries.append(
+                        {
+                            "run_id": rid,
+                            "overall_status": run["overall_status"],
+                            "started_at": run["started_at"],
+                            "duration_ms": run.get("duration_ms"),
+                            "step_count": len(run.get("steps", [])),
+                            "first_failure_step": run.get("first_failure_step"),
+                            "graph_node_names": run.get("graph_node_names", []),
+                            "argus_version": run.get("argus_version", ""),
+                            "parent_run_id": run.get("parent_run_id"),
+                            "replay_from_step": run.get("replay_from_step"),
+                            "alias": aliases.get(rid),
+                        }
+                    )
                 except Exception:
                     pass
             summaries.sort(key=lambda r: r["started_at"], reverse=True)
@@ -231,6 +244,7 @@ def _make_handler(
 
         def _get_run_children(self, run_id: str) -> None:
             from argus.storage import list_replay_children  # noqa: PLC0415
+
             children = list_replay_children(run_id)
             # Also scan all project run files for cloud-synced children
             for f in _all_run_files(_project_dir):
@@ -239,15 +253,17 @@ def _make_handler(
                     if data.get("parent_run_id") == run_id:
                         rid = data.get("run_id", f.stem)
                         if not any(c["run_id"] == rid for c in children):
-                            children.append({
-                                "run_id": rid,
-                                "started_at": data.get("started_at", ""),
-                                "overall_status": data.get("overall_status", "unknown"),
-                                "duration_ms": data.get("duration_ms"),
-                                "step_count": len(data.get("steps", [])),
-                                "replay_from_step": data.get("replay_from_step"),
-                                "parent_run_id": run_id,
-                            })
+                            children.append(
+                                {
+                                    "run_id": rid,
+                                    "started_at": data.get("started_at", ""),
+                                    "overall_status": data.get("overall_status", "unknown"),
+                                    "duration_ms": data.get("duration_ms"),
+                                    "step_count": len(data.get("steps", [])),
+                                    "replay_from_step": data.get("replay_from_step"),
+                                    "parent_run_id": run_id,
+                                }
+                            )
                 except Exception:
                     continue
             children.sort(key=lambda r: r.get("started_at", ""))
@@ -255,6 +271,7 @@ def _make_handler(
 
         def _get_run_tree(self, run_id: str) -> None:
             from argus.storage import build_replay_tree  # noqa: PLC0415
+
             tree = build_replay_tree(run_id)
             self._send_json(tree)
 
@@ -279,6 +296,7 @@ def _make_handler(
                         except Exception:
                             pass
                 return None
+
             self._send_json({"a": read_run(a), "b": read_run(b)})
 
         def _serve_static(self, path: str) -> None:
@@ -325,15 +343,15 @@ def _make_handler(
             elif path == "/api/runs":
                 self._list_runs()
             elif path.startswith("/api/runs/") and path.endswith("/children"):
-                rid = path[len("/api/runs/"):-len("/children")]
+                rid = path[len("/api/runs/") : -len("/children")]
                 self._get_run_children(rid)
             elif path.startswith("/api/runs/") and path.endswith("/tree"):
-                rid = path[len("/api/runs/"):-len("/tree")]
+                rid = path[len("/api/runs/") : -len("/tree")]
                 self._get_run_tree(rid)
             elif path.startswith("/api/runs/"):
-                self._get_run(path[len("/api/runs/"):])
+                self._get_run(path[len("/api/runs/") :])
             elif path.startswith("/api/logs/"):
-                self._get_log(path[len("/api/logs/"):])
+                self._get_log(path[len("/api/logs/") :])
             elif path == "/api/compare":
                 qs = parse_qs(parsed.query)
                 a = qs.get("a", [""])[0]
@@ -343,25 +361,31 @@ def _make_handler(
                 self._send_json({"app": app_module_str or _load_config_app_factory() or ""})
             elif path == "/api/candidates":
                 from argus.candidate_store import load_candidates  # noqa: PLC0415
+
                 data = load_candidates()
-                self._send_json({
-                    "candidates": data.get("candidates", []),
-                    "rejected_count": len(data.get("rejected_patterns", [])),
-                })
+                self._send_json(
+                    {
+                        "candidates": data.get("candidates", []),
+                        "rejected_count": len(data.get("rejected_patterns", [])),
+                    }
+                )
             elif path == "/api/custom-signatures":
                 from argus.candidate_store import load_custom_signatures  # noqa: PLC0415
+
                 data = load_custom_signatures()
                 self._send_json(data.get("signatures", []))
             elif path == "/api/shared-signatures":
                 from argus.cloud import pull_shared_signatures  # noqa: PLC0415
+
                 sigs = pull_shared_signatures()
                 self._send_json(sigs)
             elif path == "/api/shared-signatures/sync":
                 from argus.registry import sync_shared_signatures  # noqa: PLC0415
+
                 count = sync_shared_signatures()
                 self._send_json({"synced": count})
             elif path.startswith("/api/replay/status/"):
-                job_id = path[len("/api/replay/status/"):]
+                job_id = path[len("/api/replay/status/") :]
                 with _replay_lock:
                     job = _replay_jobs.get(job_id)
                 if job is None:
@@ -410,6 +434,7 @@ def _make_handler(
                     return
 
                 from argus.storage import load_run as _load_run  # noqa: PLC0415
+
                 try:
                     rec_a = _load_run(id_a)
                 except (FileNotFoundError, ValueError):
@@ -423,6 +448,7 @@ def _make_handler(
 
                 try:
                     from argus.llm_investigator import compare_runs  # noqa: PLC0415
+
                     result = compare_runs(rec_a, rec_b)
                     self._send_json(result)
                 except Exception as exc:
@@ -446,6 +472,7 @@ def _make_handler(
 
                 # Load the run to check existence and stored node refs
                 from argus.storage import load_run as _load_run  # noqa: PLC0415
+
                 try:
                     run_record = _load_run(run_id)
                 except (FileNotFoundError, ValueError):
@@ -456,10 +483,13 @@ def _make_handler(
                 effective_app: str | None = None
                 if replay_mode == "node":
                     if not run_record.node_fn_refs or from_step not in run_record.node_fn_refs:
-                        self._send_json({
-                            "error": "no_node_ref",
-                            "message": f"No stored function ref for '{from_step}'. Re-record with latest argus.",  # noqa: E501
-                        }, 422)
+                        self._send_json(
+                            {
+                                "error": "no_node_ref",
+                                "message": f"No stored function ref for '{from_step}'. Re-record with latest argus.",  # noqa: E501
+                            },
+                            422,
+                        )
                         return
                 else:
                     # Full replay: check factory requirements
@@ -471,10 +501,13 @@ def _make_handler(
                             or run_record.app_factory_ref
                         )
                         if not effective_app:
-                            self._send_json({
-                                "error": "no_app_factory",
-                                "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
-                            }, 422)
+                            self._send_json(
+                                {
+                                    "error": "no_app_factory",
+                                    "message": "Set your app factory in the UI or run argus ui --app module:fn",  # noqa: E501
+                                },
+                                422,
+                            )
                             return
 
                 job_id = str(uuid.uuid4())
@@ -490,9 +523,10 @@ def _make_handler(
 
                 self._send_json({"job_id": job_id}, 202)
             elif path.startswith("/api/candidates/") and path.endswith("/approve-shared"):
-                cand_id = path[len("/api/candidates/"):-len("/approve-shared")]
+                cand_id = path[len("/api/candidates/") : -len("/approve-shared")]
                 from argus.candidate_store import approve_candidate_shared  # noqa: PLC0415
                 from argus.registry import reload_registry, sync_shared_signatures  # noqa: PLC0415
+
                 result = approve_candidate_shared(cand_id)
                 if result is None:
                     self._send_json({"error": "candidate not found or not logged in"}, 400)
@@ -501,9 +535,10 @@ def _make_handler(
                     reload_registry()
                     self._send_json(result)
             elif path.startswith("/api/candidates/") and path.endswith("/approve"):
-                cand_id = path[len("/api/candidates/"):-len("/approve")]
+                cand_id = path[len("/api/candidates/") : -len("/approve")]
                 from argus.candidate_store import approve_candidate  # noqa: PLC0415
                 from argus.registry import reload_registry  # noqa: PLC0415
+
                 result = approve_candidate(cand_id)
                 if result is None:
                     self._send_json({"error": "candidate not found"}, 404)
@@ -511,8 +546,9 @@ def _make_handler(
                     reload_registry()
                     self._send_json(result)
             elif path.startswith("/api/candidates/") and path.endswith("/reject"):
-                cand_id = path[len("/api/candidates/"):-len("/reject")]
+                cand_id = path[len("/api/candidates/") : -len("/reject")]
                 from argus.candidate_store import reject_candidate  # noqa: PLC0415
+
                 if reject_candidate(cand_id):
                     self._send_json({"ok": True})
                 else:
@@ -525,7 +561,7 @@ def _make_handler(
             path = parsed.path.rstrip("/")
 
             if path.startswith("/api/runs/") and path.endswith("/alias"):
-                rid = path[len("/api/runs/"):-len("/alias")]
+                rid = path[len("/api/runs/") : -len("/alias")]
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length)
                 try:
@@ -549,22 +585,23 @@ def _make_handler(
             path = parsed.path.rstrip("/")
 
             if path.startswith("/api/runs/") and path.endswith("/alias"):
-                rid = path[len("/api/runs/"):-len("/alias")]
+                rid = path[len("/api/runs/") : -len("/alias")]
                 aliases = _load_aliases(_project_dir)
                 aliases.pop(rid, None)
                 _save_aliases(aliases, _project_dir)
                 self._send_json({"run_id": rid, "alias": None})
             elif path.startswith("/api/custom-signatures/"):
-                sig_id = path[len("/api/custom-signatures/"):]
+                sig_id = path[len("/api/custom-signatures/") :]
                 from argus.candidate_store import delete_custom_signature  # noqa: PLC0415
                 from argus.registry import reload_registry  # noqa: PLC0415
+
                 if delete_custom_signature(sig_id):
                     reload_registry()
                     self._send_json({"ok": True})
                 else:
                     self._send_json({"error": "not found"}, 404)
             elif path.startswith("/api/runs/"):
-                rid = path[len("/api/runs/"):]
+                rid = path[len("/api/runs/") :]
                 deleted = False
                 for f in _all_run_files(_project_dir):
                     if f.stem == rid or f.stem.startswith(rid):

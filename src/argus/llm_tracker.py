@@ -6,6 +6,7 @@ Uses two detection strategies:
 2. Output dict scanner — looks for common token usage keys in node output
    as a fallback for non-LangChain LLMs.
 """
+
 from __future__ import annotations
 
 import contextvars
@@ -26,13 +27,15 @@ except ImportError:
 
 # Contextvar for injecting the handler into LangChain's execution context
 _active_handler: contextvars.ContextVar[Any] = contextvars.ContextVar(
-    "argus_llm_handler", default=None,
+    "argus_llm_handler",
+    default=None,
 )
 
 
 # ── LangChain callback handler ─────────────────────────────────────────────
 
 if _HAS_LANGCHAIN:
+
     class ArgusLLMHandler(BaseCallbackHandler):  # type: ignore[misc]
         """Captures LLM call metadata during node execution."""
 
@@ -61,16 +64,14 @@ if _HAS_LANGCHAIN:
                     token_usage = gen_info.get("usage", {})
 
             prompt_tokens = _int_or_zero(
-                token_usage.get("prompt_tokens")
-                or token_usage.get("input_tokens")
+                token_usage.get("prompt_tokens") or token_usage.get("input_tokens")
             )
             completion_tokens = _int_or_zero(
-                token_usage.get("completion_tokens")
-                or token_usage.get("output_tokens")
+                token_usage.get("completion_tokens") or token_usage.get("output_tokens")
             )
-            total_tokens = _int_or_zero(
-                token_usage.get("total_tokens")
-            ) or (prompt_tokens + completion_tokens)
+            total_tokens = _int_or_zero(token_usage.get("total_tokens")) or (
+                prompt_tokens + completion_tokens
+            )
 
             model_name = (
                 llm_output.get("model_name")
@@ -83,13 +84,15 @@ if _HAS_LANGCHAIN:
             if total_tokens > 0:
                 cost = calculate_cost(str(model_name), prompt_tokens, completion_tokens)
                 with self._lock:
-                    self._calls.append(LLMCallInfo(
-                        model_name=str(model_name),
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                        cost_usd=cost,
-                    ))
+                    self._calls.append(
+                        LLMCallInfo(
+                            model_name=str(model_name),
+                            prompt_tokens=prompt_tokens,
+                            completion_tokens=completion_tokens,
+                            total_tokens=total_tokens,
+                            cost_usd=cost,
+                        )
+                    )
 
         @property
         def calls(self) -> list[LLMCallInfo]:
@@ -108,6 +111,7 @@ else:
 
 
 # ── Handler lifecycle ───────────────────────────────────────────────────────
+
 
 def create_tracker() -> ArgusLLMHandler | None:
     """Create a tracker if LangChain is available."""
@@ -128,6 +132,7 @@ def install_handler(handler: ArgusLLMHandler) -> contextvars.Token[Any] | None:
         try:
             import langchain_core.callbacks  # type: ignore[import]
             from langchain_core.globals import set_llm_cache  # noqa: F401 — test import
+
             if hasattr(langchain_core.callbacks, "_configure"):
                 pass  # internal, don't touch
         except Exception:
@@ -138,6 +143,7 @@ def install_handler(handler: ArgusLLMHandler) -> contextvars.Token[Any] | None:
             from langchain_core.runnables.config import (  # type: ignore[import]
                 var_child_runnable_config,
             )
+
             current = var_child_runnable_config.get({})
             callbacks = list(current.get("callbacks") or [])
             callbacks.append(handler)
@@ -164,6 +170,7 @@ def remove_handler(handler: ArgusLLMHandler, token: Any | None) -> None:
             from langchain_core.runnables.config import (  # type: ignore[import]
                 var_child_runnable_config,
             )
+
             current = var_child_runnable_config.get({})
             callbacks = [cb for cb in (current.get("callbacks") or []) if cb is not handler]
             var_child_runnable_config.set({**current, "callbacks": callbacks})
@@ -201,8 +208,7 @@ def scan_output_for_tokens(output_dict: dict[str, Any] | None) -> list[LLMCallIn
             or usage.get("candidates_token_count")
         )
         total_tokens = _int_or_zero(
-            usage.get("total_tokens")
-            or usage.get("total_token_count")
+            usage.get("total_tokens") or usage.get("total_token_count")
         ) or (prompt_tokens + completion_tokens)
 
         if total_tokens == 0:
@@ -217,13 +223,15 @@ def scan_output_for_tokens(output_dict: dict[str, Any] | None) -> list[LLMCallIn
         )
 
         cost = calculate_cost(model_name, prompt_tokens, completion_tokens)
-        results.append(LLMCallInfo(
-            model_name=model_name,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
-            cost_usd=cost,
-        ))
+        results.append(
+            LLMCallInfo(
+                model_name=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                cost_usd=cost,
+            )
+        )
         break  # only take the first match to avoid double-counting
 
     # Also scan nested message objects for usage metadata
@@ -237,31 +245,27 @@ def scan_output_for_tokens(output_dict: dict[str, Any] | None) -> list[LLMCallIn
                 meta = usage_meta or resp_meta
                 if isinstance(meta, dict):
                     prompt_tokens = _int_or_zero(
-                        meta.get("input_tokens")
-                        or meta.get("prompt_tokens")
+                        meta.get("input_tokens") or meta.get("prompt_tokens")
                     )
                     completion_tokens = _int_or_zero(
-                        meta.get("output_tokens")
-                        or meta.get("completion_tokens")
+                        meta.get("output_tokens") or meta.get("completion_tokens")
                     )
-                    total_tokens = _int_or_zero(
-                        meta.get("total_tokens")
-                    ) or (prompt_tokens + completion_tokens)
+                    total_tokens = _int_or_zero(meta.get("total_tokens")) or (
+                        prompt_tokens + completion_tokens
+                    )
 
                     if total_tokens > 0:
-                        model_name = str(
-                            meta.get("model_name")
-                            or meta.get("model")
-                            or "unknown"
-                        )
+                        model_name = str(meta.get("model_name") or meta.get("model") or "unknown")
                         cost = calculate_cost(model_name, prompt_tokens, completion_tokens)
-                        results.append(LLMCallInfo(
-                            model_name=model_name,
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=total_tokens,
-                            cost_usd=cost,
-                        ))
+                        results.append(
+                            LLMCallInfo(
+                                model_name=model_name,
+                                prompt_tokens=prompt_tokens,
+                                completion_tokens=completion_tokens,
+                                total_tokens=total_tokens,
+                                cost_usd=cost,
+                            )
+                        )
                         break
             elif isinstance(msg, dict):
                 for ukey in _USAGE_KEYS:
@@ -273,22 +277,23 @@ def scan_output_for_tokens(output_dict: dict[str, Any] | None) -> list[LLMCallIn
                         completion_tokens = _int_or_zero(
                             umeta.get("output_tokens") or umeta.get("completion_tokens")
                         )
-                        total_tokens = (
-                            _int_or_zero(umeta.get("total_tokens"))
-                            or (prompt_tokens + completion_tokens)
+                        total_tokens = _int_or_zero(umeta.get("total_tokens")) or (
+                            prompt_tokens + completion_tokens
                         )
                         if total_tokens > 0:
                             model_name = str(
                                 umeta.get("model_name") or umeta.get("model") or "unknown"
                             )
                             cost = calculate_cost(model_name, prompt_tokens, completion_tokens)
-                            results.append(LLMCallInfo(
-                                model_name=model_name,
-                                prompt_tokens=prompt_tokens,
-                                completion_tokens=completion_tokens,
-                                total_tokens=total_tokens,
-                                cost_usd=cost,
-                            ))
+                            results.append(
+                                LLMCallInfo(
+                                    model_name=model_name,
+                                    prompt_tokens=prompt_tokens,
+                                    completion_tokens=completion_tokens,
+                                    total_tokens=total_tokens,
+                                    cost_usd=cost,
+                                )
+                            )
                             break
                 if results:
                     break
@@ -297,6 +302,7 @@ def scan_output_for_tokens(output_dict: dict[str, Any] | None) -> list[LLMCallIn
 
 
 # ── Combine both strategies ─────────────────────────────────────────────────
+
 
 def extract_usage(
     handler: ArgusLLMHandler | None,
@@ -333,6 +339,7 @@ def extract_usage(
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def _int_or_zero(val: Any) -> int:
     if val is None:

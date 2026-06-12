@@ -21,6 +21,7 @@ Usage without LangGraph:
     state = process(state)
     session.finalize()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,10 +73,7 @@ def _redact_dict(d: dict[str, Any], keys: frozenset[str]) -> dict[str, Any]:
         elif isinstance(v, dict):
             out[k] = _redact_dict(v, keys)
         elif isinstance(v, list):
-            out[k] = [
-                _redact_dict(item, keys) if isinstance(item, dict) else item
-                for item in v
-            ]
+            out[k] = [_redact_dict(item, keys) if isinstance(item, dict) else item for item in v]
         else:
             out[k] = v
     return out
@@ -134,11 +132,13 @@ class ArgusSession:
         if llm_investigation is None:
             try:
                 from dotenv import load_dotenv
+
                 load_dotenv(override=True)
             except ImportError:
                 pass
             if os.environ.get("OPENAI_API_KEY"):
                 from argus.models import LLMInvestigationConfig
+
                 llm_investigation = LLMInvestigationConfig(enabled=True)
         self._llm_investigation_config = llm_investigation
 
@@ -259,12 +259,14 @@ class ArgusSession:
             def validate(state):
                 ...
         """
+
         def decorator(fn: Callable) -> Callable:
             wrapped = self.wrap(node_name, fn)
             # Register name so node list stays up to date
             if node_name not in self.graph_node_names:
                 self.graph_node_names.append(node_name)
             return wrapped
+
         return decorator
 
     def _pop_frozen_output(self, node_name: str) -> Any:
@@ -295,7 +297,11 @@ class ArgusSession:
                 output_snap = self.capture_output(output)
                 llm_usage = extract_usage(tracker, output_snap)
                 self.on_node_end(
-                    node_name, input_snap, output_snap, duration, exc=None,
+                    node_name,
+                    input_snap,
+                    output_snap,
+                    duration,
+                    exc=None,
                     llm_usage=llm_usage,
                 )
                 return output
@@ -307,12 +313,21 @@ class ArgusSession:
                 # Detect GraphInterrupt before treating as crash
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
                     self.on_node_end(
-                        node_name, input_snap, None, duration,
-                        exc=None, is_interrupt=True, llm_usage=llm_usage,
+                        node_name,
+                        input_snap,
+                        None,
+                        duration,
+                        exc=None,
+                        is_interrupt=True,
+                        llm_usage=llm_usage,
                     )
                     raise
                 self.on_node_end(
-                    node_name, input_snap, None, duration, exc=exc,
+                    node_name,
+                    input_snap,
+                    None,
+                    duration,
+                    exc=exc,
                     llm_usage=llm_usage,
                 )
                 raise
@@ -339,7 +354,11 @@ class ArgusSession:
                 output_snap = self.capture_output(output)
                 llm_usage = extract_usage(tracker, output_snap)
                 self.on_node_end(
-                    node_name, input_snap, output_snap, duration, exc=None,
+                    node_name,
+                    input_snap,
+                    output_snap,
+                    duration,
+                    exc=None,
                     llm_usage=llm_usage,
                 )
                 return output
@@ -350,12 +369,21 @@ class ArgusSession:
                 llm_usage = extract_usage(tracker, None)
                 if _GraphInterrupt is not None and isinstance(exc, _GraphInterrupt):
                     self.on_node_end(
-                        node_name, input_snap, None, duration,
-                        exc=None, is_interrupt=True, llm_usage=llm_usage,
+                        node_name,
+                        input_snap,
+                        None,
+                        duration,
+                        exc=None,
+                        is_interrupt=True,
+                        llm_usage=llm_usage,
                     )
                     raise
                 self.on_node_end(
-                    node_name, input_snap, None, duration, exc=exc,
+                    node_name,
+                    input_snap,
+                    None,
+                    duration,
+                    exc=exc,
                     llm_usage=llm_usage,
                 )
                 raise
@@ -413,9 +441,7 @@ class ArgusSession:
                 exc_str = None
             elif exc is not None:
                 status = "crashed"
-                tb = "".join(
-                    traceback.format_exception(type(exc), exc, exc.__traceback__)
-                )
+                tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
                 exc_str = f"{type(exc).__name__}: {exc}\n{tb}"
             else:
                 status = "pass"
@@ -462,12 +488,10 @@ class ArgusSession:
             validator_results: list[ValidatorResult] = []
             if output_snap is not None and status in ("pass", "fail"):
                 validator_results = self._run_validators(
-                    node_name, output_snap,
+                    node_name,
+                    output_snap,
                 )
-                if (
-                    any(not r.is_valid for r in validator_results)
-                    and status == "pass"
-                ):
+                if any(not r.is_valid for r in validator_results) and status == "pass":
                     status = "semantic_fail"
 
             # behavioral anomaly detection (runs after heuristic/inspection)
@@ -475,12 +499,11 @@ class ArgusSession:
             anomaly_signals: list[AnomalySignal] = []
             if status in ("pass", "fail", "semantic_fail") and output_snap is not None:
                 behavior_type_val, anomaly_signals = detect_anomalies(
-                    node_name, output_snap, self._behavior_config,
+                    node_name,
+                    output_snap,
+                    self._behavior_config,
                 )
-                if (
-                    any(a.severity == "critical" for a in anomaly_signals)
-                    and status == "pass"
-                ):
+                if any(a.severity == "critical" for a in anomaly_signals) and status == "pass":
                     status = "semantic_fail"
 
             # per-node semantic coherence check (LLM)
@@ -499,12 +522,8 @@ class ArgusSession:
                 and not inspection.is_silent_failure
                 and not inspection.has_tool_failure
                 and not inspection.missing_fields
-                and not any(
-                    not r.is_valid for r in validator_results
-                )
-                and not any(
-                    a.severity == "critical" for a in anomaly_signals
-                )
+                and not any(not r.is_valid for r in validator_results)
+                and not any(a.severity == "critical" for a in anomaly_signals)
             )
             _should_run_judge = (
                 output_snap is not None
@@ -517,6 +536,7 @@ class ArgusSession:
             if _should_run_judge:
                 try:
                     from argus.semantic_checker import check_semantic_coherence  # noqa: PLC0415
+
                     semantic_check_result = check_semantic_coherence(
                         node_name=node_name,
                         input_state=input_snap,
@@ -562,13 +582,10 @@ class ArgusSession:
             # auto-finalize decision (atomic with event append)
             # Uses terminal-node tracking: finalize only when ALL DAG leaves
             # have completed, so parallel branches aren't cut short.
-            should_finalize = (
-                status in ("crashed", "interrupted")
-                or (
-                    not self._is_cyclic
-                    and self._terminal_nodes
-                    and self._completed_terminals >= self._terminal_nodes
-                )
+            should_finalize = status in ("crashed", "interrupted") or (
+                not self._is_cyclic
+                and self._terminal_nodes
+                and self._completed_terminals >= self._terminal_nodes
             )
 
         # finalize outside the lock to avoid holding it during I/O
@@ -611,7 +628,8 @@ class ArgusSession:
                 continue
             # Check which of those missing fields are STILL absent in our input
             propagated = [
-                f for f in missing_from_upstream
+                f
+                for f in missing_from_upstream
                 if f not in input_snap or _is_empty_value(input_snap.get(f))
             ]
             if propagated:
@@ -644,20 +662,13 @@ class ArgusSession:
             duration_ms = None
 
         has_crash = any(e.status == "crashed" for e in events_snapshot)
-        has_interrupt = any(
-            e.status == "interrupted" for e in events_snapshot
-        )
+        has_interrupt = any(e.status == "interrupted" for e in events_snapshot)
         has_silent_failure = any(
-            e.inspection
-            and (e.inspection.is_silent_failure or e.inspection.has_tool_failure)
+            e.inspection and (e.inspection.is_silent_failure or e.inspection.has_tool_failure)
             for e in events_snapshot
         )
-        has_semantic_fail = any(
-            e.status == "semantic_fail" for e in events_snapshot
-        )
-        has_degraded = any(
-            e.status == "degraded_input" for e in events_snapshot
-        )
+        has_semantic_fail = any(e.status == "semantic_fail" for e in events_snapshot)
+        has_degraded = any(e.status == "degraded_input" for e in events_snapshot)
 
         if has_crash:
             overall_status = "crashed"
@@ -680,16 +691,13 @@ class ArgusSession:
         )
 
         root_cause_chain = build_root_cause_chain(
-            events_snapshot, self.graph_edge_map,
+            events_snapshot,
+            self.graph_edge_map,
         )
 
         # aggregate LLM metrics
-        total_llm_calls = sum(
-            len(e.llm_usage.calls) for e in events_snapshot if e.llm_usage
-        )
-        total_tokens = sum(
-            e.llm_usage.total_tokens for e in events_snapshot if e.llm_usage
-        )
+        total_llm_calls = sum(len(e.llm_usage.calls) for e in events_snapshot if e.llm_usage)
+        total_tokens = sum(e.llm_usage.total_tokens for e in events_snapshot if e.llm_usage)
         costs = [
             e.llm_usage.total_cost_usd
             for e in events_snapshot
@@ -727,10 +735,12 @@ class ArgusSession:
         # Correlation analysis (non-critical — never blocks persistence)
         try:
             from argus.correlator import compare_replay, correlate
+
             correlation = correlate(record)
             if record.parent_run_id:
                 try:
                     from argus.storage import load_run
+
                     parent = load_run(record.parent_run_id)
                     correlation.replay_impact = compare_replay(record, parent)
                 except Exception:
@@ -743,11 +753,14 @@ class ArgusSession:
         if self._llm_investigation_config and self._llm_investigation_config.enabled:
             try:
                 from argus.llm_investigator import investigate
+
                 record.llm_investigation = investigate(
-                    record, self._llm_investigation_config,
+                    record,
+                    self._llm_investigation_config,
                 )
                 if record.llm_investigation and record.llm_investigation.suggested_signatures:
                     from argus.candidate_store import add_candidate  # noqa: PLC0415
+
                     for _sig in record.llm_investigation.suggested_signatures:
                         add_candidate(_sig, record.run_id)
             except Exception:
@@ -770,6 +783,7 @@ class ArgusSession:
             save_run(record)
         except Exception as exc:
             import sys
+
             print(
                 f"[argus] WARNING: failed to save run {record.run_id}: {exc}",
                 file=sys.stderr,

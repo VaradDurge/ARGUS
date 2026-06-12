@@ -36,38 +36,38 @@ _WORDMARK = [
 ]
 
 _SETUP_LINES = [
-    ("from argus import ArgusWatcher",     ""),
-    ("watcher = ArgusWatcher()",           ""),
-    ("watcher.watch(graph)",               "# graph = your StateGraph, before .compile()"),
-    ("app = graph.compile()",              ""),
-    ("app.invoke(initial_state)",          ""),
-    ("watcher.finalize()",                 "# persists the run to .argus/runs/"),
+    ("from argus import ArgusWatcher", ""),
+    ("watcher = ArgusWatcher()", ""),
+    ("watcher.watch(graph)", "# graph = your StateGraph, before .compile()"),
+    ("app = graph.compile()", ""),
+    ("app.invoke(initial_state)", ""),
+    ("watcher.finalize()", "# persists the run to .argus/runs/"),
 ]
 
 _COMMANDS = [
-    ("ui",                                 "start the web dashboard and open it in browser"),
-    ("list",                              "list all recorded runs, newest first"),
-    ("show last",                         "inspect the most recent run"),
-    ("show run <id>",                     "inspect a specific run  (full id or 8-char prefix)"),
-    ("replay <id> <node>",                "re-run from a saved node checkpoint"),
-    ("replay <id> <node> --only",         "re-run just that node in isolation"),
-    ("replay <id> <node> --app mod:fn",   "replay with a live graph factory"),
-    ("inspect <id> --step <node>",        "dump raw input / output state for a node"),
-    ("diff <id>",                         "diff a replay run against its original"),
-    ("diff <id-a> <id-b>",               "diff any two runs side-by-side"),
-    ("login",                            "sign in with Google to sync runs to the cloud"),
-    ("logout",                           "clear stored credentials"),
-    ("whoami",                           "show current login status"),
-    ("update",                           "check GitHub for a newer release and upgrade"),
-    ("doctor",                           "diagnose integration issues (LangGraph, storage)"),
+    ("ui", "start the web dashboard and open it in browser"),
+    ("list", "list all recorded runs, newest first"),
+    ("show last", "inspect the most recent run"),
+    ("show run <id>", "inspect a specific run  (full id or 8-char prefix)"),
+    ("replay <id> <node>", "re-run from a saved node checkpoint"),
+    ("replay <id> <node> --only", "re-run just that node in isolation"),
+    ("replay <id> <node> --app mod:fn", "replay with a live graph factory"),
+    ("inspect <id> --step <node>", "dump raw input / output state for a node"),
+    ("diff <id>", "diff a replay run against its original"),
+    ("diff <id-a> <id-b>", "diff any two runs side-by-side"),
+    ("login", "sign in with Google to sync runs to the cloud"),
+    ("logout", "clear stored credentials"),
+    ("whoami", "show current login status"),
+    ("update", "check GitHub for a newer release and upgrade"),
+    ("doctor", "diagnose integration issues (LangGraph, storage)"),
 ]
 
 _WHEN_TO_USE = [
-    ("list",     "after a run — get the run id for further commands"),
-    ("show",     "understand what happened: statuses, warnings, root cause"),
-    ("replay",   "re-run from a broken node after fixing the code (warns about live calls)"),
-    ("inspect",  "read exact input/output JSON for a specific step"),
-    ("diff",     "verify a fix actually changed behaviour between runs"),
+    ("list", "after a run — get the run id for further commands"),
+    ("show", "understand what happened: statuses, warnings, root cause"),
+    ("replay", "re-run from a broken node after fixing the code (warns about live calls)"),
+    ("inspect", "read exact input/output JSON for a specific step"),
+    ("diff", "verify a fix actually changed behaviour between runs"),
 ]
 
 _OPTIONS = [
@@ -77,7 +77,7 @@ _OPTIONS = [
         "zero-arg callable returning StateGraph or CompiledGraph",
     ),
     ("inspect --step / -s  <node>", "str", "node name to inspect  (required)"),
-    ("show run <id>",               "str", "full run id or 8-char prefix"),
+    ("show run <id>", "str", "full run id or 8-char prefix"),
     (
         "diff <id-a> <id-b>",
         "str",
@@ -86,16 +86,14 @@ _OPTIONS = [
 ]
 
 _STATUSES = [
-    ("[bold green]✓[/bold green]  pass",
-     "node completed, output looks healthy"),
-    ("[bold yellow]⚠[/bold yellow]  silent failure",
-     "node ran but returned empty / missing fields"),
-    ("[bold magenta]⊗[/bold magenta]  semantic fail",
-     "validator rejected the output"),
-    ("[bold red]✗[/bold red]  crashed",
-     "node raised an exception"),
-    ("[bold yellow]⏸[/bold yellow]  interrupted",
-     "human-in-the-loop pause"),
+    ("[bold green]✓[/bold green]  pass", "node completed, output looks healthy"),
+    (
+        "[bold yellow]⚠[/bold yellow]  silent failure",
+        "node ran but returned empty / missing fields",
+    ),
+    ("[bold magenta]⊗[/bold magenta]  semantic fail", "validator rejected the output"),
+    ("[bold red]✗[/bold red]  crashed", "node raised an exception"),
+    ("[bold yellow]⏸[/bold yellow]  interrupted", "human-in-the-loop pause"),
 ]
 
 
@@ -191,8 +189,7 @@ def _banner(ctx: typer.Context) -> None:
     _console.print("  [dim]─────────────────────────────────────────────────────────[/dim]")
     _console.print()
     _console.print(
-        "  [dim]run  [bold]argus <command> --help[/bold]"
-        "  for per-command flag details[/dim]"
+        "  [dim]run  [bold]argus <command> --help[/bold]  for per-command flag details[/dim]"
     )
     _console.print()
 
@@ -276,9 +273,7 @@ def cmd_open_ui(
 
 @app.command("diff")
 def cmd_diff(
-    run_id_a: Annotated[
-        str, typer.Argument(help="Run ID or replay run ID.")
-    ],
+    run_id_a: Annotated[str, typer.Argument(help="Run ID or replay run ID.")],
     run_id_b: Optional[str] = typer.Argument(
         default=None, help="Second run ID. Omit for auto-diff."
     ),

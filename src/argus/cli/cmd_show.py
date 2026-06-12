@@ -29,14 +29,15 @@ def _load_chain(leaf: RunRecord) -> list[RunRecord]:
     chain.reverse()
     return chain
 
+
 console = Console()
 
 _STATUS_STYLE = {
-    "clean":          "bold green",
+    "clean": "bold green",
     "silent_failure": "bold yellow",
-    "crashed":        "bold red",
-    "semantic_fail":  "bold magenta",
-    "interrupted":    "bold yellow",
+    "crashed": "bold red",
+    "semantic_fail": "bold magenta",
+    "interrupted": "bold yellow",
 }
 
 
@@ -64,11 +65,11 @@ def show_run(run_id: str, _footer: bool = False) -> None:
 
 
 _STATUS_DOT = {
-    "clean":          "[bold green]●[/bold green]",
+    "clean": "[bold green]●[/bold green]",
     "silent_failure": "[bold yellow]●[/bold yellow]",
-    "crashed":        "[bold red]●[/bold red]",
-    "semantic_fail":  "[bold magenta]●[/bold magenta]",
-    "interrupted":    "[bold yellow]⏸[/bold yellow]",
+    "crashed": "[bold red]●[/bold red]",
+    "semantic_fail": "[bold magenta]●[/bold magenta]",
+    "interrupted": "[bold yellow]⏸[/bold yellow]",
 }
 
 
@@ -81,17 +82,17 @@ def show_list() -> None:
         return
 
     table = Table(box=box.MINIMAL, show_header=True, header_style="dim", pad_edge=False)
-    table.add_column("run id",   style="dim",     min_width=26)
-    table.add_column("started",  min_width=18)
-    table.add_column("",         min_width=1,     justify="center")
-    table.add_column("status",   min_width=14)
+    table.add_column("run id", style="dim", min_width=26)
+    table.add_column("started", min_width=18)
+    table.add_column("", min_width=1, justify="center")
+    table.add_column("status", min_width=14)
     table.add_column("duration", justify="right", min_width=8)
-    table.add_column("steps",    justify="right", min_width=5)
+    table.add_column("steps", justify="right", min_width=5)
 
     for run in runs:
         style = _STATUS_STYLE.get(run["overall_status"], "dim")
-        dot   = _STATUS_DOT.get(run["overall_status"], "[dim]●[/dim]")
-        dur   = f"{run['duration_ms']:.0f} ms" if run.get("duration_ms") else "—"
+        dot = _STATUS_DOT.get(run["overall_status"], "[dim]●[/dim]")
+        dur = f"{run['duration_ms']:.0f} ms" if run.get("duration_ms") else "—"
         table.add_row(
             run["run_id"],
             run["started_at"][:16].replace("T", "  "),
@@ -224,20 +225,20 @@ def _topology_lines(
             pad_w = max_len - len(node) + 1  # +1 guarantees min 1 char gap
 
             if k == 0:
-                prefix  = "  ├─ "
-                fill    = "─" * pad_w
+                prefix = "  ├─ "
+                fill = "─" * pad_w
                 bracket = "─┐"
             elif k == n - 1:
-                prefix  = "  └─ "
-                fill    = "─" * pad_w
+                prefix = "  └─ "
+                fill = "─" * pad_w
                 bracket = "─┘"
             elif k == mid and tail_str:
-                prefix  = "  ├─ "
-                fill    = " " * pad_w
+                prefix = "  ├─ "
+                fill = " " * pad_w
                 bracket = "─┤  " + tail_str
             else:
-                prefix  = "  ├─ "
-                fill    = " " * pad_w
+                prefix = "  ├─ "
+                fill = " " * pad_w
                 bracket = " │"
 
             result.append(f"{prefix}{node}{fill}{bracket}")
@@ -431,7 +432,7 @@ def _print_chain(chain: list[RunRecord]) -> None:
 
 
 def _print_run(record: RunRecord) -> None:
-    dur     = f"{record.duration_ms:.0f} ms" if record.duration_ms is not None else "—"
+    dur = f"{record.duration_ms:.0f} ms" if record.duration_ms is not None else "—"
     started = (record.started_at or "")[:16].replace("T", "  ")
     status_style = _STATUS_STYLE.get(record.overall_status, "dim")
 
@@ -519,8 +520,10 @@ def _print_correlation_panel(record: RunRecord) -> None:
     if primary:
         conf_pct = f"{primary.confidence:.0%}"
         conf_color = (
-            "bold red" if primary.confidence >= 0.8
-            else "bold yellow" if primary.confidence >= 0.5
+            "bold red"
+            if primary.confidence >= 0.8
+            else "bold yellow"
+            if primary.confidence >= 0.5
             else "dim"
         )
         lines.append(
@@ -548,13 +551,9 @@ def _print_correlation_panel(record: RunRecord) -> None:
         lines.append("")
         lines.append("  [dim]Replay impact:[/dim]")
         if ri.improved_nodes:
-            lines.append(
-                f"    [bold green]improved:[/bold green] {', '.join(ri.improved_nodes)}"
-            )
+            lines.append(f"    [bold green]improved:[/bold green] {', '.join(ri.improved_nodes)}")
         if ri.regressed_nodes:
-            lines.append(
-                f"    [bold red]regressed:[/bold red] {', '.join(ri.regressed_nodes)}"
-            )
+            lines.append(f"    [bold red]regressed:[/bold red] {', '.join(ri.regressed_nodes)}")
         lines.append(f"    [dim]{ri.summary}[/dim]")
 
     panel = Panel(
@@ -575,9 +574,7 @@ def _print_investigation_panel(record: RunRecord) -> None:
         return
     if inv.error:
         console.print()
-        console.print(
-            f"  [dim]AI investigation error:[/dim] [italic red]{inv.error}[/italic red]"
-        )
+        console.print(f"  [dim]AI investigation error:[/dim] [italic red]{inv.error}[/italic red]")
         return
 
     lines: list[str] = []
@@ -597,9 +594,7 @@ def _print_investigation_panel(record: RunRecord) -> None:
             conf = h.confidence
             conf_bar = "█" * int(conf * 10) + "░" * (10 - int(conf * 10))
             conf_color = (
-                "bold green" if conf >= 0.8
-                else "bold yellow" if conf >= 0.5
-                else "dim red"
+                "bold green" if conf >= 0.8 else "bold yellow" if conf >= 0.5 else "dim red"
             )
             lines.append(
                 f"  [bold]{i}.[/bold]  [{conf_color}]{conf_bar}  {conf:.0%}[/{conf_color}]"
@@ -626,30 +621,20 @@ def _print_investigation_panel(record: RunRecord) -> None:
                 bracket_end = main_line.find("]")
                 if bracket_end > 0:
                     node_name = main_line[1:bracket_end]
-                    rest = main_line[bracket_end + 1:].strip()
+                    rest = main_line[bracket_end + 1 :].strip()
                     # Split "what — why"
                     if " — " in rest:
                         what, why = rest.split(" — ", 1)
                     else:
                         what, why = rest, ""
 
-                    lines.append(
-                        f"  [bold cyan]{i}[/bold cyan]"
-                    )
-                    lines.append(
-                        f"  [dim]node[/dim]   [bold]{node_name}[/bold]"
-                    )
-                    lines.append(
-                        f"  [dim]fix[/dim]    {what.strip()}"
-                    )
+                    lines.append(f"  [bold cyan]{i}[/bold cyan]")
+                    lines.append(f"  [dim]node[/dim]   [bold]{node_name}[/bold]")
+                    lines.append(f"  [dim]fix[/dim]    {what.strip()}")
                     if why:
-                        lines.append(
-                            f"  [dim]why[/dim]    [italic]{why.strip()}[/italic]"
-                        )
+                        lines.append(f"  [dim]why[/dim]    [italic]{why.strip()}[/italic]")
                     if code_hint:
-                        lines.append(
-                            f"  [dim]code[/dim]   [bold green]{code_hint}[/bold green]"
-                        )
+                        lines.append(f"  [dim]code[/dim]   [bold green]{code_hint}[/bold green]")
                     lines.append("")
                     continue
 
@@ -680,10 +665,7 @@ def _print_investigation_panel(record: RunRecord) -> None:
     tokens = inv.prompt_tokens + inv.completion_tokens
     dur_s = inv.investigation_duration_ms / 1000
     conf_pct = f"{inv.confidence:.0%}"
-    lines.append(
-        f"  [dim]{tokens:,} tokens  ·  "
-        f"{dur_s:.1f}s  ·  confidence {conf_pct}[/dim]"
-    )
+    lines.append(f"  [dim]{tokens:,} tokens  ·  {dur_s:.1f}s  ·  confidence {conf_pct}[/dim]")
 
     panel = Panel(
         "\n".join(lines),
@@ -702,9 +684,7 @@ def _print_replay_suggestion(record: RunRecord) -> None:
         return
 
     # Find the crashed node
-    crashed_node = next(
-        (e.node_name for e in record.steps if e.status == "crashed"), None
-    )
+    crashed_node = next((e.node_name for e in record.steps if e.status == "crashed"), None)
     # Root cause node: first entry in root_cause_chain, falling back to first_failure_step
     root_cause = (
         record.root_cause_chain[0] if record.root_cause_chain else record.first_failure_step
@@ -767,25 +747,25 @@ def _print_cycle_group(
                 )
             )
             if status == "pass" and has_warnings:
-                icon  = "[bold yellow]~[/bold yellow]"
+                icon = "[bold yellow]~[/bold yellow]"
                 label = "[bold green]pass[/bold green] [dim yellow](warnings)[/dim yellow]"
             elif status == "pass":
-                icon  = "[bold green]✓[/bold green]"
+                icon = "[bold green]✓[/bold green]"
                 label = "[bold green]pass[/bold green]"
             elif status == "degraded_input":
-                icon  = "[bold yellow]⬇[/bold yellow]"
+                icon = "[bold yellow]⬇[/bold yellow]"
                 label = "[bold yellow]degraded input[/bold yellow]"
             elif status == "fail":
-                icon  = "[bold yellow]⚠[/bold yellow]"
+                icon = "[bold yellow]⚠[/bold yellow]"
                 label = "[bold yellow]silent failure[/bold yellow]"
             elif status == "semantic_fail":
-                icon  = "[bold magenta]⊗[/bold magenta]"
+                icon = "[bold magenta]⊗[/bold magenta]"
                 label = "[bold magenta]semantic fail[/bold magenta]"
             elif status == "interrupted":
-                icon  = "[bold yellow]⏸[/bold yellow]"
+                icon = "[bold yellow]⏸[/bold yellow]"
                 label = "[bold yellow]interrupted[/bold yellow]"
             else:
-                icon  = "[bold red]✗[/bold red]"
+                icon = "[bold red]✗[/bold red]"
                 label = "[bold red]crashed[/bold red]"
 
             pad = " " * (name_col - len(event.node_name))
@@ -796,13 +776,9 @@ def _print_cycle_group(
             # Validator results
             for vr in event.validator_results:
                 vicon = (
-                    "[dim green]✓[/dim green]"
-                    if vr.is_valid
-                    else "[bold magenta]⊗[/bold magenta]"
+                    "[dim green]✓[/dim green]" if vr.is_valid else "[bold magenta]⊗[/bold magenta]"
                 )
-                inner_lines.append(
-                    f"       [dim]└─[/dim]  {vicon} [dim]{vr.validator_name}[/dim]"
-                )
+                inner_lines.append(f"       [dim]└─[/dim]  {vicon} [dim]{vr.validator_name}[/dim]")
         inner_lines.append("")
 
     inner_text = "\n".join(inner_lines)
@@ -842,47 +818,36 @@ def _print_parallel_group(
             )
         )
         if status == "pass" and has_warnings:
-            icon  = "[bold yellow]~[/bold yellow]"
+            icon = "[bold yellow]~[/bold yellow]"
             label = "[bold green]pass[/bold green] [dim yellow](warnings)[/dim yellow]"
         elif status == "pass":
-            icon  = "[bold green]✓[/bold green]"
+            icon = "[bold green]✓[/bold green]"
             label = "[bold green]pass[/bold green]"
         elif status == "fail":
-            icon  = "[bold yellow]⚠[/bold yellow]"
+            icon = "[bold yellow]⚠[/bold yellow]"
             label = "[bold yellow]silent failure[/bold yellow]"
         elif status == "semantic_fail":
-            icon  = "[bold magenta]⊗[/bold magenta]"
+            icon = "[bold magenta]⊗[/bold magenta]"
             label = "[bold magenta]semantic fail[/bold magenta]"
         elif status == "interrupted":
-            icon  = "[bold yellow]⏸[/bold yellow]"
+            icon = "[bold yellow]⏸[/bold yellow]"
             label = "[bold yellow]interrupted[/bold yellow]"
         else:
-            icon  = "[bold red]✗[/bold red]"
+            icon = "[bold red]✗[/bold red]"
             label = "[bold red]crashed[/bold red]"
 
         pad = " " * (name_col - len(event.node_name))
         dur = f"[italic dim]{event.duration_ms:.0f} ms[/italic dim]"
-        inner_lines.append(
-            f"  [bold]{event.node_name}[/bold]{pad}  {dur}   {icon}  {label}"
-        )
+        inner_lines.append(f"  [bold]{event.node_name}[/bold]{pad}  {dur}   {icon}  {label}")
         if event.exception:
             first_line = event.exception.splitlines()[0]
             inner_lines.append(f"     [dim]└─[/dim]  [italic]{first_line}[/italic]")
         for vr in event.validator_results:
-            vicon = (
-                "[dim green]✓[/dim green]"
-                if vr.is_valid
-                else "[bold magenta]⊗[/bold magenta]"
-            )
-            inner_lines.append(
-                f"     [dim]└─[/dim]  {vicon} [dim]{vr.validator_name}[/dim]"
-            )
+            vicon = "[dim green]✓[/dim green]" if vr.is_valid else "[bold magenta]⊗[/bold magenta]"
+            inner_lines.append(f"     [dim]└─[/dim]  {vicon} [dim]{vr.validator_name}[/dim]")
 
     inner_text = "\n".join(inner_lines)
-    title = (
-        f"[bold blue]⟼ parallel[/bold blue]  "
-        f"[dim]{node_names}[/dim]"
-    )
+    title = f"[bold blue]⟼ parallel[/bold blue]  [dim]{node_names}[/dim]"
     panel = Panel(
         inner_text,
         title=title,
@@ -897,7 +862,7 @@ def _print_parallel_group(
 def _print_node(
     event: NodeEvent, name_col: int, record: RunRecord, display_index: int | None = None
 ) -> None:
-    insp   = event.inspection
+    insp = event.inspection
     number = str((display_index if display_index is not None else event.step_index) + 1)
     # indent for └─ lines aligns under the node name
     indent = " " * (len(number) + 2)
@@ -915,30 +880,30 @@ def _print_node(
         )
     )
     if event.status == "pass" and has_warnings:
-        icon   = "[bold yellow]~[/bold yellow]"
-        label  = "[bold green]pass[/bold green] [dim yellow](warnings)[/dim yellow]"
+        icon = "[bold yellow]~[/bold yellow]"
+        label = "[bold green]pass[/bold green] [dim yellow](warnings)[/dim yellow]"
     elif event.status == "pass":
-        icon   = "[bold green]✓[/bold green]"
-        label  = "[bold green]pass[/bold green]"
+        icon = "[bold green]✓[/bold green]"
+        label = "[bold green]pass[/bold green]"
     elif event.status == "degraded_input":
-        icon   = "[bold yellow]⬇[/bold yellow]"
-        label  = "[bold yellow]degraded input[/bold yellow]"
+        icon = "[bold yellow]⬇[/bold yellow]"
+        label = "[bold yellow]degraded input[/bold yellow]"
     elif event.status == "fail":
-        icon   = "[bold yellow]⚠[/bold yellow]"
-        label  = "[bold yellow]silent failure[/bold yellow]"
+        icon = "[bold yellow]⚠[/bold yellow]"
+        label = "[bold yellow]silent failure[/bold yellow]"
     elif event.status == "semantic_fail":
-        icon   = "[bold magenta]⊗[/bold magenta]"
-        label  = "[bold magenta]semantic fail[/bold magenta]"
+        icon = "[bold magenta]⊗[/bold magenta]"
+        label = "[bold magenta]semantic fail[/bold magenta]"
     elif event.status == "interrupted":
-        icon   = "[bold yellow]⏸[/bold yellow]"
-        label  = "[bold yellow]interrupted[/bold yellow]"
+        icon = "[bold yellow]⏸[/bold yellow]"
+        label = "[bold yellow]interrupted[/bold yellow]"
     else:
-        icon   = "[bold red]✗[/bold red]"
-        label  = "[bold red]crashed[/bold red]"
+        icon = "[bold red]✗[/bold red]"
+        label = "[bold red]crashed[/bold red]"
 
     # ── Node name (bold) + duration (italic dim) ───────────────────────────
-    pad  = " " * (name_col - len(event.node_name))
-    dur  = f"[italic dim]{event.duration_ms:.0f} ms[/italic dim]"
+    pad = " " * (name_col - len(event.node_name))
+    dur = f"[italic dim]{event.duration_ms:.0f} ms[/italic dim]"
     name = f"[bold]{event.node_name}[/bold]"
 
     console.print(f"  [dim]{number:>2}[/dim]  {name}{pad}  {dur}   {icon}  {label}")
@@ -993,8 +958,7 @@ def _print_node(
         if passing and event.validator_results:
             for vr in passing:
                 console.print(
-                    f"  {indent}[dim]└─[/dim]  "
-                    f"[dim green]✓ {vr.validator_name}[/dim green]"
+                    f"  {indent}[dim]└─[/dim]  [dim green]✓ {vr.validator_name}[/dim green]"
                 )
             console.print()
         return
@@ -1004,12 +968,10 @@ def _print_node(
         if insp.empty_fields:
             for field in insp.empty_fields:
                 console.print(
-                    f"  {indent}[dim]└─[/dim]  "
-                    f'[dim]Field [bold]"{field}"[/bold] is empty[/dim]'
+                    f'  {indent}[dim]└─[/dim]  [dim]Field [bold]"{field}"[/bold] is empty[/dim]'
                 )
             console.print(
-                f"  {indent}[dim]└─[/dim]  "
-                f"[dim]{successor} may receive degraded state[/dim]"
+                f"  {indent}[dim]└─[/dim]  [dim]{successor} may receive degraded state[/dim]"
             )
         if insp.type_mismatches:
             for m in insp.type_mismatches:
@@ -1041,7 +1003,7 @@ def _print_node(
                 )
                 console.print(
                     f"  {indent}[dim]└─[/dim]  "
-                    f'{tf_icon} [dim]Tool {tf.failure_type}: '
+                    f"{tf_icon} [dim]Tool {tf.failure_type}: "
                     f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
                 )
         console.print()
@@ -1071,9 +1033,7 @@ def _print_node(
             console.print(f"  {indent}[dim]   └─[/dim]  [italic dim]{diagnosis}[/italic dim]")
 
     if insp and insp.tool_failures:
-        console.print(
-            f"  {indent}[dim]└─  tool failures[/dim]"
-        )
+        console.print(f"  {indent}[dim]└─  tool failures[/dim]")
         last_tf = len(insp.tool_failures) - 1
         for i, tf in enumerate(insp.tool_failures):
             tf_icon = (
@@ -1084,15 +1044,13 @@ def _print_node(
             connector = "[dim]   └─[/dim]" if i == last_tf else "[dim]   │[/dim]"
             console.print(
                 f"  {indent}{connector}  "
-                f'{tf_icon} [dim]Tool {tf.failure_type}: '
+                f"{tf_icon} [dim]Tool {tf.failure_type}: "
                 f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
             )
 
     if insp:
         if insp.missing_fields:
-            console.print(
-                f"  {indent}[dim]└─  missing fields[/dim]"
-            )
+            console.print(f"  {indent}[dim]└─  missing fields[/dim]")
             for field in insp.missing_fields:
                 console.print(
                     f"  {indent}[dim]   │[/dim]  "
@@ -1103,9 +1061,7 @@ def _print_node(
                 f"[italic dim]{successor} received bad state[/italic dim]"
             )
         elif insp.empty_fields:
-            console.print(
-                f"  {indent}[dim]└─  missing fields[/dim]"
-            )
+            console.print(f"  {indent}[dim]└─  missing fields[/dim]")
             for field in insp.empty_fields:
                 console.print(
                     f"  {indent}[dim]   │[/dim]  "
@@ -1116,9 +1072,7 @@ def _print_node(
                 f"[italic dim]{successor} received bad state[/italic dim]"
             )
         elif insp.type_mismatches:
-            console.print(
-                f"  {indent}[dim]└─  missing fields[/dim]"
-            )
+            console.print(f"  {indent}[dim]└─  missing fields[/dim]")
             last_mm = len(insp.type_mismatches) - 1
             for i, m in enumerate(insp.type_mismatches):
                 connector = "[dim]   └─[/dim]" if i == last_mm else "[dim]   │[/dim]"

@@ -27,11 +27,7 @@ def _smart_merge(state: dict, partial: dict) -> dict:
     """
     merged = dict(state)
     for key, value in partial.items():
-        if (
-            key in merged
-            and isinstance(merged[key], list)
-            and isinstance(value, list)
-        ):
+        if key in merged and isinstance(merged[key], list) and isinstance(value, list):
             merged[key] = merged[key] + value
         else:
             merged[key] = value
@@ -44,6 +40,7 @@ def _make_llm_inv_config():
         return None
     try:
         from argus.models import LLMInvestigationConfig
+
         return LLMInvestigationConfig(enabled=True, always_investigate=False)
     except Exception:
         return None
@@ -85,8 +82,7 @@ class ReplayEngine:
         if step is None:
             available = [e.node_name for e in record.steps]
             raise ValueError(
-                f"Node '{node_name}' not found in run '{run_id}'. "
-                f"Available nodes: {available}"
+                f"Node '{node_name}' not found in run '{run_id}'. Available nodes: {available}"
             )
 
         if not record.node_fn_refs or node_name not in record.node_fn_refs:
@@ -140,8 +136,7 @@ class ReplayEngine:
         if step is None:
             available = [e.node_name for e in record.steps]
             raise ValueError(
-                f"Node '{from_node}' not found in run '{run_id}'. "
-                f"Available nodes: {available}"
+                f"Node '{from_node}' not found in run '{run_id}'. Available nodes: {available}"
             )
 
         # build frozen outputs ONLY for nodes before from_node
@@ -160,7 +155,11 @@ class ReplayEngine:
             return self._replay_direct(record, from_node, state, frozen_map)
         elif app_factory is not None:
             return self._replay_with_factory(
-                record, from_node, state, frozen_map, app_factory,
+                record,
+                from_node,
+                state,
+                frozen_map,
+                app_factory,
             )
         else:
             raise ValueError(
@@ -220,6 +219,7 @@ class ReplayEngine:
         http_interactions = None
         try:
             from argus.http_recorder import load_http_interactions
+
             http_interactions = load_http_interactions(record.run_id)
         except Exception:
             pass
@@ -228,6 +228,7 @@ class ReplayEngine:
         if http_interactions:
             try:
                 from argus.http_recorder import playback_http
+
                 http_ctx = playback_http(http_interactions)
                 http_ctx.__enter__()
             except Exception:
@@ -329,9 +330,7 @@ def _import_fn(ref: str, file_path: str | None = None) -> Callable:
         found = list(Path.cwd().rglob(f"{top_level}.py"))
         # Also search for packages (directories with __init__.py)
         if not found:
-            found = [
-                p.parent for p in Path.cwd().rglob(f"{top_level}/__init__.py")
-            ]
+            found = [p.parent for p in Path.cwd().rglob(f"{top_level}/__init__.py")]
         if found:
             parent = str(found[0].parent)
             if parent not in sys.path:
@@ -341,9 +340,7 @@ def _import_fn(ref: str, file_path: str | None = None) -> Callable:
             except ImportError as e2:
                 # Fall through to file-path fallback below
                 if not file_path:
-                    raise ImportError(
-                        f"Cannot import module '{module_path}': {e2}"
-                    ) from e2
+                    raise ImportError(f"Cannot import module '{module_path}': {e2}") from e2
                 module = _load_module_from_file(module_path, file_path)
         else:
             if file_path:

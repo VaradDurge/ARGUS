@@ -47,14 +47,16 @@ class HeuristicEngine:
             dedup_key = (_DEPTH_LIMIT_SIG_ID, path)
             if dedup_key not in seen:
                 seen.add(dedup_key)
-                signals.append(SemanticSignal(
-                    sig_id=_DEPTH_LIMIT_SIG_ID,
-                    category="structural_anomaly",
-                    severity="warning",
-                    description="max scan depth reached — subtree not scanned",
-                    field_path=path,
-                    evidence=f"depth={depth}",
-                ))
+                signals.append(
+                    SemanticSignal(
+                        sig_id=_DEPTH_LIMIT_SIG_ID,
+                        category="structural_anomaly",
+                        severity="warning",
+                        description="max scan depth reached — subtree not scanned",
+                        field_path=path,
+                        evidence=f"depth={depth}",
+                    )
+                )
             return
 
         if isinstance(value, str):
@@ -62,14 +64,16 @@ class HeuristicEngine:
                 dedup_key = (match.sig_id, path)
                 if dedup_key not in seen:
                     seen.add(dedup_key)
-                    signals.append(SemanticSignal(
-                        sig_id=match.sig_id,
-                        category=match.category,
-                        severity=match.severity,
-                        description=match.description,
-                        field_path=path,
-                        evidence=match.evidence,
-                    ))
+                    signals.append(
+                        SemanticSignal(
+                            sig_id=match.sig_id,
+                            category=match.category,
+                            severity=match.severity,
+                            description=match.description,
+                            field_path=path,
+                            evidence=match.evidence,
+                        )
+                    )
             return  # strings are leaf nodes — no further descent
 
         if isinstance(value, dict):

@@ -129,6 +129,7 @@ class ArgusWatcher:
         # Load .env early so OPENAI_API_KEY is available for auto-detection
         try:
             from dotenv import load_dotenv
+
             load_dotenv(override=True)
         except ImportError:
             pass
@@ -137,6 +138,7 @@ class ArgusWatcher:
         llm_inv_config = None
         if (self._investigate or self._semantic_judge) and os.environ.get("OPENAI_API_KEY"):
             from argus.models import LLMInvestigationConfig
+
             always = (self._investigate == "always") or self._semantic_judge
             llm_inv_config = LLMInvestigationConfig(
                 enabled=True,
@@ -161,12 +163,8 @@ class ArgusWatcher:
         }
 
         # Auto-capture each node function's import path for factory-free replay
-        self._session.node_fn_refs = _capture_node_fn_refs(
-            self._session.node_fn_registry
-        )
-        self._session.node_fn_paths = _capture_node_fn_paths(
-            self._session.node_fn_registry
-        )
+        self._session.node_fn_refs = _capture_node_fn_refs(self._session.node_fn_registry)
+        self._session.node_fn_paths = _capture_node_fn_paths(self._session.node_fn_registry)
 
         # Auto-capture the caller's module:function as fallback
         self._session.app_factory_ref = _detect_caller_factory()
@@ -177,6 +175,7 @@ class ArgusWatcher:
         if self._record_http:
             try:
                 from argus.http_recorder import record_http
+
                 self._http_recorder_ctx = record_http()
                 self._http_recorder = self._http_recorder_ctx.__enter__()
             except Exception:
@@ -198,6 +197,7 @@ class ArgusWatcher:
                     interactions = self._http_recorder.interactions
                     if interactions:
                         from argus.http_recorder import save_http_interactions
+
                         save_http_interactions(self._session.run_id, interactions)
                 except Exception:
                     pass  # best-effort

@@ -275,7 +275,6 @@ export default function Sidebar() {
 
         <SectionLabel label="Analyze" />
         <NavLink href="/compare" icon={<IconCompare />} label="Compare" exact={false} />
-        <NavLink href="/patterns" icon={<IconPatterns />} label="Patterns" exact={true} />
         <NavLink href="/approvals" icon={<IconApprovals />} label="Approvals" exact={true} />
         <SoonItem icon={<IconEval />} label="Evaluation" />
 

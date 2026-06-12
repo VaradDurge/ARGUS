@@ -14,27 +14,27 @@ from argus.storage import load_run
 console = Console()
 
 _STATUS_STYLE = {
-    "pass":          "bold green",
-    "fail":          "bold yellow",
-    "crashed":       "bold red",
+    "pass": "bold green",
+    "fail": "bold yellow",
+    "crashed": "bold red",
     "semantic_fail": "bold magenta",
-    "interrupted":   "bold yellow",
+    "interrupted": "bold yellow",
 }
 
 _STATUS_LABEL = {
-    "pass":          "pass",
-    "fail":          "silent failure",
-    "crashed":       "crashed",
+    "pass": "pass",
+    "fail": "silent failure",
+    "crashed": "crashed",
     "semantic_fail": "semantic fail",
-    "interrupted":   "interrupted",
+    "interrupted": "interrupted",
 }
 
 _OVERALL_STYLE = {
-    "clean":          "bold green",
+    "clean": "bold green",
     "silent_failure": "bold yellow",
-    "crashed":        "bold red",
-    "semantic_fail":  "bold magenta",
-    "interrupted":    "bold yellow",
+    "crashed": "bold red",
+    "semantic_fail": "bold magenta",
+    "interrupted": "bold yellow",
 }
 
 _DURATION_THRESHOLD_MS = 100  # suppress duration diff when abs(delta) < this
@@ -125,6 +125,7 @@ def diff_runs(run_id_a: str, run_id_b: str | None = None) -> None:
 
 # ── Node map ─────────────────────────────────────────────────────────────────
 
+
 def _build_node_map(record: RunRecord) -> dict[str, NodeEvent]:
     """Last execution of each node wins (handles cyclic runs)."""
     result: dict[str, NodeEvent] = {}
@@ -152,6 +153,7 @@ def _ordered_node_names(
 
 
 # ── Header ───────────────────────────────────────────────────────────────────
+
 
 def _print_header(before: RunRecord, after: RunRecord) -> None:
     b_started = (before.started_at or "")[:16].replace("T", "  ")
@@ -181,6 +183,7 @@ def _print_header(before: RunRecord, after: RunRecord) -> None:
 
 # ── Per-node printers ────────────────────────────────────────────────────────
 
+
 def _print_node_diff(
     name: str,
     before: NodeEvent,
@@ -193,8 +196,7 @@ def _print_node_diff(
     inspection_diffs = _diff_inspection(before.inspection, after.inspection)
     validator_diffs = _diff_validators(before.validator_results, after.validator_results)
     has_changes = (
-        status_changed or bool(field_diffs)
-        or bool(inspection_diffs) or bool(validator_diffs)
+        status_changed or bool(field_diffs) or bool(inspection_diffs) or bool(validator_diffs)
     )
     pad = " " * (name_col - len(name))
 
@@ -202,8 +204,7 @@ def _print_node_diff(
         style = _STATUS_STYLE.get(after.status, "dim")
         label = _STATUS_LABEL.get(after.status, after.status)
         console.print(
-            f"  [bold]{name}[/bold]{pad}  [{style}]{label}[/{style}]"
-            f"  [dim]unchanged[/dim]"
+            f"  [bold]{name}[/bold]{pad}  [{style}]{label}[/{style}]  [dim]unchanged[/dim]"
         )
         console.print()
         return False
@@ -262,9 +263,7 @@ def _print_frozen_node(
     style = _STATUS_STYLE.get(event.status, "dim")
     label = _STATUS_LABEL.get(event.status, event.status)
     note = "frozen · not re-run" if after.replay_from_step else "only in before"
-    console.print(
-        f"  [bold]{name}[/bold]{pad}  [{style}]{label}[/{style}]  [dim]{note}[/dim]"
-    )
+    console.print(f"  [bold]{name}[/bold]{pad}  [{style}]{label}[/{style}]  [dim]{note}[/dim]")
     console.print()
 
 
@@ -279,6 +278,7 @@ def _print_new_node(name: str, event: NodeEvent, name_col: int) -> None:
 
 
 # ── Output diff ───────────────────────────────────────────────────────────────
+
 
 def _diff_output(
     before: dict[str, Any] | None,
@@ -305,6 +305,7 @@ def _diff_output(
 
 
 # ── Inspection diff ──────────────────────────────────────────────────────────
+
 
 def _diff_inspection(
     before: InspectionResult | None,
@@ -386,6 +387,7 @@ def _diff_inspection(
 
 # ── Validator diff ───────────────────────────────────────────────────────────
 
+
 def _diff_validators(
     before: list[ValidatorResult],
     after: list[ValidatorResult],
@@ -423,6 +425,7 @@ def _diff_validators(
 
 # ── Duration ──────────────────────────────────────────────────────────────────
 
+
 def _format_duration_diff(before_ms: float | None, after_ms: float | None) -> str:
     """Format duration delta. Returns empty string when delta is trivial."""
     if before_ms is None or after_ms is None:
@@ -438,6 +441,7 @@ def _format_duration_diff(before_ms: float | None, after_ms: float | None) -> st
 
 
 # ── Summary ───────────────────────────────────────────────────────────────────
+
 
 def _print_summary(stats: dict[str, int]) -> None:
     parts: list[str] = []
