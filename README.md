@@ -159,6 +159,24 @@ Requires `OPENAI_API_KEY` in your environment. Uses GPT-4o by default.
 
 ---
 
+## Adaptive Learning (v0.6)
+
+ARGUS learns from your runs. When the semantic judge discovers a new failure pattern, it proposes a candidate signature. You review it in the **Approvals** page (`argus ui`) and choose:
+
+- **Private** — adds to your local heuristic engine only
+- **Shared** — pushes to the cloud so every ARGUS user benefits
+
+The heuristic engine loads from three tiers: **bundled** (ships with ARGUS) → **private** (your local patterns) → **shared** (community-contributed, synced from cloud). All three are merged and deduplicated at startup.
+
+```bash
+argus ui          # open Approvals page to review candidates
+argus login       # required for cloud sync
+```
+
+The semantic judge also overrides heuristic false positives. If a node failed *only* due to a heuristic pattern match (no structural issues, no validator failures), the LLM reviews context and can clear the flag.
+
+---
+
 ## Diagnose setup issues
 
 ```bash
@@ -244,4 +262,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.5.1** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.5.1)
+**v0.6.2** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.2)
