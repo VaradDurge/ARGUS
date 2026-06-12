@@ -4,25 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 
 // ── Types ────────────────────────────────────────────────────
 
-interface Candidate {
-  id: string
-  pattern: string
-  match_strategy: string
-  proposed_category: string
-  severity: string
-  description: string
-  evidence: string[]
-  confidence: number
-  reasoning: string
-  source_run_ids: string[]
-  source_nodes: string[]
-  times_seen: number
-  first_seen: string
-  last_seen: string
-  status: string
-}
-
-interface CustomSignature {
+interface Signature {
   id: string
   category: string
   pattern: string
@@ -35,11 +17,12 @@ interface CustomSignature {
     frequency: number | null
     approval_status: string
     approved_at?: string
+    contributed_by?: string
     framework_specific: string | null
   }
 }
 
-type Tab = 'pending' | 'approved'
+type Tab = 'private' | 'shared'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -71,13 +54,13 @@ function timeAgo(dateStr: string): string {
   return `${months}mo ago`
 }
 
-// ── Badge Components ─────────────────────────────────────────
+// ── Badges ───────────────────────────────────────────────────
 
 function SeverityBadge({ severity }: { severity: string }) {
   const c = SEVERITY_COLORS[severity] || SEVERITY_COLORS.warning
   return (
     <span
-      className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
+      className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide"
       style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.text }}
     >
       {severity}
@@ -90,279 +73,118 @@ function StrategyBadge({ strategy }: { strategy: string }) {
   return (
     <span
       className="text-[10.5px] font-mono font-medium px-2 py-0.5 rounded-md"
-      style={{
-        background: `${color}10`,
-        border: `1px solid ${color}30`,
-        color,
-      }}
+      style={{ background: `${color}10`, border: `1px solid ${color}30`, color }}
     >
       {strategy}
     </span>
   )
 }
 
-function CategoryBadge({ category }: { category: string }) {
+function SourceBadge({ source }: { source: string }) {
+  const isShared = source === 'shared'
   return (
     <span
-      className="text-[10.5px] font-medium px-2 py-0.5 rounded-md"
+      className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide"
       style={{
-        background: 'rgba(124,127,199,0.08)',
-        border: '1px solid rgba(124,127,199,0.2)',
-        color: 'var(--text-secondary)',
+        background: isShared ? 'rgba(124,127,199,0.08)' : 'rgba(61,158,125,0.08)',
+        border: `1px solid ${isShared ? 'rgba(124,127,199,0.2)' : 'rgba(61,158,125,0.2)'}`,
+        color: isShared ? '#7c7fc7' : '#3d9e7d',
       }}
     >
-      {category}
+      {isShared ? 'shared' : 'private'}
     </span>
   )
 }
 
-// ── Candidate Card ───────────────────────────────────────────
-
-function CandidateCard({
-  candidate,
-  onApprove,
-  onReject,
-  acting,
-}: {
-  candidate: Candidate
-  onApprove: (id: string) => void
-  onReject: (id: string) => void
-  acting: boolean
-}) {
-  const [confirmReject, setConfirmReject] = useState(false)
-
-  return (
-    <div
-      className="rounded-xl p-5 flex flex-col gap-3"
-      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-    >
-      {/* Header row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <SeverityBadge severity={candidate.severity} />
-        <StrategyBadge strategy={candidate.match_strategy} />
-        <CategoryBadge category={candidate.proposed_category} />
-        <span className="text-[11px] ml-auto" style={{ color: 'var(--text-muted)' }}>
-          Seen {candidate.times_seen}x &middot; {timeAgo(candidate.last_seen)}
-        </span>
-      </div>
-
-      {/* Pattern */}
-      <div
-        className="rounded-lg px-3.5 py-2.5 font-mono text-[13px] break-all"
-        style={{
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-default)',
-          color: 'var(--text-primary)',
-        }}
-      >
-        {candidate.pattern}
-      </div>
-
-      {/* Description */}
-      <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        {candidate.description}
-      </p>
-
-      {/* Evidence */}
-      {candidate.evidence.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span
-            className="text-[11px] font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Evidence
-          </span>
-          <div className="flex flex-col gap-1">
-            {candidate.evidence.slice(0, 3).map((e, i) => (
-              <div
-                key={i}
-                className="rounded-md px-3 py-1.5 font-mono text-[11.5px] truncate"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                {e}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Reasoning */}
-      <p className="text-[12px] italic leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-        {candidate.reasoning}
-      </p>
-
-      {/* Confidence bar */}
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
-          Confidence
-        </span>
-        <div
-          className="flex-1 h-1.5 rounded-full overflow-hidden"
-          style={{ background: 'var(--bg-elevated)' }}
-        >
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${Math.round(candidate.confidence * 100)}%`,
-              background: candidate.confidence >= 0.8 ? '#3d9e7d' : candidate.confidence >= 0.6 ? '#d49a2e' : '#d65c5c',
-            }}
-          />
-        </div>
-        <span className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
-          {Math.round(candidate.confidence * 100)}%
-        </span>
-      </div>
-
-      {/* Source info */}
-      {candidate.source_run_ids.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            From runs:
-          </span>
-          {candidate.source_run_ids.slice(0, 3).map((rid) => (
-            <span
-              key={rid}
-              className="text-[10.5px] font-mono px-1.5 py-0.5 rounded"
-              style={{
-                background: 'rgba(124,127,199,0.08)',
-                color: '#7c7fc7',
-              }}
-            >
-              {rid.slice(0, 8)}
-            </span>
-          ))}
-          {candidate.source_run_ids.length > 3 && (
-            <span className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
-              +{candidate.source_run_ids.length - 3} more
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => onApprove(candidate.id)}
-          disabled={acting}
-          className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
-          style={{
-            background: '#3d9e7d',
-            color: '#fff',
-            opacity: acting ? 0.5 : 1,
-          }}
-        >
-          {acting ? 'Saving...' : 'Approve'}
-        </button>
-        {confirmReject ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>Sure?</span>
-            <button
-              type="button"
-              onClick={() => { onReject(candidate.id); setConfirmReject(false) }}
-              disabled={acting}
-              className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
-              style={{ background: 'rgba(214,92,92,0.12)', color: '#d65c5c' }}
-            >
-              Reject
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmReject(false)}
-              className="px-3 py-1.5 rounded-lg text-[12px] font-medium"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmReject(true)}
-            disabled={acting}
-            className="px-4 py-2 rounded-lg text-[13px] font-medium transition-all"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-          >
-            Reject
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Approved Signature Row ───────────────────────────────────
+// ── Signature Row ────────────────────────────────────────────
 
 function SignatureRow({
   sig,
   onRemove,
   acting,
 }: {
-  sig: CustomSignature
-  onRemove: (id: string) => void
+  sig: Signature
+  onRemove: ((id: string) => void) | null
   acting: boolean
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false)
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 rounded-xl"
+      className="rounded-xl px-5 py-4 flex flex-col gap-2.5"
       style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
     >
-      <span
-        className="font-mono text-[11px] font-bold shrink-0"
-        style={{ color: '#7c7fc7', minWidth: 48 }}
-      >
-        {sig.id}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="font-mono text-[12.5px] truncate" style={{ color: 'var(--text-primary)' }}>
-          {sig.pattern}
-        </div>
-        <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {sig.description}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Top row: badges + meta */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className="font-mono text-[11px] font-bold shrink-0"
+          style={{ color: '#7c7fc7', minWidth: 48 }}
+        >
+          {sig.id}
+        </span>
         <SeverityBadge severity={sig.severity} />
         <StrategyBadge strategy={sig.match_strategy} />
-        {sig.metadata.approved_at && (
+        <SourceBadge source={sig.source} />
+        {sig.metadata.contributed_by && (
           <span className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
-            {timeAgo(sig.metadata.approved_at)}
+            by {sig.metadata.contributed_by}
           </span>
         )}
-        {confirmRemove ? (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => { onRemove(sig.id); setConfirmRemove(false) }}
-              disabled={acting}
-              className="px-2 py-1 rounded text-[11px] font-semibold"
-              style={{ background: 'rgba(214,92,92,0.12)', color: '#d65c5c' }}
-            >
-              Confirm
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmRemove(false)}
-              className="px-2 py-1 rounded text-[11px]"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              No
-            </button>
+        <span className="ml-auto text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
+          {sig.metadata.approved_at ? timeAgo(sig.metadata.approved_at) : ''}
+        </span>
+      </div>
+
+      {/* Pattern */}
+      <div
+        className="rounded-lg px-3.5 py-2.5 font-mono text-[12.5px] break-all"
+        style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-default)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        {sig.pattern}
+      </div>
+
+      {/* Description + actions */}
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          {sig.description}
+        </p>
+        {onRemove && (
+          <div className="shrink-0">
+            {confirmRemove ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => { onRemove(sig.id); setConfirmRemove(false) }}
+                  disabled={acting}
+                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold"
+                  style={{ background: 'rgba(214,92,92,0.12)', color: '#d65c5c' }}
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemove(false)}
+                  className="px-2.5 py-1 rounded-md text-[11px]"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmRemove(true)}
+                className="text-[11px] px-2.5 py-1 rounded-md transition-all"
+                style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+              >
+                Remove
+              </button>
+            )}
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmRemove(true)}
-            className="text-[11px] px-2 py-1 rounded transition-all"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Remove
-          </button>
         )}
       </div>
     </div>
@@ -372,28 +194,33 @@ function SignatureRow({
 // ── Main Page ────────────────────────────────────────────────
 
 export default function PatternsPage() {
-  const [tab, setTab] = useState<Tab>('pending')
-  const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [signatures, setSignatures] = useState<CustomSignature[]>([])
+  const [tab, setTab] = useState<Tab>('private')
+  const [privateSigs, setPrivateSigs] = useState<Signature[]>([])
+  const [sharedSigs, setSharedSigs] = useState<Signature[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
-      const [candRes, sigRes] = await Promise.all([
-        fetch('/api/candidates'),
+      const [privRes, sharedRes] = await Promise.all([
         fetch('/api/custom-signatures'),
+        fetch('/api/shared-signatures'),
       ])
-      if (candRes.ok) {
-        const data = await candRes.json()
-        setCandidates(data.candidates || [])
+      if (privRes.ok) {
+        const data = await privRes.json()
+        setPrivateSigs(
+          (data || []).map((s: Signature) => ({ ...s, source: s.source || 'learned' })),
+        )
       }
-      if (sigRes.ok) {
-        const data = await sigRes.json()
-        setSignatures(data || [])
+      if (sharedRes.ok) {
+        const data = await sharedRes.json()
+        setSharedSigs(
+          (data || []).map((s: Signature) => ({ ...s, source: 'shared' })),
+        )
       }
     } catch {
-      // local server not running
+      // server not running
     }
     setLoading(false)
   }, [])
@@ -402,41 +229,25 @@ export default function PatternsPage() {
     fetchData()
   }, [fetchData])
 
-  async function handleApprove(id: string) {
-    setActing(true)
-    try {
-      const res = await fetch(`/api/candidates/${id}/approve`, { method: 'POST' })
-      if (res.ok) {
-        await fetchData()
-      }
-    } catch { /* ignore */ }
-    setActing(false)
-  }
-
-  async function handleReject(id: string) {
-    setActing(true)
-    try {
-      const res = await fetch(`/api/candidates/${id}/reject`, { method: 'POST' })
-      if (res.ok) {
-        await fetchData()
-      }
-    } catch { /* ignore */ }
-    setActing(false)
-  }
-
-  async function handleRemove(id: string) {
+  async function handleRemovePrivate(id: string) {
     setActing(true)
     try {
       const res = await fetch(`/api/custom-signatures/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        await fetchData()
-      }
+      if (res.ok) await fetchData()
     } catch { /* ignore */ }
     setActing(false)
   }
 
-  const pendingCount = candidates.length
-  const approvedCount = signatures.length
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/shared-signatures/sync')
+      if (res.ok) await fetchData()
+    } catch { /* ignore */ }
+    setSyncing(false)
+  }
+
+  const current = tab === 'private' ? privateSigs : sharedSigs
 
   return (
     <div className="max-w-3xl mx-auto px-8 py-10 overflow-auto h-full">
@@ -446,41 +257,70 @@ export default function PatternsPage() {
           className="text-[22px] font-bold tracking-tight mb-1"
           style={{ color: 'var(--text-primary)' }}
         >
-          Learned Patterns
+          Pattern Library
         </h1>
         <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-          AI-discovered failure patterns awaiting review. Approved patterns are loaded by the detection engine automatically.
+          Active detection patterns loaded by the heuristic engine. Manage your
+          private patterns or browse community-shared ones.
         </p>
       </div>
 
-      {/* Tabs */}
-      <div
-        className="flex rounded-lg overflow-hidden mb-5"
-        style={{ border: '1px solid var(--border-subtle)', width: 'fit-content' }}
-      >
-        {(['pending', 'approved'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className="px-4 py-2 text-[13px] font-medium transition-all flex items-center gap-1.5"
-            style={{
-              background: tab === t ? 'rgba(124,127,199,0.1)' : 'transparent',
-              color: tab === t ? '#7c7fc7' : 'var(--text-muted)',
-            }}
-          >
-            {t === 'pending' ? 'Pending' : 'Approved'}
-            <span
-              className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+      {/* Tabs + Sync */}
+      <div className="flex items-center justify-between mb-5">
+        <div
+          className="flex rounded-lg overflow-hidden"
+          style={{ border: '1px solid var(--border-subtle)', width: 'fit-content' }}
+        >
+          {([
+            { key: 'private' as Tab, label: 'Private', count: privateSigs.length },
+            { key: 'shared' as Tab, label: 'Shared', count: sharedSigs.length },
+          ]).map(({ key, label, count }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className="px-4 py-2 text-[13px] font-medium transition-all flex items-center gap-1.5"
               style={{
-                background: tab === t ? 'rgba(124,127,199,0.15)' : 'var(--bg-elevated)',
-                color: tab === t ? '#7c7fc7' : 'var(--text-muted)',
+                background: tab === key ? 'rgba(124,127,199,0.1)' : 'transparent',
+                color: tab === key ? '#7c7fc7' : 'var(--text-muted)',
               }}
             >
-              {t === 'pending' ? pendingCount : approvedCount}
-            </span>
+              {label}
+              <span
+                className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
+                style={{
+                  background: tab === key ? 'rgba(124,127,199,0.15)' : 'var(--bg-elevated)',
+                  color: tab === key ? '#7c7fc7' : 'var(--text-muted)',
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {tab === 'shared' && (
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-3.5 py-1.5 rounded-lg text-[12px] font-medium transition-all flex items-center gap-1.5"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-secondary)',
+              opacity: syncing ? 0.5 : 1,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2.5 8a5.5 5.5 0 019.3-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              <path d="M13.5 8a5.5 5.5 0 01-9.3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              <path d="M11 3l1 1.5 1.5-1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5 13l-1-1.5-1.5 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {syncing ? 'Syncing...' : 'Sync'}
           </button>
-        ))}
+        )}
       </div>
 
       {/* Content */}
@@ -488,51 +328,27 @@ export default function PatternsPage() {
         <div className="text-center py-16 text-[13px]" style={{ color: 'var(--text-muted)' }}>
           Loading...
         </div>
-      ) : tab === 'pending' ? (
-        candidates.length === 0 ? (
-          <div
-            className="text-center py-16 rounded-xl"
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-          >
-            <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-              No pending patterns
-            </p>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              Run AI analysis on failing pipelines to discover new failure patterns.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {candidates.map((c) => (
-              <CandidateCard
-                key={c.id}
-                candidate={c}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                acting={acting}
-              />
-            ))}
-          </div>
-        )
-      ) : signatures.length === 0 ? (
+      ) : current.length === 0 ? (
         <div
           className="text-center py-16 rounded-xl"
           style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
         >
           <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-            No custom patterns yet
+            {tab === 'private' ? 'No private patterns yet' : 'No shared patterns yet'}
           </p>
           <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-            Approve candidates from the Pending tab to build your local detection library.
+            {tab === 'private'
+              ? 'Approve candidates as "Private" from the Approvals page to add patterns here.'
+              : 'Approve candidates as "Shared" to contribute patterns for all users, or click Sync to pull community patterns.'}
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {signatures.map((s) => (
+        <div className="flex flex-col gap-2.5">
+          {current.map((s) => (
             <SignatureRow
               key={s.id}
               sig={s}
-              onRemove={handleRemove}
+              onRemove={tab === 'private' ? handleRemovePrivate : null}
               acting={acting}
             />
           ))}
