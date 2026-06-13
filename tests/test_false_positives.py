@@ -9,12 +9,13 @@ No LLM calls — all nodes are deterministic. Runs in <1s.
 
 from __future__ import annotations
 
-import pytest
 from typing import TypedDict
+
+import pytest
 from langgraph.graph import StateGraph
 
 from argus import ArgusWatcher
-
+from argus.session import ArgusSession
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,8 @@ def _parse(state: SingleKeyState) -> SingleKeyState:
 
 def _summarize_single(state: SingleKeyState) -> SingleKeyState:
     items = state.get("parsed_items", [])
-    return {"summary": f"Found {len(items)} items with total value {sum(i['value'] for i in items)}."}
+    total = sum(i['value'] for i in items)
+    return {"summary": f"Found {len(items)} items with total value {total}."}
 
 @pytest.mark.unit
 def test_single_key_output():
@@ -542,7 +544,6 @@ def test_conditional_routing():
 # Pattern 15: Raw ArgusSession (non-LangGraph, framework-agnostic)
 # ═════════════════════════════════════════════════════════════════════════════
 
-from argus.session import ArgusSession
 
 @pytest.mark.unit
 def test_raw_argus_session():
