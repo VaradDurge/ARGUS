@@ -281,7 +281,7 @@ class ReplayEngine:
                 watcher._session.parent_run_id = record.run_id
                 watcher._session.replay_from_step = from_node
                 watcher._session.frozen_outputs = dict(frozen_map)
-            new_run_id = watcher._session.run_id if watcher._session else None
+            new_run_id = watcher.run_id
             app = graph.compile()
         else:
             raise ValueError(

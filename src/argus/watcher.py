@@ -15,28 +15,31 @@ RunSession = ArgusSession
 class ArgusWatcher:
     """LangGraph adapter for ArgusSession.
 
-    Usage (linear graph — auto-finalizes):
-        watcher = ArgusWatcher()
-        watcher.watch(graph)           # call before graph.compile()
+    Usage (shortest — pass graph directly):
+        watcher = ArgusWatcher(graph)
         app = graph.compile()
         result = app.invoke(state)
+        print(watcher.run_id)
 
-    Usage (cyclic graph — manual finalize required):
+    Usage (separate watch call):
         watcher = ArgusWatcher()
         watcher.watch(graph)
         app = graph.compile()
         result = app.invoke(state)
-        watcher.finalize()             # required for graphs with back-edges
+
+    Auto-finalize: runs are saved automatically for linear and fan-out/fan-in
+    (DAG) graphs. Only cyclic graphs (with back-edges) need manual finalize():
+
+        watcher.finalize()
 
     Usage (semantic validators):
-        watcher = ArgusWatcher(validators={
+        watcher = ArgusWatcher(graph, validators={
             "summarize": lambda out: (len(out.get("summary","")) > 10, "Summary too short"),
             "*": lambda out: ("error" not in out, f"Error: {out.get('error')}"),
         })
 
-    Usage (LLM semantic judge for complex pipelines):
-        watcher = ArgusWatcher(semantic_judge=True)   # requires OPENAI_API_KEY
-        watcher = ArgusWatcher(semantic_judge=True, judge_model="gpt-4o")
+    Usage (disable LLM semantic judge):
+        watcher = ArgusWatcher(graph, semantic_judge=False)   # skip LLM checks
 
     Usage (framework-agnostic, without LangGraph):
         from argus import ArgusSession   # use ArgusSession directly
@@ -44,6 +47,8 @@ class ArgusWatcher:
 
     def __init__(
         self,
+        graph: Any = None,
+        *,
         max_field_size: int = 50_000,
         validators: dict[str, Callable[[dict], tuple[bool, str]]] | None = None,
         strict: bool = False,
@@ -51,7 +56,7 @@ class ArgusWatcher:
         redact_keys: set[str] | list[str] | None = None,
         persist_state: bool = True,
         record_http: bool = False,
-        semantic_judge: bool = False,
+        semantic_judge: bool = True,
         judge_model: str = "gpt-4o",
     ) -> None:
         self._max_field_size = max_field_size
@@ -66,6 +71,17 @@ class ArgusWatcher:
         self._http_recorder_ctx = None
         self._http_recorder = None
         self._session: ArgusSession | None = None
+
+        # If graph was passed to constructor, auto-attach
+        if graph is not None:
+            self.watch(graph)
+
+    @property
+    def run_id(self) -> str | None:
+        """The run ID for the current session, or None if watch() hasn't been called."""
+        if self._session is None:
+            return None
+        return self._session.run_id
 
     def watch_compiled(self, compiled_graph: Any) -> Any:
         """Attach ARGUS to an already-compiled LangGraph graph.
@@ -184,9 +200,12 @@ class ArgusWatcher:
     def finalize(self) -> None:
         """Persist the run record.
 
-        Linear graphs: called automatically when the last node completes.
-        Cyclic graphs: must be called after app.invoke() returns.
-        Human-approval graphs: call after the final resume completes.
+        For most graphs (linear, fan-out/fan-in, DAGs) this is called
+        automatically when all terminal nodes complete. You only need
+        to call this manually for cyclic graphs (graphs with back-edges).
+
+        Safe to call even if auto-finalize already ran — it's a no-op
+        the second time.
         """
         if self._session is not None:
             self._session.finalize()

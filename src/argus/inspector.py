@@ -1046,25 +1046,46 @@ def build_root_cause_chain(
     # semantic degradation, tool failures, etc.)
     for event in reversed(steps_so_far):
         insp = event.inspection
-        if insp is None:
+
+        # Check for LLM semantic checker failure (semantic_check.passed == False)
+        has_semantic_check_failure = (
+            getattr(event, "semantic_check", None) is not None
+            and not event.semantic_check.passed
+        )
+
+        # Also treat status == "semantic_fail" as a failure signal even if
+        # inspection doesn't have semantic_signals (the LLM judge sets status
+        # directly without populating inspection.semantic_signals).
+        is_semantic_fail_status = event.status == "semantic_fail"
+
+        if insp is None and not has_semantic_check_failure and not is_semantic_fail_status:
             continue
         has_any_failure = (
-            insp.is_silent_failure
-            or insp.has_tool_failure
-            or insp.tool_failures
-            or insp.semantic_signals
+            (insp is not None and (
+                insp.is_silent_failure
+                or insp.has_tool_failure
+                or insp.tool_failures
+                or insp.semantic_signals
+            ))
+            or has_semantic_check_failure
+            or is_semantic_fail_status
         )
         if not has_any_failure:
             continue
-        bad_fields = set(insp.missing_fields + insp.empty_fields)
+        bad_fields = set()
+        if insp is not None:
+            bad_fields = set(insp.missing_fields + insp.empty_fields)
         # Remove fields that were actually provided elsewhere — parallel siblings
         real_bad = bad_fields - all_provided
         if (
             real_bad
             or seen_bad_fields.intersection(real_bad)
-            or insp.has_tool_failure
-            or insp.tool_failures
-            or insp.semantic_signals
+            or (
+                insp is not None
+                and (insp.has_tool_failure or insp.tool_failures or insp.semantic_signals)
+            )
+            or has_semantic_check_failure
+            or is_semantic_fail_status
         ):
             if event.node_name not in seen_nodes:
                 chain.append(event.node_name)

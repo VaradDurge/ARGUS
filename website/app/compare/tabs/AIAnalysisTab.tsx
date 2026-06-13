@@ -89,7 +89,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                   className="ml-2 text-[11px] font-mono px-2 py-0.5 rounded"
                   style={{ background: 'rgba(214,92,92,0.08)', color: C_RED, border: '1px solid rgba(214,92,92,0.2)' }}
                 >
-                  {run.root_cause_chain?.[0] ?? run.first_failure_step}
+                  {run.first_failure_step ?? run.root_cause_chain?.[0]}
                 </span>
               </div>
             )}

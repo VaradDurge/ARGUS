@@ -320,39 +320,60 @@ export default function StepRow({
               </div>
             )}
           </div>
-          {event.semantic_check && (
-            <div className="p-3 flex items-center gap-3" style={{ borderTop: '1px solid var(--border-default)' }}>
-              <div className="flex items-center gap-2">
-                <span style={{ color: event.semantic_check.passed ? '#3d9e7d' : '#d65c5c' }}>
-                  {event.semantic_check.passed ? '\u2713' : '\u2717'}
-                </span>
-                <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#8b919e' }}>
-                  Semantic Check
-                </span>
-              </div>
-              <span
-                className="text-[11px] font-mono px-1.5 py-0.5 rounded"
+          {event.semantic_check && (() => {
+            const passed = event.semantic_check.passed
+            const color = passed ? '#3d9e7d' : '#d65c5c'
+            const confidencePct = Math.round(event.semantic_check.confidence * 100)
+            return (
+              <div
+                className="mx-3 mb-3 rounded-md overflow-hidden"
                 style={{
-                  color: event.semantic_check.passed ? '#3d9e7d' : '#d65c5c',
-                  background: event.semantic_check.passed ? '#3d9e7d10' : '#d65c5c10',
-                  border: `1px solid ${event.semantic_check.passed ? '#3d9e7d25' : '#d65c5c25'}`,
+                  background: `${color}06`,
+                  border: `1px solid ${color}15`,
+                  borderLeftWidth: '3px',
+                  borderLeftColor: color,
                 }}
               >
-                {event.semantic_check.passed ? 'coherent' : 'incoherent'}
-              </span>
-              <span className="text-[11px] font-mono" style={{ color: '#5d6370' }}>
-                {Math.round(event.semantic_check.confidence * 100)}% confidence
-              </span>
-              {event.semantic_check.reason && (
-                <span className="text-[11px] italic" style={{ color: event.semantic_check.passed ? '#5d6370' : '#d65c5c' }}>
-                  {event.semantic_check.reason}
-                </span>
-              )}
-              <span className="text-[10px] font-mono ml-auto" style={{ color: '#3a3f4c' }}>
-                {event.semantic_check.model} &middot; {event.semantic_check.duration_ms.toFixed(0)}ms
-              </span>
-            </div>
-          )}
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  <div
+                    className="flex items-center justify-center w-5 h-5 rounded-full shrink-0"
+                    style={{ background: `${color}18` }}
+                  >
+                    <span className="text-[11px] font-bold" style={{ color }}>
+                      {passed ? '\u2713' : '\u2717'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#8b919e' }}>
+                    Node-Level Check
+                  </span>
+                  <span
+                    className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
+                    style={{ color, background: `${color}12`, border: `1px solid ${color}25` }}
+                  >
+                    {passed ? 'COHERENT' : 'INCOHERENT'}
+                  </span>
+                  <div className="ml-auto flex items-center gap-2 shrink-0">
+                    <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: `${color}15` }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${confidencePct}%`, background: color, opacity: 0.7 }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-mono tabular-nums" style={{ color: '#5d6370' }}>
+                      {confidencePct}%
+                    </span>
+                  </div>
+                </div>
+                {event.semantic_check.reason && (
+                  <div className="px-3 pb-2.5 pt-0">
+                    <p className="text-[11px] leading-relaxed pl-8" style={{ color: passed ? '#8b919e' : '#d65c5c' }}>
+                      {event.semantic_check.reason}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
           {event.exception && (
             <div className="p-3" style={{ borderTop: '1px solid var(--border-default)' }}>
               <div className="text-[10px] uppercase tracking-widest font-semibold text-red-400 mb-2">Full Exception</div>

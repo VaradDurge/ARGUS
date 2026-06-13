@@ -22,7 +22,7 @@ from argus.models import AnomalySignal, BehaviorConfig
 
 BEHAVIOR_PROFILES: dict[str, dict[str, Any]] = {
     "structured_json": {
-        "min_keys": 2,
+        "min_keys": 1,
         "expects_nested": True,
         "min_info_density": 0.15,
         "length_range": (20, 50_000),
@@ -141,7 +141,10 @@ def _is_empty(value: Any) -> bool:
         return True
     if isinstance(value, str) and value.strip() == "":
         return True
-    if isinstance(value, (list, dict)) and len(value) == 0:
+    # Empty dicts are suspicious, but empty lists are valid — they mean
+    # "nothing found" which is a legitimate result (e.g. no vulnerabilities,
+    # no errors, no matches). Only flag empty dicts.
+    if isinstance(value, dict) and len(value) == 0:
         return True
     return False
 

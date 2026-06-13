@@ -40,7 +40,24 @@ interface Signature {
   }
 }
 
-type Tab = 'pending' | 'private' | 'shared'
+interface FeedbackEvent {
+  id: string
+  override_type: string
+  node_name: string
+  anomaly_ids: string[]
+  anomaly_reasons: string[]
+  llm_reason: string
+  llm_confidence: number
+  behavior_type: string
+  output_shape: { key_count: number; depth: number; total_chars: number }
+  source_run_ids: string[]
+  times_seen: number
+  first_seen: string
+  last_seen: string
+  status: string
+}
+
+type Tab = 'pending' | 'private' | 'shared' | 'feedback'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -443,6 +460,261 @@ function SignatureRow({
   )
 }
 
+// ── Feedback Card (Feedback Tab) ─────────────────────────────
+
+function FeedbackCard({
+  event,
+  onResolve,
+  onDismiss,
+  acting,
+}: {
+  event: FeedbackEvent
+  onResolve: (id: string, verdict: string, share: boolean) => void
+  onDismiss: (id: string) => void
+  acting: string | null
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<string | null>(null)
+  const isActing = acting === event.id
+
+  const isAnomaly = event.override_type === 'anomaly_override'
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden transition-all"
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide"
+              style={{
+                background: isAnomaly ? 'rgba(212,154,46,0.08)' : 'rgba(124,127,199,0.08)',
+                border: `1px solid ${isAnomaly ? 'rgba(212,154,46,0.25)' : 'rgba(124,127,199,0.2)'}`,
+                color: isAnomaly ? '#d49a2e' : '#7c7fc7',
+              }}
+            >
+              {isAnomaly ? 'anomaly override' : 'heuristic override'}
+            </span>
+            {event.anomaly_ids.map((aid) => (
+              <span
+                key={aid}
+                className="text-[10.5px] font-mono font-medium px-2 py-0.5 rounded-md"
+                style={{ background: 'rgba(214,92,92,0.08)', border: '1px solid rgba(214,92,92,0.2)', color: '#d65c5c' }}
+              >
+                {aid}
+              </span>
+            ))}
+            <CategoryBadge category={event.behavior_type} />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              className="text-[10.5px] font-mono px-2 py-0.5 rounded-md"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+            >
+              {event.times_seen}x seen
+            </span>
+            <span className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
+              {timeAgo(event.last_seen)}
+            </span>
+          </div>
+        </div>
+
+        {/* Node name */}
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Node:</span>
+          <span
+            className="font-mono text-[13px] font-semibold px-3 py-1.5 rounded-lg"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+          >
+            {event.node_name}
+          </span>
+        </div>
+
+        {/* What happened */}
+        <div className="mt-3 rounded-lg px-4 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start gap-2">
+              <span className="text-[11px] font-semibold shrink-0 mt-0.5" style={{ color: '#d65c5c', minWidth: 80 }}>
+                Detector said:
+              </span>
+              <span className="text-[12.5px]" style={{ color: 'var(--text-secondary)' }}>
+                {event.anomaly_reasons.join('; ') || 'Suspicious output pattern'}
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-[11px] font-semibold shrink-0 mt-0.5" style={{ color: '#3d9e7d', minWidth: 80 }}>
+                LLM said:
+              </span>
+              <span className="text-[12.5px]" style={{ color: 'var(--text-secondary)' }}>
+                {event.llm_reason}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Confidence */}
+        <div className="mt-3 flex items-center gap-3">
+          <span className="text-[11px] font-medium shrink-0" style={{ color: 'var(--text-muted)', minWidth: 72 }}>
+            LLM confidence
+          </span>
+          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.round(event.llm_confidence * 100)}%`,
+                background: confidenceColor(event.llm_confidence),
+              }}
+            />
+          </div>
+          <span
+            className="text-[11px] font-mono font-semibold shrink-0"
+            style={{ color: confidenceColor(event.llm_confidence) }}
+          >
+            {Math.round(event.llm_confidence * 100)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Expandable details */}
+      {expanded && (
+        <div className="px-5 py-4 flex flex-col gap-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] block mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Output Shape (no content shared)
+            </span>
+            <div className="flex gap-4">
+              {[
+                { label: 'Keys', value: event.output_shape.key_count },
+                { label: 'Depth', value: event.output_shape.depth },
+                { label: 'Chars', value: event.output_shape.total_chars },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-md px-3 py-2" style={{ background: 'var(--bg-elevated)' }}>
+                  <span className="text-[10px] block" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                  <span className="text-[13px] font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {event.source_run_ids.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                Runs:
+              </span>
+              {event.source_run_ids.map((rid) => (
+                <span
+                  key={rid}
+                  className="text-[10.5px] font-mono px-2 py-0.5 rounded-md"
+                  style={{ background: 'rgba(124,127,199,0.08)', color: '#7c7fc7' }}
+                >
+                  {rid.length > 20 ? `${rid.slice(0, 16)}...` : rid}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions footer */}
+      <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="text-[12px] font-medium transition-colors"
+          style={{ color: '#7c7fc7' }}
+        >
+          {expanded ? 'Show less' : 'Show details'}
+        </button>
+
+        <div className="flex items-center gap-2">
+          {confirmAction ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {confirmAction === 'agree' ? 'LLM was right?' : 'Detector was right?'}
+              </span>
+              <button
+                type="button"
+                onClick={() => { onResolve(event.id, confirmAction, false); setConfirmAction(null) }}
+                disabled={isActing}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+                style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', opacity: isActing ? 0.5 : 1 }}
+              >
+                Local
+              </button>
+              <button
+                type="button"
+                onClick={() => { onResolve(event.id, confirmAction, true); setConfirmAction(null) }}
+                disabled={isActing}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-semibold flex items-center gap-1"
+                style={{ background: '#3d9e7d', color: '#fff', opacity: isActing ? 0.5 : 1 }}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 2v8M4.5 6.5L8 2l3.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2.5 11v1.5a1 1 0 001 1h9a1 1 0 001-1V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+                Share
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="px-2 py-1.5 rounded-lg text-[12px]"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => onDismiss(event.id)}
+                disabled={isActing}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                style={{ color: 'var(--text-muted)', opacity: isActing ? 0.5 : 1 }}
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmAction('disagree')}
+                disabled={isActing}
+                className="px-4 py-2 rounded-lg text-[13px] font-medium transition-all"
+                style={{
+                  color: '#d65c5c',
+                  border: '1px solid rgba(214,92,92,0.25)',
+                  background: 'rgba(214,92,92,0.06)',
+                  opacity: isActing ? 0.5 : 1,
+                }}
+              >
+                Disagree
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmAction('agree')}
+                disabled={isActing}
+                className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
+                style={{
+                  color: '#3d9e7d',
+                  border: '1px solid rgba(61,158,125,0.25)',
+                  background: 'rgba(61,158,125,0.06)',
+                  opacity: isActing ? 0.5 : 1,
+                }}
+              >
+                Agree
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────
 
 export default function ApprovalsPage() {
@@ -450,6 +722,7 @@ export default function ApprovalsPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [privateSigs, setPrivateSigs] = useState<Signature[]>([])
   const [sharedSigs, setSharedSigs] = useState<Signature[]>([])
+  const [feedbackEvents, setFeedbackEvents] = useState<FeedbackEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
   const [actingBool, setActingBool] = useState(false)
@@ -457,10 +730,11 @@ export default function ApprovalsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [candRes, privRes, sharedRes] = await Promise.all([
+      const [candRes, privRes, sharedRes, fbRes] = await Promise.all([
         fetch('/api/candidates'),
         fetch('/api/custom-signatures'),
         fetch('/api/shared-signatures'),
+        fetch('/api/feedback'),
       ])
       if (candRes.ok) {
         const data = await candRes.json()
@@ -473,6 +747,10 @@ export default function ApprovalsPage() {
       if (sharedRes.ok) {
         const data = await sharedRes.json()
         setSharedSigs((data || []).map((s: Signature) => ({ ...s, source: 'shared' })))
+      }
+      if (fbRes.ok) {
+        const data = await fbRes.json()
+        setFeedbackEvents(data.pending || [])
       }
     } catch {
       // server not running
@@ -525,6 +803,28 @@ export default function ApprovalsPage() {
     setActingBool(false)
   }
 
+  async function handleResolveFeedback(id: string, verdict: string, share: boolean) {
+    setActing(id)
+    try {
+      const res = await fetch(`/api/feedback/${id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verdict, share }),
+      })
+      if (res.ok) await fetchData()
+    } catch { /* ignore */ }
+    setActing(null)
+  }
+
+  async function handleDismissFeedback(id: string) {
+    setActing(id)
+    try {
+      const res = await fetch(`/api/feedback/${id}/dismiss`, { method: 'POST' })
+      if (res.ok) await fetchData()
+    } catch { /* ignore */ }
+    setActing(null)
+  }
+
   async function handleSync() {
     setSyncing(true)
     try {
@@ -564,6 +864,7 @@ export default function ApprovalsPage() {
         >
           {([
             { key: 'pending' as Tab, label: 'Pending', count: candidates.length },
+            { key: 'feedback' as Tab, label: 'Feedback', count: feedbackEvents.length },
             { key: 'private' as Tab, label: 'Private', count: privateSigs.length },
             { key: 'shared' as Tab, label: 'Shared', count: sharedSigs.length },
           ]).map(({ key, label, count }) => (
@@ -642,6 +943,32 @@ export default function ApprovalsPage() {
                 onApprovePrivate={handleApprovePrivate}
                 onApproveShared={handleApproveShared}
                 onReject={handleReject}
+                acting={acting}
+              />
+            ))}
+          </div>
+        )
+      ) : tab === 'feedback' ? (
+        feedbackEvents.length === 0 ? (
+          <div
+            className="text-center py-16 rounded-xl"
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+          >
+            <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+              No pending feedback
+            </p>
+            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+              When the LLM judge overrides an anomaly detector flag, it appears here for your review.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {feedbackEvents.map((e) => (
+              <FeedbackCard
+                key={e.id}
+                event={e}
+                onResolve={handleResolveFeedback}
+                onDismiss={handleDismissFeedback}
                 acting={acting}
               />
             ))}

@@ -384,6 +384,11 @@ def _make_handler(
 
                 count = sync_shared_signatures()
                 self._send_json({"synced": count})
+            elif path == "/api/feedback":
+                from argus.feedback_store import load_feedback  # noqa: PLC0415
+
+                data = load_feedback()
+                self._send_json(data)
             elif path.startswith("/api/replay/status/"):
                 job_id = path[len("/api/replay/status/") :]
                 with _replay_lock:
@@ -522,6 +527,35 @@ def _make_handler(
                 t.start()
 
                 self._send_json({"job_id": job_id}, 202)
+            elif path.startswith("/api/feedback/") and path.endswith("/resolve"):
+                fb_id = path[len("/api/feedback/") : -len("/resolve")]
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+                verdict = data.get("verdict", "")
+                share = data.get("share", False)
+                if verdict not in ("agree", "disagree"):
+                    self._send_json({"error": "verdict must be 'agree' or 'disagree'"}, 400)
+                    return
+                from argus.feedback_store import resolve_feedback  # noqa: PLC0415
+
+                result = resolve_feedback(fb_id, verdict, share=share)
+                if result is None:
+                    self._send_json({"error": "feedback not found"}, 404)
+                else:
+                    self._send_json(result)
+            elif path.startswith("/api/feedback/") and path.endswith("/dismiss"):
+                fb_id = path[len("/api/feedback/") : -len("/dismiss")]
+                from argus.feedback_store import dismiss_feedback  # noqa: PLC0415
+
+                if dismiss_feedback(fb_id):
+                    self._send_json({"ok": True})
+                else:
+                    self._send_json({"error": "feedback not found"}, 404)
             elif path.startswith("/api/candidates/") and path.endswith("/approve-shared"):
                 cand_id = path[len("/api/candidates/") : -len("/approve-shared")]
                 from argus.candidate_store import approve_candidate_shared  # noqa: PLC0415

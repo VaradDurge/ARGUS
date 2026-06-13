@@ -108,7 +108,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
           <div className="mt-4 space-y-5">
 
             {/* Root Cause Node */}
-            {(run.root_cause_chain?.length > 0 || run.first_failure_step) && (
+            {(run.first_failure_step || run.root_cause_chain?.length > 0) && (
               <div>
                 <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
                   Root Cause Node:
@@ -117,7 +117,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
                   className="ml-2 text-[12.5px] font-mono px-2 py-0.5 rounded"
                   style={{ background: 'rgba(214,92,92,0.08)', color: '#d65c5c', border: '1px solid rgba(214,92,92,0.2)' }}
                 >
-                  {run.root_cause_chain?.[0] ?? run.first_failure_step}
+                  {run.first_failure_step ?? run.root_cause_chain?.[0]}
                 </span>
               </div>
             )}

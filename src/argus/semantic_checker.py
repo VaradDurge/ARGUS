@@ -21,21 +21,30 @@ _SYSTEM_PROMPT = (
     '{"pass": bool, "reason": "<1 sentence>", "confidence": <0.0-1.0>}\n\n'
     "Rules:\n"
     '- "pass": true if the output is a reasonable response to the input\n'
-    '- "pass": false if the output is unrelated, contradictory, or nonsensical '
-    "given the input\n"
+    '- "pass": false ONLY if the output is completely unrelated, contradictory, '
+    "or nonsensical given the input\n"
     "- Do not judge quality or completeness, only semantic relevance\n"
-    "- If you cannot determine relevance (insufficient context), pass it"
+    "- If you cannot determine relevance (insufficient context), pass it\n"
+    "- This is one node in a MULTI-STEP pipeline. The output does not need to "
+    "directly answer the input — it may be an intermediate transformation "
+    "(e.g. parsing, filtering, extracting, classifying). As long as the output "
+    "is a plausible processing step on the input data, pass it.\n"
+    "- The input/output shown may be TRUNCATED. Do NOT fail a node because "
+    "the output references content that was truncated from the input. "
+    "If a value ends with '... (truncated)' it was cut short — assume the "
+    "full value contains more data than what you see.\n"
+    "- When in doubt, PASS. False positives are worse than false negatives."
 )
 
-_MAX_VALUE_LEN = 300
-_MAX_PAYLOAD_CHARS = 3000
+_MAX_VALUE_LEN = 800
+_MAX_PAYLOAD_CHARS = 6000
 
 
 def _truncate(v: Any) -> str:
     """Convert a value to a truncated string representation."""
     s = str(v) if not isinstance(v, str) else v
     if len(s) > _MAX_VALUE_LEN:
-        return s[:_MAX_VALUE_LEN] + "..."
+        return s[:_MAX_VALUE_LEN] + "... (truncated)"
     return s
 
 

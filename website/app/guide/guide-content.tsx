@@ -183,36 +183,42 @@ const LLM_PROMPT = `Add ARGUS monitoring to my LangGraph pipeline. ARGUS watches
 
 Install: pip install argus-agents
 
-Then add 3 lines to the file where the graph is built:
+Then add 2 lines to the file where the graph is built:
 
 from argus import ArgusWatcher
 
-watcher = ArgusWatcher()
-watcher.watch(graph)
+watcher = ArgusWatcher(graph)          # pass your StateGraph directly
 app = graph.compile()
-result = app.invoke(initial_state)
-watcher.finalize()
+result = app.invoke(initial_state)     # run auto-saves when done
+print(watcher.run_id)                  # access the run ID directly
 
 If the graph is already compiled, use watch_compiled() instead:
 
 watcher = ArgusWatcher()
 app = watcher.watch_compiled(app)
 result = app.invoke(initial_state)
-watcher.finalize()
 
 That's it. Run the pipeline, then use "argus show last" to see what ARGUS caught.
 
-Optional parameters — all go in ArgusWatcher():
+All parameters are keyword-only (except graph):
 
-watcher = ArgusWatcher(
-    record_http=True,      # save API calls to disk for deterministic reruns
-    semantic_judge=True,   # LLM judge on every node (needs OPENAI_API_KEY)
-    judge_model="gpt-4o",  # model for the judge. default: gpt-4o
+watcher = ArgusWatcher(graph,
+    record_http=True,       # save API calls to disk for deterministic reruns
+    semantic_judge=True,    # LLM judge on every node (needs OPENAI_API_KEY)
+    judge_model="gpt-4o",   # model for the judge. default: gpt-4o
+    strict=True,            # extra checks for CI/staging
+    max_field_size=50000,   # max chars per field before truncation
+    investigate=True,       # LLM root-cause analysis (True/False/"always")
+    redact_keys={"token"},  # field names to redact from stored outputs
+    persist_state=True,     # save run records to .argus/runs/
+    validators={            # per-node semantic validators
+        "summarize": lambda o: (len(o.get("summary","")) > 10, "Summary too short"),
+        "*": lambda o: ("error" not in o, "error key present"),
+    },
 )
-# heads up: semantic_judge calls GPT-4o per node — adds to your
-# OpenAI bill. worth it for complex pipelines, overkill for simple ones.
 
-You can mix and match — use any combination that fits your pipeline.`
+Runs auto-save for linear and fan-out/fan-in graphs.
+Only cyclic graphs need watcher.finalize().`
 
 function LLMPromptBox() {
   const [copied, setCopied] = useState(false)
@@ -556,15 +562,36 @@ export default function GuideContent() {
 
       <Divider />
 
-      {/* ── 5. Optional Parameters ────────────────────────────────────── */}
-      <SectionTitle>5. Optional Parameters</SectionTitle>
+      {/* ── 5. ArgusWatcher Parameters ─────────────────────────────────── */}
+      <SectionTitle>5. ArgusWatcher Parameters</SectionTitle>
       <Body>
-        All optional features live in the <Code>ArgusWatcher()</Code> constructor.
+        Pass your graph as the first argument, then use keyword arguments for everything else.
         Mix and match whatever fits your pipeline:
       </Body>
 
-      <CodeBlock title="All optional parameters explained">
+      <CodeBlock title="All parameters explained">
 {`watcher = ArgusWatcher(
+    graph,                  # your LangGraph StateGraph — auto-calls watch()
+
+    # --- Output control ---
+    max_field_size=50_000,  # max chars per field before truncation (default: 50k)
+    redact_keys={"token", "api_key"},  # field names to scrub from stored outputs
+    persist_state=True,     # save run records to .argus/runs/ (default: True)
+
+    # --- Detection strictness ---
+    strict=True,            # extra checks: nested error keys, rate-limit responses,
+                            # empty lists, type mismatches. recommended for CI/staging.
+
+    # --- Semantic validators ---
+    validators={
+        "summarize": lambda o: (len(o.get("summary","")) > 10, "Summary too short"),
+        "*": lambda o: ("error" not in o, "error key present"),  # runs on every node
+    },
+
+    # --- LLM investigation ---
+    investigate=True,       # LLM root-cause analysis on failures (default: True)
+                            # set to "always" for every node, False to disable
+
     # --- Deterministic rerun ---
     record_http=True,       # saves every outbound API call (OpenAI, search, etc.)
                             # to disk. reruns replay from disk instead of calling
@@ -583,6 +610,12 @@ export default function GuideContent() {
                             # swap to gpt-4o-mini if you want cheaper runs.
 )`}
       </CodeBlock>
+
+      <Body>
+        After the run, access <Code>watcher.run_id</Code> to get the run ID.
+        Runs auto-save for linear and fan-out/fan-in (DAG) graphs — you only need to
+        call <Code>watcher.finalize()</Code> for cyclic graphs with back-edges.
+      </Body>
 
       <SubTitle>record_http — deterministic reruns</SubTitle>
       <Body>

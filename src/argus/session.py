@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import os
 import threading
 import time
@@ -88,6 +89,19 @@ def _is_empty_value(value: Any) -> bool:
     if isinstance(value, (list, tuple, dict, set)) and len(value) == 0:
         return True
     return False
+
+
+def _measure_output_depth(obj: Any, current: int = 0) -> int:
+    """Max nesting depth of a dict/list (privacy-safe shape metric)."""
+    if isinstance(obj, dict):
+        if not obj:
+            return current + 1
+        return max(_measure_output_depth(v, current + 1) for v in obj.values())
+    if isinstance(obj, list):
+        if not obj:
+            return current + 1
+        return max(_measure_output_depth(item, current + 1) for item in obj)
+    return current
 
 
 class ArgusSession:
@@ -508,30 +522,43 @@ class ArgusSession:
 
             # per-node semantic coherence check (LLM)
             #
-            # Runs in two modes:
+            # Runs in three modes:
             #   1. Still-passing nodes → can DOWNGRADE to semantic_fail
             #   2. Heuristic-only failures → can OVERRIDE back to pass
             #      (the heuristic scanner is context-blind; the LLM sees
             #       input+output and can determine if the output is
             #       actually valid for this node's purpose)
+            #   3. Anomaly-detector-only failures → can OVERRIDE back to pass
+            #      (behavioral heuristics like BA-001..BA-008 are shape-based;
+            #       the LLM understands whether the shape is valid in context)
             semantic_check_result: SemanticCheckResult | None = None
+            _has_hard_failure = (
+                (inspection is not None and (inspection.is_silent_failure
+                                             or inspection.has_tool_failure
+                                             or inspection.missing_fields))
+                or any(not r.is_valid for r in validator_results)
+            )
             _heuristic_only_fail = (
                 status == "semantic_fail"
+                and not _has_hard_failure
                 and inspection is not None
                 and inspection.semantic_signals
-                and not inspection.is_silent_failure
-                and not inspection.has_tool_failure
-                and not inspection.missing_fields
-                and not any(not r.is_valid for r in validator_results)
                 and not any(a.severity == "critical" for a in anomaly_signals)
             )
+            _anomaly_only_fail = (
+                status == "semantic_fail"
+                and not _has_hard_failure
+                and any(a.severity == "critical" for a in anomaly_signals)
+                and (inspection is None or not inspection.semantic_signals)
+            )
+            _soft_fail = _heuristic_only_fail or _anomaly_only_fail
             _should_run_judge = (
                 output_snap is not None
                 and input_snap
                 and self._llm_investigation_config
                 and self._llm_investigation_config.enabled
                 and self._llm_investigation_config.semantic_check
-                and (status == "pass" or _heuristic_only_fail)
+                and (status == "pass" or _soft_fail)
             )
             if _should_run_judge:
                 try:
@@ -549,9 +576,42 @@ class ArgusSession:
                     if status == "pass" and not sc_passed and sc_confident:
                         # LLM says output is incoherent → downgrade
                         status = "semantic_fail"
-                    elif _heuristic_only_fail and sc_passed and sc_confident:
-                        # LLM overrides heuristic false positive → restore
+                    elif _soft_fail and sc_passed and sc_confident:
+                        # LLM overrides heuristic/anomaly false positive → restore
                         status = "pass"
+                        # Record override for user feedback
+                        try:
+                            from argus.feedback_store import record_override  # noqa: PLC0415
+
+                            override_type = (
+                                "anomaly_override" if _anomaly_only_fail
+                                else "heuristic_override"
+                            )
+                            record_override(
+                                run_id=self.run_id,
+                                node_name=node_name,
+                                override_type=override_type,
+                                anomaly_ids=[
+                                    a.anomaly_id for a in anomaly_signals
+                                    if a.severity == "critical"
+                                ],
+                                anomaly_reasons=[
+                                    a.reason for a in anomaly_signals
+                                    if a.severity == "critical"
+                                ],
+                                llm_reason=semantic_check_result.reason,
+                                llm_confidence=semantic_check_result.confidence,
+                                behavior_type=behavior_type_val or "unknown",
+                                output_shape={
+                                    "key_count": len(output_snap) if output_snap else 0,
+                                    "depth": _measure_output_depth(output_snap),
+                                    "total_chars": len(
+                                        json.dumps(output_snap, default=str)
+                                    ) if output_snap else 0,
+                                },
+                            )
+                        except Exception:
+                            pass
                 except Exception:
                     pass
 

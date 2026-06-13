@@ -22,7 +22,7 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
 
   const confPct = Math.round(inv.confidence * 100)
   const confColor = inv.confidence >= 0.75 ? '#3d9e7d' : inv.confidence >= 0.45 ? '#d49a2e' : '#5d6370'
-  const rootCauseNode = run.root_cause_chain?.[0] ?? run.first_failure_step
+  const rootCauseNode = run.first_failure_step ?? run.root_cause_chain?.[0]
   const rootCauseStep = run.steps?.findIndex((s) => s.node_name === rootCauseNode)
 
   return (
