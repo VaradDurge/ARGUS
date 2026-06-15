@@ -300,3 +300,5 @@ class LLMInvestigationConfig:
     suggest_signatures: bool = True  # whether to ask LLM for new patterns
     semantic_check: bool = True  # per-node coherence check on passing nodes
     semantic_check_model: str = "gpt-4o-mini"  # cheap model for per-node checks
+    # 0.0 = disabled; e.g. 0.85 auto-resolves overrides above this confidence
+    false_positive_auto_approve_threshold: float = 0.0

@@ -245,6 +245,15 @@ def approve_candidate_shared(candidate_id: str) -> dict[str, Any] | None:
         save_candidates(data)
         return None
 
+    # Pull back the full community registry so the newly approved signature
+    # (and any others contributed since last sync) is immediately active.
+    try:
+        from argus.registry import sync_shared_signatures  # noqa: PLC0415
+
+        sync_shared_signatures()
+    except Exception:
+        pass
+
     return new_sig
 
 

@@ -167,6 +167,10 @@ class ArgusSession:
         self._completed = False
         self._is_cyclic = False
         self._node_attempt_counts: dict[str, int] = {}
+
+        # Sync shared community signatures from Supabase in the background.
+        # Non-blocking — if not logged in or network fails, silently skips.
+        threading.Thread(target=self._sync_shared_signatures, daemon=True).start()
         self._terminal_nodes: set[str] = set()
         self._completed_terminals: set[str] = set()
 
@@ -181,6 +185,22 @@ class ArgusSession:
         self.app_factory_ref: str | None = None
         self.node_fn_refs: dict[str, str] | None = None
         self.node_fn_paths: dict[str, str] | None = None
+
+    # ── Internal helpers ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def _sync_shared_signatures() -> None:
+        """Pull shared community signatures from Supabase and reload the registry.
+
+        Runs in a daemon thread — safe to fail silently if not logged in or
+        no network is available.
+        """
+        try:
+            from argus.registry import sync_shared_signatures  # noqa: PLC0415
+
+            sync_shared_signatures()
+        except Exception:
+            pass
 
     # ── Public configuration ─────────────────────────────────────────────────
 
@@ -609,6 +629,10 @@ class ArgusSession:
                                         json.dumps(output_snap, default=str)
                                     ) if output_snap else 0,
                                 },
+                                auto_approve_threshold=(
+                                    self._llm_investigation_config.false_positive_auto_approve_threshold
+                                    if self._llm_investigation_config else 0.0
+                                ),
                             )
                         except Exception:
                             pass

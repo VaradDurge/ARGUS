@@ -45,6 +45,7 @@ def record_override(
     llm_confidence: float,
     behavior_type: str,
     output_shape: dict[str, Any],
+    auto_approve_threshold: float = 0.0,
 ) -> str:
     """Record an LLM override event for user review.
 
@@ -58,6 +59,8 @@ def record_override(
         llm_confidence: The LLM's confidence score.
         behavior_type: The inferred behavior type.
         output_shape: Privacy-safe shape info (key count, depth, etc.).
+        auto_approve_threshold: If > 0 and llm_confidence >= threshold, the override
+            is auto-resolved as "agree" (confirmed false positive) without user review.
 
     Returns:
         The feedback event ID.
@@ -79,6 +82,10 @@ def record_override(
             save_feedback(data)
             return entry["id"]
 
+    auto_approved = (
+        auto_approve_threshold > 0.0 and llm_confidence >= auto_approve_threshold
+    )
+
     event = {
         "id": event_id,
         "override_type": override_type,
@@ -95,7 +102,15 @@ def record_override(
         "last_seen": now,
         "status": "pending",
     }
-    data["pending"].append(event)
+
+    if auto_approved:
+        event["status"] = "agree"
+        event["resolved_at"] = now
+        event["auto_approved"] = True
+        data["resolved"].append(event)
+    else:
+        data["pending"].append(event)
+
     save_feedback(data)
     return event_id
 
