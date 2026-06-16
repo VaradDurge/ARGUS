@@ -1,60 +1,100 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import type { RunStatus, StepStatus, Severity } from '@/lib/types'
 
-const RUN_STATUS_MAP: Record<RunStatus, { label: string; dot: string; color: string }> = {
-  clean:          { label: 'clean',          dot: '\u25CF', color: '#3d9e7d' },
-  silent_failure: { label: 'silent failure', dot: '\u25CF', color: '#d49a2e' },
-  crashed:        { label: 'crashed',        dot: '\u25CF', color: '#d65c5c' },
-  semantic_fail:  { label: 'semantic fail',  dot: '\u25CF', color: '#9a6dc6' },
-  interrupted:    { label: 'interrupted',    dot: '\u23F8', color: '#d49a2e' },
+/* ── Run Status Badge ──────────────────────────────────────────── */
+
+const RUN_STATUS_CONFIG: Record<
+  RunStatus,
+  { label: string; color: string }
+> = {
+  clean:          { label: 'Clean',          color: '#22c55e' },
+  silent_failure: { label: 'Silent Failure', color: '#eab308' },
+  crashed:        { label: 'Crashed',        color: '#ef4444' },
+  semantic_fail:  { label: 'Semantic Fail',  color: '#a855f7' },
+  interrupted:    { label: 'Interrupted',    color: '#8b8fa0' },
 }
 
-const STEP_STATUS_MAP: Record<StepStatus, { icon: string; label: string; color: string }> = {
-  pass:           { icon: '\u2713', label: 'pass',           color: '#3d9e7d' },
-  degraded_input: { icon: '\u2B07', label: 'degraded input', color: '#d49a2e' },
-  fail:           { icon: '\u26A0', label: 'fail',           color: '#d49a2e' },
-  crashed:        { icon: '\u2717', label: 'crashed',        color: '#d65c5c' },
-  semantic_fail:  { icon: '\u2298', label: 'semantic fail',  color: '#9a6dc6' },
-  interrupted:    { icon: '\u23F8', label: 'interrupted',    color: '#d49a2e' },
-}
+export function RunStatusBadge({
+  status,
+  size = 'default',
+  className,
+}: {
+  status: RunStatus
+  size?: 'default' | 'sm'
+  className?: string
+}) {
+  const c = RUN_STATUS_CONFIG[status] ?? { label: status, color: '#8b8fa0' }
 
-const SEVERITY_MAP: Record<Severity, { color: string; bg: string }> = {
-  critical: { color: '#d65c5c', bg: 'rgba(214,92,92,0.08)' },
-  warning:  { color: '#d49a2e', bg: 'rgba(212,154,46,0.08)' },
-  info:     { color: '#7c7fc7', bg: 'rgba(124,127,199,0.08)' },
-  ok:       { color: '#3d9e7d', bg: 'rgba(61,158,125,0.08)' },
-}
-
-export function RunStatusBadge({ status }: { status: RunStatus }) {
-  const s = RUN_STATUS_MAP[status] ?? { label: status, dot: '\u25CF', color: '#5d6370' }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium">
-      <span style={{ color: s.color, fontSize: '8px' }}>{s.dot}</span>
-      <span style={{ color: s.color }}>{s.label}</span>
-    </span>
-  )
-}
-
-export function StepStatusBadge({ status }: { status: StepStatus }) {
-  const s = STEP_STATUS_MAP[status] ?? { icon: '?', label: status, color: '#5d6370' }
-  return (
-    <span className="inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: s.color }}>
-      <span>{s.icon}</span>
-      <span>{s.label}</span>
-    </span>
-  )
-}
-
-export function SeverityBadge({ severity }: { severity: Severity }) {
-  const s = SEVERITY_MAP[severity] ?? { color: '#5d6370', bg: 'rgba(156,163,175,0.08)' }
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold"
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-[4px] border font-medium',
+        size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs',
+        className,
+      )}
       style={{
-        color: s.color,
-        background: s.bg,
-        border: `1px solid ${s.color}20`,
+        color: c.color,
+        backgroundColor: `color-mix(in srgb, ${c.color} 10%, transparent)`,
+        borderColor: `color-mix(in srgb, ${c.color} 25%, transparent)`,
+      }}
+    >
+      <span className="relative flex h-2 w-2">
+        <span
+          className="relative inline-flex h-2 w-2 rounded-full"
+          style={{ background: c.color }}
+        />
+      </span>
+      {c.label}
+    </span>
+  )
+}
+
+/* ── Step Status Badge ─────────────────────────────────────────── */
+
+const STEP_STATUS_CONFIG: Record<StepStatus, { label: string; color: string }> = {
+  pass:           { label: 'pass',           color: '#22c55e' },
+  degraded_input: { label: 'degraded input', color: '#eab308' },
+  fail:           { label: 'fail',           color: '#eab308' },
+  crashed:        { label: 'crashed',        color: '#ef4444' },
+  semantic_fail:  { label: 'semantic fail',  color: '#a855f7' },
+  interrupted:    { label: 'interrupted',    color: '#8b8fa0' },
+}
+
+export function StepStatusBadge({ status, className }: { status: StepStatus; className?: string }) {
+  const c = STEP_STATUS_CONFIG[status] ?? { label: status, color: '#8b8fa0' }
+
+  return (
+    <span
+      className={cn('inline-flex items-center gap-1.5 text-[12px] font-medium', className)}
+      style={{ color: c.color }}
+    >
+      <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />
+      <span>{c.label}</span>
+    </span>
+  )
+}
+
+/* ── Severity Badge ────────────────────────────────────────────── */
+
+const SEVERITY_COLOR: Record<Severity, string> = {
+  critical: '#ef4444',
+  warning:  '#eab308',
+  info:     '#3b82f6',
+  ok:       '#22c55e',
+}
+
+export function SeverityBadge({ severity, className }: { severity: Severity; className?: string }) {
+  const color = SEVERITY_COLOR[severity] ?? '#8b8fa0'
+
+  return (
+    <span
+      className={cn('inline-flex items-center px-2 py-0.5 rounded-[4px] border text-[11px] font-semibold', className)}
+      style={{
+        color,
+        backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
+        borderColor: `color-mix(in srgb, ${color} 25%, transparent)`,
       }}
     >
       {severity}

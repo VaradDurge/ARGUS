@@ -11,8 +11,10 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.49.0",
+    "@xyflow/react": "^12.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "geist": "^1.7.2",
     "lucide-react": "^1.16.0",
     "next": "14.2.29",
     "radix-ui": "^1.4.3",

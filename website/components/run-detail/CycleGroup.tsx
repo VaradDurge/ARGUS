@@ -8,6 +8,7 @@ export default function CycleGroup({
   iterations,
   nameCol,
   run,
+  startIndex,
   onReplay,
   onReplayNode,
   replayingNode,
@@ -17,6 +18,7 @@ export default function CycleGroup({
   iterations: NodeEvent[][]
   nameCol: number
   run: RunRecord
+  startIndex?: number
   onReplay?: (node: string) => void
   onReplayNode?: (node: string) => void
   replayingNode?: string | null
@@ -24,39 +26,53 @@ export default function CycleGroup({
   onDismissDiff?: () => void
 }) {
   const cycleNodeNames = iterations[0]?.map((e) => e.node_name).join(' \u2192 ') ?? ''
+  let idx = startIndex ?? 0
+
   return (
-    <div
-      className="mx-3 my-2 rounded-lg overflow-hidden"
-      style={{ border: '1px solid rgba(6,182,212,0.25)', background: 'rgba(6,182,212,0.03)' }}
-    >
-      <div className="px-4 py-1.5 text-[11px] font-mono" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
-        <span className="text-cyan-400 font-bold">\u21A9 cycle</span>
-        <span className="text-[#52525e] ml-3">{cycleNodeNames}</span>
-        <span className="text-cyan-400 font-bold ml-3">\u00D7{iterations.length}</span>
+    <div className="flex flex-col gap-2">
+      {/* Cycle group header */}
+      <div className="flex items-center gap-2 px-1">
+        <span className="rounded-[4px] bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-tertiary">
+          cycle
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {cycleNodeNames}
+        </span>
+        <span className="font-mono text-[11px] font-bold text-text-tertiary">
+          ×{iterations.length}
+        </span>
       </div>
-      {iterations.map((iterEvents, idx) => (
-        <div key={idx}>
-          {idx > 0 && (
-            <div className="mx-4 border-t" style={{ borderColor: 'rgba(6,182,212,0.12)' }} />
-          )}
-          <div className="px-4 py-1 text-[11px] font-mono text-cyan-400/60">
-            iteration {idx + 1}
-          </div>
-          {iterEvents.map((event, i) => (
+      {iterations.map((iterEvents, iterIdx) => {
+        const iterRows = iterEvents.map((event) => {
+          const currentIdx = idx++
+          return (
             <StepRow
-              key={i}
+              key={currentIdx}
               event={event}
               nameCol={nameCol}
               run={run}
+              displayIndex={currentIdx}
               onReplay={onReplay}
               onReplayNode={onReplayNode}
               isReplaying={replayingNode === event.node_name}
               nodeDiff={nodeDiff?.nodeName === event.node_name ? nodeDiff : undefined}
               onDismissDiff={onDismissDiff}
             />
-          ))}
-        </div>
-      ))}
+          )
+        })
+        return (
+          <div key={iterIdx} className="flex flex-col gap-2">
+            {iterIdx > 0 && (
+              <div className="px-1">
+                <span className="font-mono text-[10px] text-text-tertiary">
+                  iteration {iterIdx + 1}
+                </span>
+              </div>
+            )}
+            {iterRows}
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -171,9 +171,9 @@ export default function ReplayControls({
       {replayState.phase === 'no_factory' && (
         <div
           className="px-3 py-2 rounded-lg text-[13px] flex items-center gap-2"
-          style={{ background: 'var(--bg-elevated)', border: '1px solid #d49a2e' }}
+          style={{ background: 'var(--card)', border: '1px solid var(--warning)' }}
         >
-          <span className="text-[12px] shrink-0" style={{ color: '#d49a2e' }}>
+          <span className="text-[12px] shrink-0" style={{ color: 'var(--warning)' }}>
             app factory needed:
           </span>
           <form
@@ -188,15 +188,15 @@ export default function ReplayControls({
               placeholder="module:build_graph"
               className="font-mono text-[10px] px-2 py-1 rounded-md outline-none w-[180px] transition-colors"
               style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid #d49a2e',
-                color: appFactory ? 'var(--text-primary)' : '#3a3a40',
+                background: 'var(--card)',
+                border: '1px solid var(--warning)',
+                color: appFactory ? 'var(--foreground)' : '#2a2a2a',
               }}
             />
             <button
               type="submit"
               className="font-mono text-[10px] px-2 py-1 rounded-md transition-colors"
-              style={{ background: '#d49a2e', color: '#000' }}
+              style={{ background: 'var(--warning)', color: '#000' }}
             >
               retry
             </button>
@@ -211,24 +211,24 @@ export default function ReplayControls({
       {replayState.phase !== 'idle' && replayState.phase !== 'no_factory' && replayState.phase !== 'node_done' && replayState.mode !== 'node' && (
         <div
           className="px-3 py-2 rounded-lg text-[13px] flex items-center gap-2"
-          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
+          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
         >
           {replayState.phase === 'submitting' && (
-            <span className="font-mono text-[12px]" style={{ color: '#d49a2e' }}>submitting rerun...</span>
+            <span className="font-mono text-[12px]" style={{ color: 'var(--warning)' }}>submitting rerun...</span>
           )}
           {replayState.phase === 'polling' && (
-            <span className="font-mono text-[12px]" style={{ color: '#d49a2e' }}>
+            <span className="font-mono text-[12px]" style={{ color: 'var(--warning)' }}>
               rerun in progress<span className="animate-pulse">...</span>
             </span>
           )}
           {replayState.phase === 'done' && (
             <>
-              <span className="font-mono text-[12px]" style={{ color: '#22c55e' }}>rerun complete</span>
+              <span className="font-mono text-[12px]" style={{ color: 'var(--success)' }}>rerun complete</span>
               {replayState.newRunId && (
                 <a
                   href={`/?run=${replayState.newRunId}`}
                   className="ml-2 hover:underline font-mono text-[12px]"
-                  style={{ color: '#22c55e' }}
+                  style={{ color: 'var(--success)' }}
                 >
                   view run
                 </a>
@@ -236,7 +236,7 @@ export default function ReplayControls({
             </>
           )}
           {replayState.phase === 'error' && (
-            <span className="font-mono text-[12px]" style={{ color: '#d65c5c' }}>rerun failed: {replayState.message}</span>
+            <span className="font-mono text-[12px]" style={{ color: 'var(--failure)' }}>rerun failed: {replayState.message}</span>
           )}
         </div>
       )}
@@ -245,9 +245,9 @@ export default function ReplayControls({
       {replayState.phase === 'error' && replayState.mode === 'node' && (
         <div
           className="px-3 py-2 rounded-lg text-[13px] flex items-center gap-2"
-          style={{ background: 'var(--bg-elevated)', border: '1px solid #d65c5c' }}
+          style={{ background: 'var(--card)', border: '1px solid var(--failure)' }}
         >
-          <span className="font-mono text-[12px]" style={{ color: '#d65c5c' }}>
+          <span className="font-mono text-[12px]" style={{ color: 'var(--failure)' }}>
             node rerun failed: {replayState.message}
           </span>
         </div>

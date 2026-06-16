@@ -19,23 +19,23 @@ export default function SummaryMetrics({ metrics }: { metrics: SummaryMetric[] }
   return (
     <div
       className="grid grid-cols-3 lg:grid-cols-6 gap-0 rounded-xl overflow-hidden"
-      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+      style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
     >
       {metrics.map((m, i) => (
         <div
           key={m.label}
           className="px-4 py-3.5 flex flex-col gap-1"
           style={{
-            borderRight: i < metrics.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+            borderRight: i < metrics.length - 1 ? '1px solid var(--border)' : 'none',
           }}
         >
-          <div className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
             {m.label}
           </div>
           <div className="flex items-baseline gap-2">
             <span
               className="text-[16px] font-bold tracking-[-0.02em]"
-              style={{ color: 'var(--text-primary)' }}
+              style={{ color: 'var(--foreground)' }}
             >
               {m.displayValue}
             </span>

@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react'
 import type { RunRecord, LLMInvestigationResult } from '@/lib/types'
 import { isReplayOf, runBLabel } from '../lib/compare-utils'
 
-const C_GREEN = '#3d9e7d'
-const C_AMBER = '#d49a2e'
-const C_RED = '#d65c5c'
-const C_INDIGO = '#7c7fc7'
+const C_GREEN = '#22c55e'
+const C_AMBER = '#f59e0b'
+const C_RED = '#ef4444'
+const C_INDIGO = '#5b6af0'
 
 function renderWithCode(text: string): (string | JSX.Element)[] {
   const codeRe = /`([^`]+)`|(\b[a-z_]\w*\s*\([^)]*\))|(\b[A-Z][A-Z0-9_]{2,}\b)|(\b\w+\.\w+(?:\.\w+)+\b)/g
@@ -21,7 +21,7 @@ function renderWithCode(text: string): (string | JSX.Element)[] {
       <code
         key={m.index}
         className="text-[12px] font-mono px-1.5 py-0.5 rounded"
-        style={{ background: 'rgba(124,127,199,0.06)', color: '#818cf8', border: '1px solid rgba(124,127,199,0.12)' }}
+        style={{ background: 'color-mix(in srgb, var(--primary) 6%, transparent)', color: '#8b9bf4', border: '1px solid color-mix(in srgb, var(--primary) 12%, transparent)' }}
       >
         {code}
       </code>
@@ -33,7 +33,7 @@ function renderWithCode(text: string): (string | JSX.Element)[] {
 }
 
 function confColor(c: number) {
-  return c >= 0.75 ? C_GREEN : c >= 0.45 ? C_AMBER : '#5d6370'
+  return c >= 0.75 ? C_GREEN : c >= 0.45 ? C_AMBER : '#6b6b6b'
 }
 
 function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: RunRecord; label: string }) {
@@ -43,15 +43,15 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
   const cc = confColor(inv.confidence)
 
   return (
-    <div className="card rounded-xl overflow-hidden" style={{ border: '1px solid rgba(124,127,199,0.15)' }}>
+    <div className="rounded-[10px] border border-border bg-card overflow-hidden" style={{ border: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}>
       {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'rgba(124,127,199,0.04)' }}>
+      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'color-mix(in srgb, var(--primary) 4%, transparent)' }}>
         <div className="w-1 h-4 rounded-full" style={{ background: C_INDIGO }} />
         <span className="text-[12px] font-semibold" style={{ color: C_INDIGO }}>{label}</span>
         {!hasError && (
           <span
             className="ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full"
-            style={{ color: cc, background: `${cc}12`, border: `1px solid ${cc}25` }}
+            style={{ color: cc, background: `color-mix(in srgb, ${cc} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${cc} 25%, transparent)` }}
           >
             {(inv.confidence * 100).toFixed(0)}% confidence
           </span>
@@ -61,15 +61,15 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
       <div className="px-4 pb-4 space-y-4">
         {/* Error */}
         {hasError && (
-          <div className="mt-3 p-3 rounded-lg text-[12px]" style={{ background: 'rgba(214,92,92,0.04)', border: '1px solid rgba(214,92,92,0.12)' }}>
+          <div className="mt-3 p-3 rounded-lg text-[12px]" style={{ background: 'color-mix(in srgb, var(--failure) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--failure) 12%, transparent)' }}>
             <span className="font-semibold" style={{ color: C_RED }}>Analysis failed: </span>
-            <span style={{ color: '#b91c1c' }}>{inv.error}</span>
+            <span style={{ color: '#ef4444' }}>{inv.error}</span>
           </div>
         )}
 
         {/* Healthy */}
         {!hasError && isHealthy && inv.root_cause_explanation && (
-          <div className="mt-3 p-4 rounded-lg" style={{ background: 'rgba(61,158,125,0.04)', border: '1px solid rgba(61,158,125,0.12)' }}>
+          <div className="mt-3 p-4 rounded-lg" style={{ background: 'color-mix(in srgb, var(--success) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 12%, transparent)' }}>
             <div className="flex items-center gap-2 mb-2">
               <span style={{ color: C_GREEN }} className="text-base">{'\u2713'}</span>
               <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: C_GREEN }}>Pipeline healthy</span>
@@ -84,10 +84,10 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
             {/* Root Cause Node */}
             {(run.root_cause_chain?.length > 0 || run.first_failure_step) && (
               <div>
-                <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Root Cause Node:</span>
+                <span className="text-[12px] font-bold" style={{ color: 'var(--foreground)' }}>Root Cause Node:</span>
                 <span
                   className="ml-2 text-[11px] font-mono px-2 py-0.5 rounded"
-                  style={{ background: 'rgba(214,92,92,0.08)', color: C_RED, border: '1px solid rgba(214,92,92,0.2)' }}
+                  style={{ background: 'color-mix(in srgb, var(--failure) 8%, transparent)', color: C_RED, border: '1px solid color-mix(in srgb, var(--failure) 20%, transparent)' }}
                 >
                   {run.first_failure_step ?? run.root_cause_chain?.[0]}
                 </span>
@@ -97,7 +97,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
             {/* Root Cause Reason */}
             {inv.root_cause_explanation && (
               <div>
-                <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Root Cause:</p>
+                <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--foreground)' }}>Root Cause:</p>
                 <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{inv.root_cause_explanation}</p>
               </div>
             )}
@@ -105,7 +105,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
             {/* Narrative */}
             {inv.degradation_narrative && (
               <div>
-                <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>What Happened:</p>
+                <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--foreground)' }}>What Happened:</p>
                 <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{inv.degradation_narrative}</p>
               </div>
             )}
@@ -113,7 +113,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
             {/* Suggested Fixes */}
             {inv.debugging_suggestions.length > 0 && (
               <div>
-                <p className="text-[12px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Suggested Fixes:</p>
+                <p className="text-[12px] font-bold mb-2" style={{ color: 'var(--foreground)' }}>Suggested Fixes:</p>
                 <div className="space-y-2">
                   {inv.debugging_suggestions.map((s, i) => {
                     const nodeMatch = s.match(/^\[([^\]]+)\]\s*/)
@@ -131,11 +131,11 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                     }
 
                     return (
-                      <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                      <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
                         <div className="flex items-start gap-2">
                           <span
                             className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold mt-0.5"
-                            style={{ background: `${C_GREEN}15`, color: C_GREEN, border: `1px solid ${C_GREEN}30` }}
+                            style={{ background: `color-mix(in srgb, ${C_GREEN} 15%, transparent)`, color: C_GREEN, border: `1px solid color-mix(in srgb, ${C_GREEN} 30%, transparent)` }}
                           >
                             {i + 1}
                           </span>
@@ -144,19 +144,19 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                               {nodeName && (
                                 <span
                                   className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-                                  style={{ background: 'rgba(124,127,199,0.1)', color: '#8b6fb5', border: '1px solid rgba(154,109,198,0.2)' }}
+                                  style={{ background: 'color-mix(in srgb, var(--primary) 10%, transparent)', color: '#a855f7', border: '1px solid color-mix(in srgb, #a855f7 20%, transparent)' }}
                                 >
                                   {nodeName}
                                 </span>
                               )}
-                              <span className="text-[12px] font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
+                              <span className="text-[12px] font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
                                 {renderWithCode(description)}
                               </span>
                             </div>
                             {codePart && (
                               <pre
                                 className="mt-2 px-3 py-2 rounded-lg text-[11px] font-mono overflow-x-auto whitespace-pre-wrap"
-                                style={{ background: 'rgba(0,0,0,0.15)', color: '#818cf8', border: '1px solid rgba(124,127,199,0.1)' }}
+                                style={{ background: 'rgba(0,0,0,0.15)', color: '#8b9bf4', border: '1px solid color-mix(in srgb, var(--primary) 10%, transparent)' }}
                               >
                                 {codePart}
                               </pre>
@@ -174,12 +174,12 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
 
         {/* Causal Hypotheses */}
         {!hasError && inv.causal_hypotheses.length > 0 && (
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
             <button
               type="button"
               onClick={() => setDetailsOpen(!detailsOpen)}
               className="flex items-center gap-2 text-[11px] hover:opacity-80 transition-opacity"
-              style={{ color: 'var(--text-muted)' }}
+              style={{ color: 'var(--text-tertiary)' }}
             >
               <span className="text-[10px]">{detailsOpen ? '\u25BE' : '\u25B8'}</span>
               <span>Causal Hypotheses ({inv.causal_hypotheses.length})</span>
@@ -193,18 +193,18 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
                 {inv.causal_hypotheses.map((h, i) => {
                   const hc = confColor(h.confidence)
                   return (
-                    <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: hc, background: `${hc}12` }}>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: hc, background: `color-mix(in srgb, ${hc} 12%, transparent)` }}>
                           {(h.confidence * 100).toFixed(0)}%
                         </span>
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'rgba(124,127,199,0.06)', color: C_INDIGO }}>
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'color-mix(in srgb, var(--primary) 6%, transparent)', color: C_INDIGO }}>
                           {h.category}
                         </span>
                       </div>
                       <div className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{h.hypothesis}</div>
                       {h.supporting_evidence.length > 0 && (
-                        <div className="mt-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        <div className="mt-1.5 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                           Evidence: {h.supporting_evidence.join(', ')}
                         </div>
                       )}
@@ -214,11 +214,11 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
 
                 {inv.observations.length > 0 && (
                   <div className="pt-2">
-                    <div className="text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Observations</div>
+                    <div className="text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Observations</div>
                     <div className="space-y-1">
                       {inv.observations.map((o, i) => (
                         <div key={i} className="flex items-baseline gap-2 text-[11px]">
-                          <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+                          <span style={{ color: 'var(--text-tertiary)' }}>&middot;</span>
                           <span style={{ color: 'var(--text-secondary)' }}>{o}</span>
                         </div>
                       ))}
@@ -232,7 +232,7 @@ function AnalysisPanel({ inv, run, label }: { inv: LLMInvestigationResult; run: 
 
         {/* Meta */}
         {!hasError && (
-          <div className="flex items-center gap-4 pt-2 text-[10px] font-mono" style={{ color: 'var(--text-faint)', borderTop: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-4 pt-2 text-[10px] font-mono" style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border)' }}>
             {inv.prompt_tokens > 0 && <span>{inv.prompt_tokens + inv.completion_tokens} tokens</span>}
             {inv.investigation_duration_ms > 0 && <span>{(inv.investigation_duration_ms / 1000).toFixed(1)}s</span>}
           </div>
@@ -255,13 +255,13 @@ function ComparativeSummary({ invA, invB, runA, runB, bLabel }: { invA: LLMInves
   const fixCountB = invB.debugging_suggestions?.length ?? 0
 
   return (
-    <div className="card rounded-xl overflow-hidden" style={{ border: `1px solid ${fixed ? 'rgba(61,158,125,0.2)' : regressed ? 'rgba(214,92,92,0.2)' : 'var(--border-subtle)'}` }}>
+    <div className="rounded-[10px] border border-border bg-card overflow-hidden" style={{ border: `1px solid ${fixed ? 'color-mix(in srgb, var(--success) 20%, transparent)' : regressed ? 'color-mix(in srgb, var(--failure) 20%, transparent)' : 'var(--border)'}` }}>
       <div
         className="px-4 py-3 flex items-center gap-2.5"
-        style={{ background: fixed ? 'rgba(61,158,125,0.04)' : regressed ? 'rgba(214,92,92,0.04)' : 'var(--bg-elevated)' }}
+        style={{ background: fixed ? 'color-mix(in srgb, var(--success) 4%, transparent)' : regressed ? 'color-mix(in srgb, var(--failure) 4%, transparent)' : 'var(--card)' }}
       >
         <span className="text-[14px]">{fixed ? '\u2713' : regressed ? '\u2717' : '\u2194'}</span>
-        <span className="text-[13px] font-bold" style={{ color: fixed ? C_GREEN : regressed ? C_RED : 'var(--text-primary)' }}>
+        <span className="text-[13px] font-bold" style={{ color: fixed ? C_GREEN : regressed ? C_RED : 'var(--foreground)' }}>
           {fixed ? `Issue Resolved in ${bLabel}` : regressed ? 'Regression Detected' : 'Comparative Summary'}
         </span>
       </div>
@@ -269,17 +269,17 @@ function ComparativeSummary({ invA, invB, runA, runB, bLabel }: { invA: LLMInves
       <div className="px-4 py-3 space-y-3">
         {/* Status transition */}
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Status:</span>
+          <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Status:</span>
           <span
             className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
-            style={{ color: aFailed ? C_RED : C_GREEN, background: aFailed ? `${C_RED}10` : `${C_GREEN}10` }}
+            style={{ color: aFailed ? C_RED : C_GREEN, background: aFailed ? `color-mix(in srgb, ${C_RED} 10%, transparent)` : `color-mix(in srgb, ${C_GREEN} 10%, transparent)` }}
           >
             {runA.overall_status}
           </span>
-          <span style={{ color: 'var(--text-faint)' }}>{'\u2192'}</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'\u2192'}</span>
           <span
             className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
-            style={{ color: bFailed ? C_RED : C_GREEN, background: bFailed ? `${C_RED}10` : `${C_GREEN}10` }}
+            style={{ color: bFailed ? C_RED : C_GREEN, background: bFailed ? `color-mix(in srgb, ${C_RED} 10%, transparent)` : `color-mix(in srgb, ${C_GREEN} 10%, transparent)` }}
           >
             {runB.overall_status}
           </span>
@@ -287,11 +287,11 @@ function ComparativeSummary({ invA, invB, runA, runB, bLabel }: { invA: LLMInves
 
         {/* Confidence delta */}
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Confidence:</span>
+          <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Confidence:</span>
           <span className="font-mono font-bold" style={{ color: confColor(invA.confidence) }}>
             {(invA.confidence * 100).toFixed(0)}%
           </span>
-          <span style={{ color: 'var(--text-faint)' }}>{'\u2192'}</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>{'\u2192'}</span>
           <span className="font-mono font-bold" style={{ color: confColor(invB.confidence) }}>
             {(invB.confidence * 100).toFixed(0)}%
           </span>
@@ -305,16 +305,16 @@ function ComparativeSummary({ invA, invB, runA, runB, bLabel }: { invA: LLMInves
         {/* Root cause change */}
         {rootCauseChanged && bothFailed && (
           <div className="text-[12px]">
-            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Root cause changed between runs</span>
+            <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Root cause changed between runs</span>
           </div>
         )}
 
         {/* Fixes comparison */}
         {(fixCountA > 0 || fixCountB > 0) && (
           <div className="flex items-center gap-2 text-[12px]">
-            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Suggested fixes:</span>
+            <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Suggested fixes:</span>
             <span style={{ color: 'var(--text-secondary)' }}>{fixCountA} (base)</span>
-            <span style={{ color: 'var(--text-faint)' }}>{'\u2192'}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>{'\u2192'}</span>
             <span style={{ color: 'var(--text-secondary)' }}>{fixCountB} ({bLabel.toLowerCase()})</span>
           </div>
         )}
@@ -322,13 +322,13 @@ function ComparativeSummary({ invA, invB, runA, runB, bLabel }: { invA: LLMInves
         {/* Trigger reasons diff */}
         {invA.trigger_reasons?.length > 0 && (
           <div className="text-[12px]">
-            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>Base triggers: </span>
+            <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Base triggers: </span>
             <span style={{ color: 'var(--text-secondary)' }}>{invA.trigger_reasons.join(', ')}</span>
           </div>
         )}
         {invB.trigger_reasons?.length > 0 && (
           <div className="text-[12px]">
-            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>{bLabel} triggers: </span>
+            <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>{bLabel} triggers: </span>
             <span style={{ color: 'var(--text-secondary)' }}>{invB.trigger_reasons.join(', ')}</span>
           </div>
         )}
@@ -359,15 +359,15 @@ function CompareAnalysisCard({ analysis }: { analysis: CompareAnalysisResult }) 
   ].filter((s) => s.content)
 
   return (
-    <div className="card rounded-xl overflow-hidden" style={{ border: '1px solid rgba(124,127,199,0.2)' }}>
-      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'rgba(124,127,199,0.06)' }}>
+    <div className="rounded-[10px] border border-border bg-card overflow-hidden" style={{ border: '1px solid color-mix(in srgb, var(--primary) 20%, transparent)' }}>
+      <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'color-mix(in srgb, var(--primary) 6%, transparent)' }}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M8 1l1.5 3.5L13 6l-3 2 .5 4L8 10.5 5.5 12l.5-4-3-2 3.5-1.5L8 1Z" fill="rgba(124,127,199,0.15)" stroke="#7c7fc7" strokeWidth="1"/>
+          <path d="M8 1l1.5 3.5L13 6l-3 2 .5 4L8 10.5 5.5 12l.5-4-3-2 3.5-1.5L8 1Z" fill="color-mix(in srgb, var(--primary) 15%, transparent)" stroke="#5b6af0" strokeWidth="1"/>
         </svg>
         <span className="text-[13px] font-bold" style={{ color: C_INDIGO }}>Comparative AI Analysis</span>
         <span
           className="ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full"
-          style={{ color: cc, background: `${cc}12`, border: `1px solid ${cc}25` }}
+          style={{ color: cc, background: `color-mix(in srgb, ${cc} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${cc} 25%, transparent)` }}
         >
           {(analysis.confidence * 100).toFixed(0)}% confidence
         </span>
@@ -376,20 +376,20 @@ function CompareAnalysisCard({ analysis }: { analysis: CompareAnalysisResult }) 
       <div className="px-4 pb-4 space-y-3.5">
         {sections.map((s) => (
           <div key={s.label} className="mt-3">
-            <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{s.label}</p>
+            <p className="text-[12px] font-bold mb-1" style={{ color: 'var(--foreground)' }}>{s.label}</p>
             <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{renderWithCode(s.content!)}</p>
           </div>
         ))}
 
         {analysis.key_insights.length > 0 && (
           <div className="mt-3">
-            <p className="text-[12px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Key Insights</p>
+            <p className="text-[12px] font-bold mb-2" style={{ color: 'var(--foreground)' }}>Key Insights</p>
             <div className="space-y-1.5">
               {analysis.key_insights.map((insight, i) => (
                 <div key={i} className="flex items-start gap-2 text-[12px]">
                   <span
                     className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold mt-0.5"
-                    style={{ background: `${C_INDIGO}15`, color: C_INDIGO }}
+                    style={{ background: `color-mix(in srgb, ${C_INDIGO} 15%, transparent)`, color: C_INDIGO }}
                   >
                     {i + 1}
                   </span>
@@ -441,18 +441,18 @@ export default function AIAnalysisTab({ runA, runB, isLocal = false }: { runA: R
     <div className="py-4 space-y-4">
       {/* Compare-specific AI analysis */}
       {compareLoading && (
-        <div className="card rounded-xl p-8 flex flex-col items-center justify-center gap-3" style={{ border: '1px solid rgba(124,127,199,0.15)' }}>
-          <span className="inline-block w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(124,127,199,0.2)', borderTopColor: '#7c7fc7' }} />
-          <p className="text-[12px] font-medium" style={{ color: 'var(--text-muted)' }}>Generating comparative analysis...</p>
+        <div className="rounded-[10px] border border-border bg-card p-8 flex flex-col items-center justify-center gap-3" style={{ border: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}>
+          <span className="inline-block w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'color-mix(in srgb, var(--primary) 20%, transparent)', borderTopColor: '#5b6af0' }} />
+          <p className="text-[12px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Generating comparative analysis...</p>
         </div>
       )}
 
       {compareError && (
-        <div className="card rounded-xl p-4" style={{ border: '1px solid rgba(214,92,92,0.15)' }}>
+        <div className="rounded-[10px] border border-border bg-card p-4" style={{ border: '1px solid color-mix(in srgb, var(--failure) 15%, transparent)' }}>
           <p className="text-[12px]" style={{ color: C_RED }}>
             Compare analysis unavailable: {compareError}
           </p>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-faint)' }}>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
             Ensure OPENAI_API_KEY is set and argus ui is running locally.
           </p>
         </div>
@@ -471,15 +471,15 @@ export default function AIAnalysisTab({ runA, runB, isLocal = false }: { runA: R
           {invA?.triggered ? (
             <AnalysisPanel inv={invA} run={runA} label="Base Run Analysis" />
           ) : (
-            <div className="card rounded-xl p-6 flex items-center justify-center" style={{ border: '1px solid var(--border-subtle)' }}>
-              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No AI analysis triggered for the base run.</p>
+            <div className="rounded-[10px] border border-border bg-card p-6 flex items-center justify-center">
+              <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>No AI analysis triggered for the base run.</p>
             </div>
           )}
           {invB?.triggered ? (
             <AnalysisPanel inv={invB} run={runB} label={`${bLabel} Analysis`} />
           ) : (
-            <div className="card rounded-xl p-6 flex items-center justify-center" style={{ border: '1px solid var(--border-subtle)' }}>
-              <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>No AI analysis triggered for {bLabel.toLowerCase()}.</p>
+            <div className="rounded-[10px] border border-border bg-card p-6 flex items-center justify-center">
+              <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>No AI analysis triggered for {bLabel.toLowerCase()}.</p>
             </div>
           )}
         </div>
@@ -488,9 +488,9 @@ export default function AIAnalysisTab({ runA, runB, isLocal = false }: { runA: R
       {/* Empty state — only if no compare analysis AND no per-run analysis */}
       {noPerRunAnalysis && !compareAnalysis && !compareLoading && !compareError && (
         <div className="py-16 text-center">
-          <div className="text-[28px] mb-3" style={{ color: 'var(--text-faint)' }}>{'\u2B50'}</div>
-          <p className="text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>No AI analysis available for these runs.</p>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-faint)' }}>
+          <div className="text-[28px] mb-3" style={{ color: 'var(--text-tertiary)' }}>{'\u2B50'}</div>
+          <p className="text-[13px] font-medium" style={{ color: 'var(--text-tertiary)' }}>No AI analysis available for these runs.</p>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
             AI analysis is triggered automatically when failures are detected during a run.
           </p>
         </div>
@@ -498,26 +498,26 @@ export default function AIAnalysisTab({ runA, runB, isLocal = false }: { runA: R
 
       {/* Suggested signatures comparison */}
       {bothTriggered && ((invA!.suggested_signatures?.length ?? 0) > 0 || (invB!.suggested_signatures?.length ?? 0) > 0) && (
-        <div className="card rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
-            <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Suggested Failure Signatures</span>
+        <div className="rounded-[10px] border border-border bg-card overflow-hidden">
+          <div className="px-4 py-2.5" style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}>
+            <span className="text-[12px] font-bold" style={{ color: 'var(--foreground)' }}>Suggested Failure Signatures</span>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0" style={{ borderTop: '1px solid var(--border)' }}>
             {[{ sigs: invA!.suggested_signatures ?? [], label: 'Base Run' }, { sigs: invB!.suggested_signatures ?? [], label: bLabel }].map(({ sigs, label }) => (
-              <div key={label} className="p-3" style={{ borderRight: '1px solid var(--border-subtle)' }}>
-                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
+              <div key={label} className="p-3" style={{ borderRight: '1px solid var(--border)' }}>
+                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-tertiary)' }}>{label}</div>
                 {sigs.length === 0 ? (
-                  <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>None suggested</p>
+                  <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>None suggested</p>
                 ) : (
                   <div className="space-y-2">
                     {sigs.map((sig, i) => (
-                      <div key={i} className="p-2 rounded-lg text-[11px]" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                      <div key={i} className="p-2 rounded-lg text-[11px]" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
                         <div className="flex items-center gap-2 mb-1">
                           <span
                             className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
                             style={{
                               color: sig.severity === 'critical' ? C_RED : C_AMBER,
-                              background: sig.severity === 'critical' ? `${C_RED}10` : `${C_AMBER}10`,
+                              background: sig.severity === 'critical' ? `color-mix(in srgb, ${C_RED} 10%, transparent)` : `color-mix(in srgb, ${C_AMBER} 10%, transparent)`,
                             }}
                           >
                             {sig.severity}
@@ -525,7 +525,7 @@ export default function AIAnalysisTab({ runA, runB, isLocal = false }: { runA: R
                           <span className="font-mono font-medium" style={{ color: C_INDIGO }}>{sig.match_strategy}</span>
                         </div>
                         <p style={{ color: 'var(--text-secondary)' }}>{sig.description}</p>
-                        <code className="block mt-1 text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{sig.pattern}</code>
+                        <code className="block mt-1 text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{sig.pattern}</code>
                       </div>
                     ))}
                   </div>

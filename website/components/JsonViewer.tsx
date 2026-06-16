@@ -38,31 +38,30 @@ export default function JsonViewer({ data, label, defaultCollapsed = true, maxLi
   const highlighted = syntaxHighlight(collapsed && isLong ? preview : formatted)
 
   return (
-    <div className="rounded-lg overflow-hidden text-xs" style={{ border: '1px solid var(--border-default)', background: 'var(--bg-elevated)' }}>
+    <div className="overflow-hidden rounded-[8px] border border-border bg-code text-xs">
       {label && (
-        <div className="flex items-center justify-between px-3 py-2 border-b" style={{ background: 'var(--bg-overlay)', borderColor: 'var(--border-default)' }}>
-          <span className="text-[var(--text-secondary)] uppercase tracking-wider text-[10px]">{label}</span>
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-code-header">
+          <span className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">{label}</span>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[10px]"
+            className="font-mono text-[11px] text-text-tertiary hover:text-foreground transition-colors"
           >
             {collapsed ? '▶ expand' : '▼ collapse'}
           </button>
         </div>
       )}
       {!label && isLong && (
-        <div className="flex justify-end px-3 py-1.5 border-b" style={{ background: 'var(--bg-overlay)', borderColor: 'var(--border-default)' }}>
+        <div className="flex justify-end px-3 py-1.5 border-b border-border bg-code-header">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[10px]"
+            className="font-mono text-[11px] text-text-tertiary hover:text-foreground transition-colors"
           >
             {collapsed ? `▶ ${lines.length} lines` : '▼ collapse'}
           </button>
         </div>
       )}
       <pre
-        className="p-3 overflow-x-auto text-[11px] leading-5 text-[var(--text-primary)]"
-        style={{ background: 'var(--bg-base)' }}
+        className="scrollbar-thin overflow-x-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-foreground"
         dangerouslySetInnerHTML={{ __html: highlighted }}
       />
     </div>

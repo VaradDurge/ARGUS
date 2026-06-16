@@ -158,17 +158,17 @@ function CompareContent() {
       {/* Page title + back button */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h1 className="text-[20px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-[20px] font-bold tracking-[-0.02em]" style={{ color: 'var(--foreground)' }}>
             Compare Runs
           </h1>
-          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Side-by-side comparison of pipeline executions
           </p>
         </div>
         <a
           href="/"
           className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
-          style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
+          style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 9L4.5 6l3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Back to run
@@ -196,13 +196,13 @@ function CompareContent() {
 
       {/* Empty states */}
       {(!runA || !runB) && idA && idB && (
-        <div className="text-center py-16 text-sm font-mono" style={{ color: 'var(--text-faint)' }}>
+        <div className="text-center py-16 text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
           Could not load one or both runs.
         </div>
       )}
 
       {(!idA || !idB) && (
-        <div className="text-center py-24 font-mono text-[12px]" style={{ color: 'var(--text-faint)' }}>
+        <div className="text-center py-24 font-mono text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
           Select two runs to compare
         </div>
       )}

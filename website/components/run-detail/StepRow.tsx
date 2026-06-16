@@ -1,12 +1,44 @@
 'use client'
 
 import { useState } from 'react'
+import { Check, AlertTriangle, ArrowDown, RotateCcw, Play, X, ArrowRight, ChevronDown } from 'lucide-react'
 import type { NodeEvent, RunRecord } from '@/lib/types'
 import { getStepDisplay, getDetailLines, formatDur, fmtCost, SENTINEL_NODES } from '@/lib/run-utils'
 import type { NodeDiffData } from './ReplayControls'
 import JsonViewer from '../JsonViewer'
-import { Button } from '@/components/ui/button-1'
-import { RotateCcw, Play, X, ArrowRight } from 'lucide-react'
+
+/* ── Result badge (pass / fail / degraded) ─────────────────────── */
+
+function ResultBadge({ event }: { event: NodeEvent }) {
+  const display = getStepDisplay(event)
+  const status = event.status
+
+  if (status === 'pass') {
+    return (
+      <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--success)' }}>
+        <Check className="size-3.5" />
+        {display.label}
+        {display.warnSuffix && <span className="text-muted-foreground font-normal"> (warnings)</span>}
+      </span>
+    )
+  }
+  if (status === 'degraded_input') {
+    return (
+      <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--warning)' }}>
+        <ArrowDown className="size-3.5" />
+        {display.label}
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--failure)' }}>
+      <AlertTriangle className="size-3.5" />
+      {display.label}
+    </span>
+  )
+}
+
+/* ── Inline Node Diff ──────────────────────────────────────────── */
 
 function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: () => void }) {
   const origDisplay = getStepDisplay(diff.originalStep)
@@ -17,145 +49,88 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
   const replayBad = ['crashed', 'fail', 'semantic_fail'].includes(diff.replayStep.status)
 
   let verdictLabel = 'Changed'
-  let verdictColor = '#8b919e'
-  let verdictBg = '#8b919e10'
+  let verdictColor = 'var(--text-secondary)'
   if (statusChanged && origBad && replayGood) {
     verdictLabel = 'FIXED'
-    verdictColor = '#3d9e7d'
-    verdictBg = '#3d9e7d10'
+    verdictColor = 'var(--success)'
   } else if (statusChanged && replayBad) {
     verdictLabel = 'REGRESSION'
-    verdictColor = '#d65c5c'
-    verdictBg = '#d65c5c10'
+    verdictColor = 'var(--failure)'
   } else if (!statusChanged) {
     verdictLabel = 'Unchanged'
   }
 
   return (
-    <div className="mx-4 mb-3 mt-1">
-      {/* Dotted separator */}
+    <div className="mt-3">
       <div className="flex items-center gap-2 py-2">
         <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#9a6dc640' }} />
         <span className="text-[10px] uppercase tracking-widest font-semibold shrink-0" style={{ color: '#9a6dc6' }}>
           node rerun diff
         </span>
-        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ color: verdictColor, background: verdictBg }}>
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ color: verdictColor, background: `color-mix(in srgb, ${verdictColor} 10%, transparent)` }}>
           {verdictLabel}
         </span>
         <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: '#9a6dc640' }} />
         {onDismiss && (
-          <button type="button" onClick={onDismiss} className="p-0.5 rounded hover:bg-white/5 transition-colors shrink-0" style={{ color: '#5d6370' }}>
+          <button type="button" onClick={onDismiss} className="p-0.5 rounded hover:bg-white/5 transition-colors shrink-0 text-muted-foreground">
             <X size={12} />
           </button>
         )}
       </div>
 
-      {/* Split before/after */}
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}>
+      <div className="rounded-[8px] border border-border bg-card overflow-hidden">
         <div className="grid grid-cols-2">
           {/* BEFORE */}
-          <div className="p-3" style={{ borderRight: '1px solid var(--border-subtle)' }}>
+          <div className="p-3 border-r border-border">
             <div className="flex items-center gap-2 mb-2.5">
-              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#5d6370' }}>Before</span>
-              <span
-                className="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium"
-                style={{ background: `${origDisplay.labelColor}12`, color: origDisplay.labelColor, border: `1px solid ${origDisplay.labelColor}25` }}
-              >
+              <span className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary">Before</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium"
+                style={{ background: `color-mix(in srgb, ${origDisplay.labelColor} 8%, transparent)`, color: origDisplay.labelColor, border: `1px solid color-mix(in srgb, ${origDisplay.labelColor} 20%, transparent)` }}>
                 {origDisplay.icon} {diff.originalStep.status}
               </span>
-              <span className="text-[10px] font-mono italic" style={{ color: '#5d6370' }}>
-                {formatDur(diff.originalStep.duration_ms)}
-              </span>
             </div>
-            <div className="mb-2">
-              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Output</div>
-              {diff.originalStep.output_dict !== null ? (
-                <div className="rounded p-2 text-[11px] max-h-[200px] overflow-auto" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
-                  <JsonViewer data={diff.originalStep.output_dict} defaultCollapsed={false} />
-                </div>
-              ) : (
-                <div className="text-[11px] italic" style={{ color: '#5d6370' }}>no output (crashed)</div>
-              )}
-            </div>
-            {diff.originalStep.inspection && diff.originalStep.inspection.severity !== 'ok' && (
-              <div>
-                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Inspection</div>
-                <div className="rounded p-2 text-[10px] font-mono" style={{ background: '#d65c5c08', border: '1px solid #d65c5c20', color: '#d65c5c' }}>
-                  {diff.originalStep.inspection.message}
-                </div>
+            {diff.originalStep.output_dict !== null ? (
+              <div className="rounded p-2 text-[11px] max-h-[200px] overflow-auto border border-border bg-background">
+                <JsonViewer data={diff.originalStep.output_dict} defaultCollapsed={false} />
               </div>
-            )}
-            {diff.originalStep.exception && (
-              <div className="mt-2">
-                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1 text-red-400">Exception</div>
-                <pre className="text-[10px] text-red-400 rounded p-2 overflow-x-auto whitespace-pre-wrap leading-4 font-mono max-h-[120px] overflow-auto" style={{ background: 'rgba(214,92,92,0.06)', border: '1px solid rgba(214,92,92,0.15)' }}>
-                  {diff.originalStep.exception}
-                </pre>
-              </div>
+            ) : (
+              <div className="text-[11px] italic text-text-tertiary">no output</div>
             )}
           </div>
 
           {/* AFTER */}
           <div className="p-3">
             <div className="flex items-center gap-2 mb-2.5">
-              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#5d6370' }}>After</span>
-              <span
-                className="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium"
-                style={{ background: `${replayDisplay.labelColor}12`, color: replayDisplay.labelColor, border: `1px solid ${replayDisplay.labelColor}25` }}
-              >
+              <span className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary">After</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium"
+                style={{ background: `color-mix(in srgb, ${replayDisplay.labelColor} 8%, transparent)`, color: replayDisplay.labelColor, border: `1px solid color-mix(in srgb, ${replayDisplay.labelColor} 20%, transparent)` }}>
                 {replayDisplay.icon} {diff.replayStep.status}
               </span>
-              <span className="text-[10px] font-mono italic" style={{ color: '#5d6370' }}>
-                {formatDur(diff.replayStep.duration_ms)}
-              </span>
             </div>
-            <div className="mb-2">
-              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Output</div>
-              {diff.replayStep.output_dict !== null ? (
-                <div className="rounded p-2 text-[11px] max-h-[200px] overflow-auto" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
-                  <JsonViewer data={diff.replayStep.output_dict} defaultCollapsed={false} />
-                </div>
-              ) : (
-                <div className="text-[11px] italic" style={{ color: '#5d6370' }}>no output (crashed)</div>
-              )}
-            </div>
-            {diff.replayStep.inspection && diff.replayStep.inspection.severity !== 'ok' && (
-              <div>
-                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1" style={{ color: '#5d6370' }}>Inspection</div>
-                <div className="rounded p-2 text-[10px] font-mono" style={{ background: '#d65c5c08', border: '1px solid #d65c5c20', color: '#d65c5c' }}>
-                  {diff.replayStep.inspection.message}
-                </div>
+            {diff.replayStep.output_dict !== null ? (
+              <div className="rounded p-2 text-[11px] max-h-[200px] overflow-auto border border-border bg-background">
+                <JsonViewer data={diff.replayStep.output_dict} defaultCollapsed={false} />
               </div>
-            )}
-            {diff.replayStep.exception && (
-              <div className="mt-2">
-                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1 text-red-400">Exception</div>
-                <pre className="text-[10px] text-red-400 rounded p-2 overflow-x-auto whitespace-pre-wrap leading-4 font-mono max-h-[120px] overflow-auto" style={{ background: 'rgba(214,92,92,0.06)', border: '1px solid rgba(214,92,92,0.15)' }}>
-                  {diff.replayStep.exception}
-                </pre>
-              </div>
+            ) : (
+              <div className="text-[11px] italic text-text-tertiary">no output</div>
             )}
           </div>
         </div>
 
-        {/* Status transition footer */}
         {statusChanged && (
-          <div className="flex items-center justify-center gap-3 px-4 py-2 font-mono text-[11px]" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
+          <div className="flex items-center justify-center gap-3 px-4 py-2 font-mono text-[11px] border-t border-border bg-card">
             <span style={{ color: origDisplay.labelColor }}>{origDisplay.icon} {diff.originalStep.status}</span>
-            <ArrowRight size={12} style={{ color: '#5d6370' }} />
+            <ArrowRight size={12} className="text-muted-foreground" />
             <span style={{ color: replayDisplay.labelColor }}>{replayDisplay.icon} {diff.replayStep.status}</span>
             <span className="font-bold ml-1" style={{ color: verdictColor }}>{verdictLabel}</span>
           </div>
         )}
       </div>
-
-      {/* Dotted end separator */}
-      <div className="pt-2">
-        <div className="border-t-2 border-dashed" style={{ borderColor: '#9a6dc640' }} />
-      </div>
     </div>
   )
 }
+
+/* ── Step Card (reference-matching card layout) ────────────────── */
 
 export default function StepRow({
   event,
@@ -183,201 +158,148 @@ export default function StepRow({
   const details = getDetailLines(event, run)
   const number = (displayIndex ?? event.step_index) + 1
   const showActions = !SENTINEL_NODES.has(event.node_name)
+  const isProblem = event.status !== 'pass'
+  const isRootCause = run.root_cause_chain?.includes(event.node_name)
 
   return (
-    <div className="group">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left font-mono text-[13px] leading-[34px] flex items-center gap-0 px-4 hover:bg-white/[0.025] transition-colors"
-      >
-        <span className="text-[#5d6370] w-8 text-right shrink-0 tabular-nums">{number}</span>
-        <span className="w-3 shrink-0" />
-        <span className="text-[var(--text-primary)] font-semibold shrink-0">{event.node_name}</span>
-        {event.llm_usage?.total_cost_usd != null && event.llm_usage.total_cost_usd > 0 && (
-          <span className="text-[10px] font-bold tabular-nums shrink-0 ml-1.5" style={{ color: '#3d9e7d' }}>
-            {fmtCost(event.llm_usage.total_cost_usd)}
+    <div
+      className="rounded-[8px] border border-border bg-card p-4 cursor-pointer transition-colors hover:bg-card/80"
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {/* Left: step info */}
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <span className="tnum font-mono text-sm text-text-tertiary shrink-0 mt-0.5">
+            {String(number).padStart(2, '0')}
           </span>
-        )}
-        {event.behavior_type && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded ml-1 shrink-0" style={{ background: 'var(--bg-elevated)', color: '#5d6370' }}>
-            {event.behavior_type}
-          </span>
-        )}
-        <span className="shrink-0" style={{ width: `${Math.max(0, (nameCol - event.node_name.length)) * 0.55 + 1}em` }} />
-        <span className="text-[#8b919e] italic w-[5.5em] text-right shrink-0 tabular-nums">{formatDur(event.duration_ms)}</span>
-        <span className="w-4 shrink-0" />
-        <span style={{ color: display.iconColor }} className="shrink-0 w-4 text-center">{display.icon}</span>
-        <span className="w-2 shrink-0" />
-        <span style={{ color: display.labelColor }} className="font-bold">
-          {display.label}
-          {display.warnSuffix && <span style={{ color: '#78716c', fontWeight: 400 }}> (warnings)</span>}
-        </span>
-
-        {/* Replaying spinner */}
-        {isReplaying && (
-          <span className="ml-2 flex items-center gap-1.5 text-[10px] font-medium" style={{ color: '#9a6dc6' }}>
-            <span className="inline-block w-3 h-3 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
-            replaying...
-          </span>
-        )}
-
-        {event.anomaly_signals && event.anomaly_signals.length > 0 && !isReplaying && (
-          <span className="ml-2 text-[10px] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#5d6370' }}>
-            {event.anomaly_signals.length} anomal{event.anomaly_signals.length === 1 ? 'y' : 'ies'}
-          </span>
-        )}
-
-        {/* Replay action buttons */}
-        {showActions && (onReplayNode || onReplay) && !isReplaying && (
-          <span className="ml-auto flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            {onReplayNode && (
-              <Button
-                variant="dashed"
-                size="sm"
-                className="font-mono text-[10px] h-6 px-2 text-purple-500 border-purple-300 hover:bg-purple-500/10 hover:text-purple-400"
-                onClick={(e) => { e.stopPropagation(); onReplayNode(event.node_name) }}
-              >
-                <RotateCcw className="text-purple-400" />
-                Rerun Node
-              </Button>
-            )}
-            {onReplay && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="font-mono text-[10px] h-6 px-2 text-indigo-500 border-indigo-300 hover:bg-indigo-500/10 hover:text-indigo-400"
-                onClick={(e) => { e.stopPropagation(); onReplay(event.node_name) }}
-              >
-                <Play className="text-indigo-400" />
-                Rerun From Here
-              </Button>
-            )}
-          </span>
-        )}
-
-        {/* Expand chevron — only when no actions */}
-        {!(showActions && (onReplayNode || onReplay)) && (
-          <span className="ml-auto text-[10px] text-[#2a2a30] group-hover:text-[#8b919e] transition-colors">
-            {expanded ? '\u25BE' : '\u25B8'}
-          </span>
-        )}
-      </button>
-
-      {run.root_cause_chain?.includes(event.node_name) && (
-        <div className="font-mono text-[12px] leading-5 pl-4 pb-0.5">
-          <span className="w-8 shrink-0 inline-block" />
-          <span className="w-3 shrink-0 inline-block" />
-          <span className="text-red-400 font-bold">root cause</span>
-        </div>
-      )}
-
-      {details.length > 0 && (
-        <div className="font-mono text-[12px] leading-6 pl-4">
-          {details.map((line, i) => (
-            <div key={i} className="flex items-baseline">
-              <span className="w-8 shrink-0" />
-              <span className="w-3 shrink-0" />
-              <span className="shrink-0 mr-2" style={{ color: '#5d6370' }}>
-                {line.indent ? '   ' : '\u2514\u2500'}
-              </span>
-              <span
-                style={{
-                  color: line.color ?? '#8b919e',
-                  fontStyle: line.italic ? 'italic' : undefined,
-                  textDecoration: line.underline ? 'underline' : undefined,
-                  fontWeight: line.bold ? 700 : undefined,
-                }}
-              >
-                {line.text}
-              </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-sm font-semibold text-foreground">{event.node_name}</span>
+              {event.behavior_type && (
+                <span className="rounded-[4px] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  {event.behavior_type}
+                </span>
+              )}
+              <span className="tnum font-mono text-[11px] text-text-tertiary">{formatDur(event.duration_ms)}</span>
+              {event.llm_usage?.total_cost_usd != null && event.llm_usage.total_cost_usd > 0 && (
+                <span className="tnum font-mono text-[11px] font-medium" style={{ color: 'var(--success)' }}>
+                  {fmtCost(event.llm_usage.total_cost_usd)}
+                </span>
+              )}
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Inline node diff — renders right here below this row */}
+            {/* Root cause label */}
+            {isRootCause && (
+              <div className="mt-1.5">
+                <span className="text-xs font-bold" style={{ color: 'var(--failure)' }}>root cause</span>
+              </div>
+            )}
+
+            {/* Detail lines */}
+            {details.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {details.map((line, i) => (
+                  <li
+                    key={i}
+                    className="text-[13px] leading-relaxed"
+                    style={{
+                      color: line.color ?? 'var(--text-secondary)',
+                      fontStyle: line.italic ? 'italic' : undefined,
+                      fontWeight: line.bold ? 700 : undefined,
+                    }}
+                  >
+                    {line.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Replaying spinner */}
+            {isReplaying && (
+              <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#9a6dc6' }}>
+                <span className="inline-block w-3 h-3 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
+                replaying...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: result + actions */}
+        <div className="flex flex-col items-end gap-3 shrink-0">
+          <ResultBadge event={event} />
+          {isProblem && showActions && (onReplayNode || onReplay) && !isReplaying && (
+            <div className="flex items-center gap-2">
+              {onReplayNode && (
+                <button
+                  className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={(e) => { e.stopPropagation(); onReplayNode(event.node_name) }}
+                >
+                  <RotateCcw className="size-3" />
+                  Rerun Node
+                </button>
+              )}
+              {onReplay && (
+                <button
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                  onClick={(e) => { e.stopPropagation(); onReplay(event.node_name) }}
+                >
+                  <Play className="size-3" />
+                  Rerun From Here
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inline node diff */}
       {nodeDiff && (
         <InlineNodeDiff diff={nodeDiff} onDismiss={onDismissDiff} />
       )}
 
+      {/* Expanded input/output */}
       {expanded && (
-        <div
-          className="mx-4 mb-3 mt-1 rounded-lg overflow-hidden"
-          style={{ border: '1px solid var(--border-default)', background: 'var(--bg-elevated)' }}
-        >
+        <div className="mt-3 rounded-[8px] border border-border bg-background overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
             {event.input_state !== null && (
-              <div className="p-3" style={{ borderRight: '1px solid var(--border-default)' }}>
-                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#8b919e] mb-2">Input</div>
+              <div className="p-3 border-r border-border">
+                <div className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary mb-2">Input</div>
                 <JsonViewer data={event.input_state} defaultCollapsed={true} />
               </div>
             )}
             {event.output_dict !== null && (
               <div className="p-3">
-                <div className="text-[10px] uppercase tracking-widest font-semibold text-[#8b919e] mb-2">Output</div>
+                <div className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary mb-2">Output</div>
                 <JsonViewer data={event.output_dict} defaultCollapsed={true} />
               </div>
             )}
           </div>
           {event.semantic_check && (() => {
             const passed = event.semantic_check.passed
-            const color = passed ? '#3d9e7d' : '#d65c5c'
+            const color = passed ? 'var(--success)' : 'var(--failure)'
             const confidencePct = Math.round(event.semantic_check.confidence * 100)
             return (
-              <div
-                className="mx-3 mb-3 rounded-md overflow-hidden"
-                style={{
-                  background: `${color}06`,
-                  border: `1px solid ${color}15`,
-                  borderLeftWidth: '3px',
-                  borderLeftColor: color,
-                }}
-              >
+              <div className="mx-3 mb-3 rounded-md overflow-hidden"
+                style={{ background: `color-mix(in srgb, ${color} 6%, transparent)`, border: `1px solid color-mix(in srgb, ${color} 15%, transparent)`, borderLeftWidth: '3px', borderLeftColor: color }}>
                 <div className="flex items-center gap-3 px-3 py-2.5">
-                  <div
-                    className="flex items-center justify-center w-5 h-5 rounded-full shrink-0"
-                    style={{ background: `${color}18` }}
-                  >
-                    <span className="text-[11px] font-bold" style={{ color }}>
-                      {passed ? '\u2713' : '\u2717'}
-                    </span>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#8b919e' }}>
-                    Node-Level Check
+                  <span className="text-[11px] font-bold" style={{ color }}>{passed ? '\u2713' : '\u2717'}</span>
+                  <span className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary">Node-Level Check</span>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-[4px] border"
+                    style={{ color, backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`, borderColor: `color-mix(in srgb, ${color} 25%, transparent)` }}>
+                    {passed ? 'COHERENT' : 'INCOHERENT'} {confidencePct}%
                   </span>
-                  <span
-                    className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
-                    style={{ color, background: `${color}12`, border: `1px solid ${color}25` }}
-                  >
-                    {passed ? 'COHERENT' : 'INCOHERENT'}
-                  </span>
-                  <div className="ml-auto flex items-center gap-2 shrink-0">
-                    <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: `${color}15` }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${confidencePct}%`, background: color, opacity: 0.7 }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-mono tabular-nums" style={{ color: '#5d6370' }}>
-                      {confidencePct}%
-                    </span>
-                  </div>
                 </div>
                 {event.semantic_check.reason && (
-                  <div className="px-3 pb-2.5 pt-0">
-                    <p className="text-[11px] leading-relaxed pl-8" style={{ color: passed ? '#8b919e' : '#d65c5c' }}>
-                      {event.semantic_check.reason}
-                    </p>
-                  </div>
+                  <div className="px-3 pb-2.5"><p className="text-[11px] leading-relaxed pl-6" style={{ color: passed ? 'var(--text-secondary)' : 'var(--failure)' }}>{event.semantic_check.reason}</p></div>
                 )}
               </div>
             )
           })()}
           {event.exception && (
-            <div className="p-3" style={{ borderTop: '1px solid var(--border-default)' }}>
-              <div className="text-[10px] uppercase tracking-widest font-semibold text-red-400 mb-2">Full Exception</div>
-              <pre className="text-[11px] text-red-200 bg-red-950/20 border border-red-800/30 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap leading-5 font-mono">
+            <div className="p-3 border-t border-border">
+              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--failure)' }}>Full Exception</div>
+              <pre className="text-[11px] rounded-[8px] p-3 overflow-x-auto whitespace-pre-wrap leading-5 font-mono border"
+                style={{ color: '#ef9a9a', background: 'color-mix(in srgb, var(--failure) 4%, transparent)', borderColor: 'color-mix(in srgb, var(--failure) 15%, transparent)' }}>
                 {event.exception}
               </pre>
             </div>

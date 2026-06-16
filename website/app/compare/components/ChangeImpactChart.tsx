@@ -18,10 +18,10 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
   const strLen = (structural / 100) * circumference
 
   const segments = [
-    { len: posLen, offset: 0, color: '#3d9e7d' },
-    { len: negLen, offset: posLen, color: '#d65c5c' },
+    { len: posLen, offset: 0, color: '#22c55e' },
+    { len: negLen, offset: posLen, color: '#ef4444' },
     { len: uncLen, offset: posLen + negLen, color: '#3a3f4c' },
-    { len: strLen, offset: posLen + negLen + uncLen, color: '#7c7fc7' },
+    { len: strLen, offset: posLen + negLen + uncLen, color: '#5b6af0' },
   ].filter((s) => s.len > 0)
 
   const values = [
@@ -40,7 +40,7 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
           {/* Background ring */}
           <circle
             cx={center} cy={center} r={radius}
-            fill="none" stroke="#1f2129" strokeWidth={stroke}
+            fill="none" stroke="var(--card)" strokeWidth={stroke}
           />
           {/* Segments */}
           {segments.map((seg, i) => (
@@ -59,10 +59,10 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
         </svg>
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`${compact ? 'text-[14px]' : 'text-[18px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>
+          <span className={`${compact ? 'text-[14px]' : 'text-[18px]'} font-bold`} style={{ color: 'var(--foreground)' }}>
             {dominant.pct}%
           </span>
-          <span className={`${compact ? 'text-[8.5px]' : 'text-[10px]'} font-medium`} style={{ color: 'var(--text-muted)' }}>
+          <span className={`${compact ? 'text-[8.5px]' : 'text-[10px]'} font-medium`} style={{ color: 'var(--text-tertiary)' }}>
             {dominant.label}
           </span>
         </div>
@@ -71,15 +71,15 @@ export default function ChangeImpactChart({ impact, compact = false }: { impact:
       {/* Legend */}
       <div className={compact ? 'flex flex-col gap-1.5' : 'flex flex-col gap-2'}>
         {[
-          { color: '#3d9e7d', label: 'Positive', pct: impact.positive },
+          { color: '#22c55e', label: 'Positive', pct: impact.positive },
           { color: '#3a3f4c', label: 'No Change', pct: impact.unchanged },
-          { color: '#d65c5c', label: 'Negative', pct: impact.negative },
-          ...(structural > 0 ? [{ color: '#7c7fc7', label: 'Structural', pct: structural }] : []),
+          { color: '#ef4444', label: 'Negative', pct: impact.negative },
+          ...(structural > 0 ? [{ color: '#5b6af0', label: 'Structural', pct: structural }] : []),
         ].map((entry) => (
           <div key={entry.label} className="flex items-center gap-2">
             <span className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full shrink-0`} style={{ background: entry.color }} />
             <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-medium`} style={{ color: 'var(--text-secondary)' }}>{entry.label}</span>
-            <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--text-primary)' }}>{entry.pct}%</span>
+            <span className={`${compact ? 'text-[11px]' : 'text-[12px]'} font-bold`} style={{ color: 'var(--foreground)' }}>{entry.pct}%</span>
           </div>
         ))}
       </div>

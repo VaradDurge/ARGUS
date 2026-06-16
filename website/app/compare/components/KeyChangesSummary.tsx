@@ -3,9 +3,9 @@
 import type { KeyChange } from '../lib/compare-utils'
 
 const ICONS: Record<string, { icon: string; color: string }> = {
-  improved:  { icon: '\u2713', color: '#3d9e7d' },
-  degraded:  { icon: '\u2717', color: '#d65c5c' },
-  unchanged: { icon: '\u2014', color: '#5d6370' },
+  improved:  { icon: '\u2713', color: '#22c55e' },
+  degraded:  { icon: '\u2717', color: '#ef4444' },
+  unchanged: { icon: '\u2014', color: '#6b6b6b' },
 }
 
 export default function KeyChangesSummary({ changes, compact = false }: { changes: KeyChange[]; compact?: boolean }) {
@@ -22,7 +22,7 @@ export default function KeyChangesSummary({ changes, compact = false }: { change
               {vis.icon}
             </span>
             <div className="min-w-0">
-              <span className={`${compact ? 'text-[11.5px]' : 'text-[13px]'} font-semibold`} style={{ color: 'var(--text-primary)' }}>
+              <span className={`${compact ? 'text-[11.5px]' : 'text-[13px]'} font-semibold`} style={{ color: 'var(--foreground)' }}>
                 {c.nodeName}:
               </span>
               <span className={`${compact ? 'text-[11.5px]' : 'text-[13px]'} ml-1`} style={{ color: 'var(--text-secondary)' }}>

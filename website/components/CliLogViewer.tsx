@@ -22,22 +22,22 @@ function parseLine(line: string): { timestamp: string; level: LogLevel | null; r
 
 function levelColor(level: LogLevel | null): string {
   switch (level) {
-    case 'INFO':    return '#8b919e'
-    case 'DEBUG':   return '#4b5563'
+    case 'INFO':    return 'var(--success)'
+    case 'DEBUG':   return 'var(--text-secondary)'
     case 'WARN':
-    case 'WARNING': return '#d49a2e'
-    case 'ERROR':   return '#d65c5c'
-    case 'FATAL':   return '#dc2626'
-    default:        return '#52525e'
+    case 'WARNING': return 'var(--warning)'
+    case 'ERROR':   return 'var(--failure)'
+    case 'FATAL':   return 'var(--failure)'
+    default:        return 'var(--text-tertiary)'
   }
 }
 
 function levelBg(level: LogLevel | null): string {
   switch (level) {
     case 'WARN':
-    case 'WARNING': return 'rgba(212,154,46,0.08)'
-    case 'ERROR':   return 'rgba(214,92,92,0.06)'
-    case 'FATAL':   return 'rgba(220,38,38,0.08)'
+    case 'WARNING': return 'rgba(245,158,11,0.06)'
+    case 'ERROR':   return 'rgba(239,68,68,0.06)'
+    case 'FATAL':   return 'rgba(239,68,68,0.08)'
     default:        return 'transparent'
   }
 }
@@ -51,7 +51,7 @@ function colorizeRest(rest: string): React.ReactNode[] {
 
   while ((match = regex.exec(rest)) !== null) {
     if (match.index > last) {
-      parts.push(<span key={last} style={{ color: '#52525e' }}>{rest.slice(last, match.index)}</span>)
+      parts.push(<span key={last} style={{ color: '#c8c8c8' }}>{rest.slice(last, match.index)}</span>)
     }
     const full = match[0]
     if (match[1]) {
@@ -62,7 +62,7 @@ function colorizeRest(rest: string): React.ReactNode[] {
       parts.push(
         <span key={match.index}>
           <span style={{ color: '#60a5fa' }}>{key}</span>
-          <span style={{ color: '#35353e' }}>=</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>=</span>
           <span style={{ color: '#86efac' }}>{val}</span>
         </span>
       )
@@ -74,7 +74,7 @@ function colorizeRest(rest: string): React.ReactNode[] {
   }
 
   if (last < rest.length) {
-    parts.push(<span key={last} style={{ color: '#52525e' }}>{rest.slice(last)}</span>)
+    parts.push(<span key={last} style={{ color: '#c8c8c8' }}>{rest.slice(last)}</span>)
   }
 
   return parts
@@ -91,34 +91,32 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
 
   return (
     <div
-      className="rounded-lg overflow-hidden"
+      className="rounded-xl border border-border overflow-hidden"
       style={{
-        border: '1px solid var(--border-default)',
-        background: 'var(--bg-surface)',
-        boxShadow: '0 10px 24px rgba(0,0,0,0.06)',
+        background: 'var(--code-bg)',
       }}
     >
       {/* Terminal titlebar */}
       <div
-        className="flex items-center justify-between px-4 py-2.5"
-        style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-default)' }}
+        className="flex items-center justify-between px-4 py-2.5 border-b border-border"
+        style={{ background: 'var(--code-header)' }}
       >
         <div className="flex items-center gap-3">
           {/* Traffic lights */}
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3a3a40' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ef4444' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#f59e0b' }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#22c55e' }} />
           </div>
-          <span className="text-xs font-mono text-[var(--text-secondary)]">{runId}.log</span>
+          <span className="text-xs font-mono text-muted-foreground">{runId}.log</span>
           <div className="flex items-center gap-1.5 ml-1">
             {hasErrors && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: '#d65c5c', background: 'rgba(214,92,92,0.1)', border: '1px solid rgba(214,92,92,0.2)' }}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: 'var(--failure)', background: 'color-mix(in srgb, var(--failure) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--failure) 20%, transparent)' }}>
                 {parsed.filter(p => p.parsed?.level === 'ERROR' || p.parsed?.level === 'FATAL').length} err
               </span>
             )}
             {hasWarns && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: '#d49a2e', background: 'rgba(212,154,46,0.08)', border: '1px solid rgba(212,154,46,0.2)' }}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 20%, transparent)' }}>
                 {parsed.filter(p => p.parsed?.level === 'WARN' || p.parsed?.level === 'WARNING').length} warn
               </span>
             )}
@@ -128,7 +126,7 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
           type="button"
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
-          className="text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors font-mono"
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors font-mono"
         >
           {collapsed ? 'expand' : 'collapse'}
         </button>
@@ -137,8 +135,8 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
       {/* Log lines */}
       {!collapsed && (
         <div
-          className="px-0 py-2 overflow-x-auto"
-          style={{ background: 'var(--bg-surface)' }}
+          className="px-0 py-2 overflow-x-auto scrollbar-thin"
+          style={{ background: 'var(--code-bg)' }}
         >
           <div className="font-mono text-xs leading-6 min-w-0">
             {parsed.map(({ raw, parsed: p, i }) => {
@@ -153,14 +151,14 @@ export default function CliLogViewer({ log, runId }: CliLogViewerProps) {
                   {/* Line number */}
                   <span
                     className="shrink-0 w-6 text-right mr-4 select-none"
-                    style={{ color: '#35353e' }}
+                    style={{ color: 'var(--text-tertiary)' }}
                   >
                     {i + 1}
                   </span>
 
                   {/* Timestamp */}
                   {p.timestamp && (
-                    <span className="shrink-0 mr-3" style={{ color: '#35353e' }}>
+                    <span className="shrink-0 mr-3" style={{ color: 'var(--text-tertiary)' }}>
                       {p.timestamp}
                     </span>
                   )}

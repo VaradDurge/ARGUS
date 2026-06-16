@@ -8,16 +8,16 @@ function MetricRow({ label, aVal, bVal, winner }: { label: string; aVal: string;
   return (
     <div
       className="grid items-center py-3 px-4"
-      style={{ gridTemplateColumns: '160px 1fr 1fr 60px', borderBottom: '1px solid var(--border-subtle)' }}
+      style={{ gridTemplateColumns: '160px 1fr 1fr 60px', borderBottom: '1px solid var(--border)' }}
     >
-      <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</span>
-      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'A' ? '#3d9e7d' : 'var(--text-secondary)' }}>
+      <span className="text-[13px] font-semibold" style={{ color: 'var(--foreground)' }}>{label}</span>
+      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'A' ? '#22c55e' : 'var(--text-secondary)' }}>
         {aVal}
       </span>
-      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'B' ? '#3d9e7d' : 'var(--text-secondary)' }}>
+      <span className="text-[13px] font-mono tabular-nums" style={{ color: winner === 'B' ? '#22c55e' : 'var(--text-secondary)' }}>
         {bVal}
       </span>
-      <span className="text-[11px] text-right font-semibold" style={{ color: '#3d9e7d' }}>
+      <span className="text-[11px] text-right font-semibold" style={{ color: '#22c55e' }}>
         {winner !== 'tie' ? `${winner} \u2713` : ''}
       </span>
     </div>
@@ -61,16 +61,16 @@ export default function MetricsTab({ runA, runB }: { runA: RunRecord; runB: RunR
 
   return (
     <div className="py-4">
-      <div className="card rounded-xl overflow-hidden">
+      <div className="rounded-[10px] border border-border bg-card overflow-hidden">
         {/* Header */}
         <div
           className="grid items-center py-2.5 px-4"
-          style={{ gridTemplateColumns: '160px 1fr 1fr 60px', borderBottom: '2px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}
+          style={{ gridTemplateColumns: '160px 1fr 1fr 60px', borderBottom: '2px solid var(--border)', background: 'var(--card)' }}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Metric</span>
-          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Base Run (A)</span>
-          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Replay (B)</span>
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-right" style={{ color: 'var(--text-muted)' }}>Winner</span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Metric</span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Base Run (A)</span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Replay (B)</span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-right" style={{ color: 'var(--text-tertiary)' }}>Winner</span>
         </div>
         {rows.map((row) => (
           <MetricRow key={row.label} {...row} />

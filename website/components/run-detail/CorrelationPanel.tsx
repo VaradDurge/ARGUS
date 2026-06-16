@@ -1,7 +1,6 @@
 'use client'
 
 import type { RunRecord } from '@/lib/types'
-import { C_GREEN, C_AMBER, C_RED } from '@/lib/run-utils'
 
 export default function CorrelationPanel({ run }: { run: RunRecord }) {
   const corr = run.correlation
@@ -10,14 +9,14 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
 
   const primary = corr.degradation_origins[0] ?? null
   const confColor = primary
-    ? primary.confidence >= 0.8 ? C_RED : primary.confidence >= 0.5 ? C_AMBER : '#5d6370'
-    : '#5d6370'
+    ? primary.confidence >= 0.8 ? 'var(--failure)' : primary.confidence >= 0.5 ? 'var(--warning)' : 'var(--muted-foreground)'
+    : 'var(--muted-foreground)'
 
   return (
-    <div>
+    <div className="rounded-xl border border-border bg-card p-5">
       {/* Section heading */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
           Correlation
         </span>
         {primary && (
@@ -25,8 +24,8 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
             className="ml-auto text-[11px] font-medium px-2.5 py-0.5 rounded-full"
             style={{
               color: confColor,
-              background: confColor === C_RED ? 'rgba(239,68,68,0.08)' : confColor === C_AMBER ? 'rgba(245,158,11,0.08)' : 'rgba(82,82,94,0.08)',
-              border: `1px solid ${confColor === C_RED ? 'rgba(239,68,68,0.2)' : confColor === C_AMBER ? 'rgba(245,158,11,0.2)' : 'rgba(82,82,94,0.2)'}`,
+              backgroundColor: `color-mix(in srgb, ${confColor} 10%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${confColor} 40%, transparent)`,
             }}
           >
             {(primary.confidence * 100).toFixed(0)}% confidence
@@ -34,25 +33,22 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
         )}
       </div>
 
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-      >
-        <div className="p-5 space-y-5">
+      <div className="mt-4 rounded-[8px] border border-border bg-background p-4">
+        <div className="space-y-5">
           {/* Origin */}
           {primary && (
             <div>
-              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
                 Origin
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <span
                   className="font-mono text-[13px] font-bold px-2.5 py-1 rounded-lg"
-                  style={{ color: confColor, background: 'var(--bg-elevated)' }}
+                  style={{ color: confColor, background: 'var(--card)' }}
                 >
                   {primary.node_name}
                 </span>
-                <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>step {primary.step_index}</span>
+                <span className="text-[12px] text-muted-foreground">step {primary.step_index}</span>
               </div>
               {primary.signal_types.length > 0 && (
                 <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -60,7 +56,7 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
                     <span
                       key={i}
                       className="text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ background: 'var(--bg-overlay)', color: 'var(--text-secondary)' }}
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--muted-foreground)' }}
                     >
                       {sig}
                     </span>
@@ -73,7 +69,7 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
           {/* Propagation chains */}
           {corr.propagation_chains.length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
                 Propagation
               </div>
               <div className="space-y-3">
@@ -83,20 +79,20 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
                       {chain.nodes.map((node, ni) => (
                         <span key={ni} className="flex items-center gap-1.5">
                           <span
-                            className="font-mono text-[12px] font-semibold px-2 py-0.5 rounded"
-                            style={{ background: 'var(--bg-overlay)', color: 'var(--text-primary)' }}
+                            className="font-mono text-[12px] font-semibold px-2 py-0.5 rounded text-foreground"
+                            style={{ background: 'rgba(255,255,255,0.05)' }}
                           >
                             {node}
                           </span>
                           {ni < chain.nodes.length - 1 && (
-                            <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>→</span>
+                            <span className="text-[10px] text-muted-foreground/50">→</span>
                           )}
                         </span>
                       ))}
                     </div>
                     <span
-                      className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                      className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full text-muted-foreground"
+                      style={{ background: 'var(--card)' }}
                     >
                       {chain.chain_type}
                     </span>
@@ -108,29 +104,33 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
 
           {/* Causal summary */}
           <div>
-            <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
               Summary
             </div>
-            <p className="text-[13px] leading-relaxed italic" style={{ color: '#d4d4d8' }}>
-              &ldquo;{corr.causal_summary}&rdquo;
+            <p className="mt-1.5 border-l-2 border-border pl-3 text-sm italic leading-relaxed" style={{ color: '#aaaaaa' }}>
+              &ldquo;{corr.causal_summary.split(/(`[^`]+`)/).map((part, i) =>
+                part.startsWith('`') && part.endsWith('`')
+                  ? <code key={i} className="font-mono not-italic text-foreground">{part.slice(1, -1)}</code>
+                  : part
+              )}&rdquo;
             </p>
           </div>
 
           {/* Replay impact */}
           {corr.replay_impact && (
             <div>
-              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
                 Replay Impact
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {corr.replay_impact.improved_nodes.length > 0 && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>improved:</span>
+                    <span className="text-[11px] text-muted-foreground">improved:</span>
                     {corr.replay_impact.improved_nodes.map((n, i) => (
                       <span
                         key={i}
                         className="font-mono text-[11px] px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(34,197,94,0.08)', color: C_GREEN, border: '1px solid rgba(34,197,94,0.2)' }}
+                        style={{ background: 'rgba(34,197,94,0.08)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.2)' }}
                       >
                         {n}
                       </span>
@@ -139,12 +139,12 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
                 )}
                 {corr.replay_impact.regressed_nodes.length > 0 && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>regressed:</span>
+                    <span className="text-[11px] text-muted-foreground">regressed:</span>
                     {corr.replay_impact.regressed_nodes.map((n, i) => (
                       <span
                         key={i}
                         className="font-mono text-[11px] px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(239,68,68,0.08)', color: C_RED, border: '1px solid rgba(239,68,68,0.2)' }}
+                        style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--failure)', border: '1px solid rgba(239,68,68,0.2)' }}
                       >
                         {n}
                       </span>
@@ -153,7 +153,7 @@ export default function CorrelationPanel({ run }: { run: RunRecord }) {
                 )}
               </div>
               {corr.replay_impact.summary && (
-                <p className="mt-2 text-[12px] italic" style={{ color: 'var(--text-muted)' }}>
+                <p className="mt-2 text-[12px] italic text-muted-foreground">
                   {corr.replay_impact.summary}
                 </p>
               )}

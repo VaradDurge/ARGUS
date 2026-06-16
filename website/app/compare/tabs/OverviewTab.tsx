@@ -30,7 +30,7 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
       {structural.isStructurallyDifferent && (
         <div
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px] font-medium"
-          style={{ background: 'rgba(124,127,199,0.06)', color: '#7c7fc7', border: '1px solid rgba(124,127,199,0.15)' }}
+          style={{ background: 'color-mix(in srgb, var(--primary) 6%, transparent)', color: '#5b6af0', border: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M7 2l5.5 9H1.5L7 2Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinejoin="round"/>
@@ -53,13 +53,13 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
           <NodeComparisonTable diffs={nodes} runBColumnLabel={bLabel} />
         </div>
         <div className="lg:col-span-5 flex flex-col gap-2.5">
-          <div className="card rounded-xl p-3.5">
+          <div className="rounded-[10px] border border-border bg-card p-3.5">
             <div className="min-w-0">
-              <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Key Changes Summary</h3>
+              <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--foreground)' }}>Key Changes Summary</h3>
               <KeyChangesSummary changes={keyChanges} compact />
             </div>
-            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Change Impact</h3>
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+              <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--foreground)' }}>Change Impact</h3>
               <ChangeImpactChart impact={impact} compact />
             </div>
           </div>
@@ -70,7 +70,7 @@ export default function OverviewTab({ runA, runB }: { runA: RunRecord; runB: Run
       {/* Info banner */}
       <div
         className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px]"
-        style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+        style={{ background: 'var(--card)', color: 'var(--text-tertiary)' }}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.1"/>

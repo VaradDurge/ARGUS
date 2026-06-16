@@ -3,9 +3,12 @@
 import type { RunRecord } from '@/lib/types'
 import { formatDur, fmtCost, fmtTokens } from '@/lib/run-utils'
 
-const C_GREEN = '#3d9e7d'
-const C_AMBER = '#d49a2e'
-const C_RED = '#d65c5c'
+const C_GREEN = 'var(--success)'
+const C_AMBER = 'var(--warning)'
+const C_RED = 'var(--failure)'
+const C_GREEN_HEX = '#22c55e'
+const C_AMBER_HEX = '#f59e0b'
+const C_RED_HEX = '#ef4444'
 
 interface MetricCardProps {
   icon: React.ReactNode
@@ -17,17 +20,16 @@ interface MetricCardProps {
 function MetricCard({ icon, label, value, color }: MetricCardProps) {
   return (
     <div
-      className="rounded-lg px-2 py-2 flex flex-col items-center justify-center text-center min-h-[68px]"
-      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
+      className="rounded-lg border border-border bg-card px-2 py-2 flex flex-col items-center justify-center text-center min-h-[68px]"
     >
       <div className="mb-1">{icon}</div>
       <div>
-        <div className="text-[10.5px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-[10.5px] font-medium mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
           {label}
         </div>
         <div
           className="text-[17px] font-bold tabular-nums tracking-[-0.03em] leading-none"
-          style={{ color: color ?? 'var(--text-primary)' }}
+          style={{ color: color ?? 'var(--foreground)' }}
         >
           {value}
         </div>
@@ -38,7 +40,7 @@ function MetricCard({ icon, label, value, color }: MetricCardProps) {
 
 function MetricIcon({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: `${color}0a`, color }}>
+    <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: color.startsWith('var(') ? `color-mix(in srgb, ${color} 4%, transparent)` : `${color}0a`, color }}>
       {children}
     </div>
   )
@@ -63,7 +65,7 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
   const severityColor: Record<string, string> = {
     critical: C_RED,
     warning: C_AMBER,
-    info: '#7c7fc7',
+    info: 'var(--primary)',
     ok: C_GREEN,
   }
   const statusSeverity =
@@ -94,14 +96,14 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
     return (
       <div className="card rounded-xl p-3.5">
         <div className="flex items-center gap-1.5 mb-2">
-          <h3 className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>Metrics</h3>
+          <h3 className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--foreground)' }}>Metrics</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <MetricCard
-            icon={<MetricIcon color="#7c7fc7"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.35"/><path d="M7 4v3.5l2 1.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/></svg></MetricIcon>}
+            icon={<MetricIcon color="var(--primary)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.35"/><path d="M7 4v3.5l2 1.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/></svg></MetricIcon>}
             label="Duration"
             value={formatDur(run.duration_ms)}
-            color="var(--text-primary)"
+            color="var(--foreground)"
           />
           <MetricCard
             icon={<MetricIcon color={C_AMBER}><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 10l3-3 2.5 1.5L12 4" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round"/></svg></MetricIcon>}
@@ -129,14 +131,14 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[12px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>
+        <span className="text-[12px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-tertiary)' }}>
           Metrics
         </span>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard
-          icon={<MetricIcon color="#7c7fc7"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="#7c7fc7" strokeWidth="1.2"/><path d="M7 4v3.5l2 1.5" stroke="#7c7fc7" strokeWidth="1.2" strokeLinecap="round"/></svg></MetricIcon>}
+          icon={<MetricIcon color="var(--primary)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="#5b6af0" strokeWidth="1.2"/><path d="M7 4v3.5l2 1.5" stroke="#5b6af0" strokeWidth="1.2" strokeLinecap="round"/></svg></MetricIcon>}
           label="Duration"
           value={formatDur(run.duration_ms)}
         />
@@ -161,7 +163,7 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
         {hasLLMData && (
           <>
             <MetricCard
-              icon={<MetricIcon color="#7c7fc7"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="8" rx="1.5" stroke="#7c7fc7" strokeWidth="1.2"/><path d="M5 7h4M5 9h2" stroke="#7c7fc7" strokeWidth="1" strokeLinecap="round"/></svg></MetricIcon>}
+              icon={<MetricIcon color="var(--primary)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="8" rx="1.5" stroke="#5b6af0" strokeWidth="1.2"/><path d="M5 7h4M5 9h2" stroke="#5b6af0" strokeWidth="1" strokeLinecap="round"/></svg></MetricIcon>}
               label="LLM Calls"
               value={`${totalLLMCalls}`}
             />
@@ -198,8 +200,8 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
 
       {/* Failure breakdown */}
       {failedNodes > 0 && (
-        <div className="mt-3 px-4 py-2.5 rounded-xl text-[12px] card">
-          <div className="flex items-center gap-4 flex-wrap" style={{ color: 'var(--text-secondary)' }}>
+        <div className="card rounded-xl mt-3 px-4 py-2.5 text-[12px]">
+          <div className="flex items-center gap-4 flex-wrap text-muted-foreground">
             {steps.filter((s) => s.inspection?.has_tool_failure).length > 0 && (
               <span>tool: <span className="font-mono font-semibold" style={{ color: C_AMBER }}>{steps.filter((s) => s.inspection?.has_tool_failure).length}</span></span>
             )}
@@ -207,14 +209,14 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
               <span>context: <span className="font-mono font-semibold" style={{ color: C_AMBER }}>{steps.filter((s) => s.status === 'fail' && s.inspection?.is_silent_failure).length}</span></span>
             )}
             {steps.filter((s) => s.status === 'semantic_fail').length > 0 && (
-              <span>semantic: <span className="font-mono font-semibold" style={{ color: '#9a6dc6' }}>{steps.filter((s) => s.status === 'semantic_fail').length}</span></span>
+              <span>semantic: <span className="font-mono font-semibold" style={{ color: '#a855f7' }}>{steps.filter((s) => s.status === 'semantic_fail').length}</span></span>
             )}
             {steps.filter((s) => s.status === 'crashed').length > 0 && (
               <span>crash: <span className="font-mono font-semibold" style={{ color: C_RED }}>{steps.filter((s) => s.status === 'crashed').length}</span></span>
             )}
             {run.first_failure_step && (
               <>
-                <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+                <span style={{ color: '#2a2a2a' }}>&middot;</span>
                 <span>first failure: <span className="font-mono font-semibold" style={{ color: C_RED }}>{run.first_failure_step}</span></span>
               </>
             )}
@@ -225,19 +227,19 @@ export default function MetricsGrid({ run, compact = false }: { run: RunRecord; 
       {/* Per-node cost */}
       {nodeCosts.length >= 2 && (
         <div className="mt-3 card rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5" style={{ background: 'var(--bg-elevated)' }}>
-            <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>Per-Node Cost</span>
+          <div className="px-4 py-2.5" style={{ background: 'var(--card)' }}>
+            <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-tertiary)' }}>Per-Node Cost</span>
           </div>
           <div className="px-4 py-2">
             {nodeCosts.map((nc, i) => (
               <div
                 key={i}
                 className="flex items-baseline gap-0 py-2 text-[12px]"
-                style={{ borderBottom: i < nodeCosts.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
+                style={{ borderBottom: i < nodeCosts.length - 1 ? '1px solid var(--border)' : 'none' }}
               >
-                <span className="font-mono w-[140px] truncate shrink-0" style={{ color: 'var(--text-secondary)' }}>{nc.name}</span>
+                <span className="font-mono w-[140px] truncate shrink-0 text-muted-foreground">{nc.name}</span>
                 <span className="font-mono w-[60px] text-right shrink-0" style={{ color: C_GREEN }}>{fmtCost(nc.cost)}</span>
-                <span className="font-mono ml-4" style={{ color: 'var(--text-muted)' }}>
+                <span className="font-mono ml-4 text-muted-foreground">
                   {fmtTokens(nc.tokens)} tok &middot; {nc.calls} call{nc.calls !== 1 ? 's' : ''}
                 </span>
               </div>

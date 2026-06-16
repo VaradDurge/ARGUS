@@ -4,224 +4,134 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
+import { cn } from '@/lib/utils'
+import {
+  Activity,
+  Workflow,
+  GitCompareArrows,
+  ClipboardCheck,
+  FlaskConical,
+  Network,
+  Bell,
+  Database,
+  BookOpen,
+  Clock,
+  MessageSquareWarning,
+  Settings,
+  ChevronsUpDown,
+  Search,
+  LogOut,
+} from 'lucide-react'
 
-// ── Icons ──────────────────────────────────────────────────────────────────
-
-function IconRuns() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1.5" y="2" width="5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-      <rect x="1.5" y="7.5" width="5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-      <rect x="9" y="2" width="5.5" height="12" rx="0.8" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-    </svg>
-  )
-}
-
-function IconTraces() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 4h10M3 8h7M3 12h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-      <circle cx="13" cy="8" r="1.2" fill="currentColor"/>
-      <circle cx="10" cy="12" r="1.2" fill="currentColor"/>
-    </svg>
-  )
-}
-
-function IconCompare() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M5 2v12M11 2v12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-      <path d="M1.5 8h13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="2 2"/>
-    </svg>
-  )
-}
-
-function IconPatterns() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2.5 8h3M6.5 4.5h3M10.5 8h3M6.5 11.5h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-      <circle cx="5.5" cy="8" r="1.2" stroke="currentColor" strokeWidth="1"/>
-      <circle cx="9.5" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/>
-      <circle cx="10.5" cy="8" r="1.2" stroke="currentColor" strokeWidth="1"/>
-      <circle cx="9.5" cy="11.5" r="1.2" stroke="currentColor" strokeWidth="1"/>
-    </svg>
-  )
-}
-
-function IconApprovals() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="1.5" width="12" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-      <path d="M5.5 7l1.8 1.8 3.2-3.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M5 11h6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
-    </svg>
-  )
-}
-
-function IconEval() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M5.5 8l1.5 1.5 3.5-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-function IconGuide() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 2.5h8a1.5 1.5 0 011.5 1.5v8a1.5 1.5 0 01-1.5 1.5H3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M3 2.5v11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-      <path d="M6 6h3.5M6 8.5h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function IconChangelog() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M8 4.5v4l2.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-function IconReport() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M8 2.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M8 5.5v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-      <circle cx="8" cy="10.5" r="0.7" fill="currentColor"/>
-    </svg>
-  )
-}
-
-function IconSettings() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.8 3.8l1.06 1.06M11.14 11.14l1.06 1.06M3.8 12.2l1.06-1.06M11.14 4.86l1.06-1.06" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function IconLogout() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6 2.5H4a1.5 1.5 0 00-1.5 1.5v8A1.5 1.5 0 004 13.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-      <path d="M10.5 5L13.5 8l-3 3M6.5 8H13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-function IconGraphs() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="4" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
-      <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
-      <circle cx="8" cy="12" r="2" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M5.5 5.5L7 10.5M10.5 5.5L9 10.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function IconAlerts() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M8 2a4.5 4.5 0 00-4.5 4.5v3L2 11.5h12l-1.5-2V6.5A4.5 4.5 0 008 2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-      <path d="M6.5 11.5a1.5 1.5 0 003 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function IconDatasets() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="8" cy="4.5" rx="5" ry="2" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M3 4.5v3.5c0 1.1 2.24 2 5 2s5-.9 5-2V4.5" stroke="currentColor" strokeWidth="1.2"/>
-      <path d="M3 8v3.5c0 1.1 2.24 2 5 2s5-.9 5-2V8" stroke="currentColor" strokeWidth="1.2"/>
-    </svg>
-  )
-}
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <div className="px-3 pt-5 pb-1.5">
-      <span
-        className="text-[10px] uppercase tracking-[0.12em] font-semibold"
-        style={{ color: 'var(--sidebar-muted)' }}
-      >
-        {label}
-      </span>
-    </div>
-  )
-}
-
-function NavLink({
-  href,
-  icon,
-  label,
-  exact,
-}: {
+interface NavItem {
+  id: string
   href: string
-  icon: React.ReactNode
   label: string
+  icon: React.ReactNode
   exact: boolean
+  soon?: boolean
+  badge?: string
+}
+
+interface NavSection {
+  label: string
+  items: NavItem[]
+}
+
+const navSections: NavSection[] = [
+  {
+    label: 'Observe',
+    items: [
+      { id: 'runs', href: '/', label: 'Runs', icon: <Activity className="h-4 w-4" />, exact: true },
+      { id: 'traces', href: '/traces', label: 'Traces', icon: <Workflow className="h-4 w-4" />, exact: false, soon: true },
+    ],
+  },
+  {
+    label: 'Analyze',
+    items: [
+      { id: 'compare', href: '/compare', label: 'Compare', icon: <GitCompareArrows className="h-4 w-4" />, exact: false },
+      { id: 'approvals', href: '/approvals', label: 'Approvals', icon: <ClipboardCheck className="h-4 w-4" />, exact: true },
+      { id: 'evaluation', href: '/evaluation', label: 'Evaluation', icon: <FlaskConical className="h-4 w-4" />, exact: false, soon: true },
+    ],
+  },
+  {
+    label: 'Workflows',
+    items: [
+      { id: 'graphs', href: '/graphs', label: 'Graphs', icon: <Network className="h-4 w-4" />, exact: false, soon: true },
+      { id: 'alerts', href: '/alerts', label: 'Alerts', icon: <Bell className="h-4 w-4" />, exact: false, soon: true },
+      { id: 'datasets', href: '/datasets', label: 'Datasets', icon: <Database className="h-4 w-4" />, exact: false, soon: true },
+    ],
+  },
+]
+
+const bottomItems: NavItem[] = [
+  { id: 'guide', href: '/guide', label: 'Guide', icon: <BookOpen className="h-4 w-4" />, exact: true },
+  { id: 'changelog', href: '/changelog', label: 'Changelog', icon: <Clock className="h-4 w-4" />, exact: true },
+  { id: 'report', href: '/report', label: 'Report Board', icon: <MessageSquareWarning className="h-4 w-4" />, exact: true },
+  { id: 'settings', href: '/settings', label: 'Settings', icon: <Settings className="h-4 w-4" />, exact: false, soon: true },
+]
+
+function NavRow({
+  item,
+  active,
+}: {
+  item: NavItem
+  active: boolean
 }) {
-  const pathname = usePathname()
-  const active = exact ? pathname === href : pathname.startsWith(href)
+  const content = (
+    <>
+      <span
+        className={cn(
+          'shrink-0',
+          active ? 'text-primary' : 'text-muted-foreground',
+          item.soon && !active && 'text-muted-foreground/60',
+        )}
+      >
+        {item.icon}
+      </span>
+      <span className="flex min-w-0 flex-1 items-center text-left">
+        <span className={cn('truncate', item.soon && !active && 'text-muted-foreground/70')}>
+          {item.label}
+        </span>
+      </span>
+      {item.soon && (
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          soon
+        </span>
+      )}
+      {item.badge && (
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {item.badge}
+        </span>
+      )}
+    </>
+  )
+
+  const rowClass = cn(
+    'flex w-full items-center gap-2.5 rounded-md border-l-2 py-1.5 pr-2 pl-[10px] text-sm transition-colors',
+    active
+      ? 'border-primary font-medium text-foreground'
+      : 'border-transparent text-sidebar-foreground hover:text-sidebar-accent-foreground',
+    item.soon && 'cursor-not-allowed select-none hover:text-sidebar-foreground',
+  )
+
+  if (item.soon) {
+    return (
+      <div className={rowClass} aria-disabled="true">
+        {content}
+      </div>
+    )
+  }
 
   return (
-    <Link
-      href={href}
-      aria-current={active ? 'page' : undefined}
-      className="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] relative group"
-      style={{
-        background: active ? 'var(--sidebar-active)' : 'transparent',
-        color: active ? '#7c7fc7' : 'var(--sidebar-text)',
-        fontWeight: active ? 700 : 600,
-      }}
-    >
-      {active && (
-        <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-          style={{ background: '#7c7fc7' }}
-        />
-      )}
-      <span className="shrink-0" style={{ color: active ? '#7c7fc7' : 'var(--sidebar-muted)' }}>
-        {icon}
-      </span>
-      <span>{label}</span>
+    <Link href={item.href} className={rowClass}>
+      {content}
     </Link>
   )
 }
 
-function SoonItem({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[13px] cursor-not-allowed select-none">
-      <div className="flex items-center gap-3">
-        <span className="shrink-0" style={{ color: '#3a3f4c' }}>{icon}</span>
-        <span style={{ color: '#3a3f4c' }}>{label}</span>
-      </div>
-      <span
-        className="text-[9px] px-1.5 py-0.5 rounded-md font-medium"
-        style={{ color: '#5d6370', background: '#1c1d24', letterSpacing: '0.05em' }}
-      >
-        soon
-      </span>
-    </div>
-  )
-}
-
-function Divider() {
-  return <div className="my-1.5 mx-3" style={{ height: '1px', background: 'var(--border-subtle)' }} />
-}
-
-// ── Component ──────────────────────────────────────────────────────────────
-
 export default function Sidebar() {
+  const pathname = usePathname()
   const { user, signOut } = useAuth()
 
   const initials = user?.user_metadata?.full_name
@@ -234,108 +144,106 @@ export default function Sidebar() {
     : user?.email?.[0]?.toUpperCase() ?? '?'
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined
+  const displayName = user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? 'Local Mode'
+  const displayEmail = user?.email ?? 'Connected'
+
+  function isActive(item: NavItem) {
+    if (item.soon) return false
+    return item.exact ? pathname === item.href : pathname.startsWith(item.href)
+  }
 
   return (
-    <aside
-      className="w-56 shrink-0 flex flex-col h-screen sticky top-0"
-      style={{
-        background: 'var(--sidebar-bg)',
-        borderRight: '1px solid var(--border-subtle)',
-      }}
-    >
-      {/* Brand */}
-      <div
-        className="px-4 py-4 flex items-center gap-2.5"
-        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-      >
-        <svg width="20" height="20" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#7c7fc7" strokeWidth="1.2" fill="none"/>
-          <circle cx="9" cy="9" r="2.2" fill="rgba(124,127,199,0.15)" stroke="#7c7fc7" strokeWidth="1.1"/>
-          <circle cx="9" cy="9" r="0.9" fill="#7c7fc7"/>
-        </svg>
-        <span className="text-[15px] font-extrabold tracking-[-0.035em]" style={{ color: 'var(--text-primary)' }}>
-          ARGUS
-        </span>
-        <span
-          className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md ml-0.5"
-          style={{ color: '#7c7fc7', background: 'rgba(124,127,199,0.08)', letterSpacing: '0.05em' }}
-        >
-          BETA
-        </span>
+    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+      {/* Workspace / brand */}
+      <div className="flex items-center gap-2.5 px-3 py-3">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/15 ring-1 ring-primary/30">
+          <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              fill="none"
+              className="text-primary"
+            />
+            <circle cx="9" cy="9" r="2.2" fill="currentColor" className="text-primary/15" stroke="currentColor" strokeWidth="1.1" />
+            <circle cx="9" cy="9" r="0.9" fill="currentColor" className="text-primary" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold tracking-tight text-foreground">ARGUS</p>
+          <p className="truncate text-[11px] text-muted-foreground">Production</p>
+        </div>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-col p-2 flex-1 overflow-y-auto">
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:border-ring/40"
+        >
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">Search runs...</span>
+          <kbd className="rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
+            /
+          </kbd>
+        </button>
+      </div>
 
-        <SectionLabel label="Observe" />
-        <NavLink href="/" icon={<IconRuns />} label="Runs" exact={true} />
-        <SoonItem icon={<IconTraces />} label="Traces" />
-
-        <Divider />
-
-        <SectionLabel label="Analyze" />
-        <NavLink href="/compare" icon={<IconCompare />} label="Compare" exact={false} />
-        <NavLink href="/approvals" icon={<IconApprovals />} label="Approvals" exact={true} />
-        <SoonItem icon={<IconEval />} label="Evaluation" />
-
-        <Divider />
-
-        <SectionLabel label="Workflows" />
-        <SoonItem icon={<IconGraphs />} label="Graphs" />
-        <SoonItem icon={<IconAlerts />} label="Alerts" />
-        <SoonItem icon={<IconDatasets />} label="Datasets" />
-
-        <div className="flex-1" />
-
-        <Divider />
-
-        <NavLink href="/guide" icon={<IconGuide />} label="Guide" exact={true} />
-        <NavLink href="/changelog" icon={<IconChangelog />} label="Changelog" exact={true} />
-        <NavLink href="/report" icon={<IconReport />} label="Report Board" exact={true} />
-        <SoonItem icon={<IconSettings />} label="Settings" />
-
+      {/* Main nav */}
+      <nav className="flex-1 overflow-y-auto px-2 py-2">
+        {navSections.map((section) => (
+          <div key={section.label} className="mb-4">
+            <p className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
+              {section.label}
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {section.items.map((item) => (
+                <li key={item.id}>
+                  <NavRow item={item} active={isActive(item)} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
 
+      {/* Bottom nav */}
+      <div className="px-2 pb-2">
+        <ul className="flex flex-col gap-0.5">
+          {bottomItems.map((item) => (
+            <li key={item.id}>
+              <NavRow item={item} active={isActive(item)} />
+            </li>
+          ))}
+        </ul>
+      </div>
+
       {/* User footer */}
-      <div
-        className="px-3 py-3 flex items-center justify-between gap-2"
-        style={{ borderTop: '1px solid var(--border-subtle)' }}
-      >
-        {user ? (
-          <>
-            <div className="flex items-center gap-2.5 min-w-0">
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt="" width={24} height={24} className="rounded-full shrink-0" />
-              ) : (
-                <div
-                  className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold"
-                  style={{ background: '#7c7fc7', color: '#fff' }}
-                >
-                  {initials}
-                </div>
-              )}
-              <span className="text-[12px] truncate" style={{ color: 'var(--text-secondary)' }}>
-                {user.user_metadata?.full_name ?? user.email}
-              </span>
+      <div className="border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5">
+          {user && avatarUrl ? (
+            <Image src={avatarUrl} alt="" width={28} height={28} className="h-7 w-7 shrink-0 rounded-full" />
+          ) : (
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/40 to-primary/10 text-xs font-semibold text-foreground ring-1 ring-border">
+              {initials}
             </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{displayEmail}</p>
+          </div>
+          {user && (
             <button
+              type="button"
               onClick={signOut}
-              className="shrink-0 p-1.5 rounded-md transition-colors"
-              style={{ color: 'var(--text-muted)' }}
+              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               title="Sign out"
             >
-              <IconLogout />
+              <LogOut className="h-3.5 w-3.5" />
             </button>
-          </>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ background: '#3d9e7d', boxShadow: '0 0 4px rgba(61,158,125,0.4)' }}
-            />
-            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Connected</span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </aside>
   )

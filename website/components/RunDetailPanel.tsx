@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { ArrowLeft, ScrollText, RefreshCw, GitBranch } from 'lucide-react'
 import type { RunRecord, RunSummary } from '@/lib/types'
 import { useRunDetail } from '@/lib/hooks'
 import { STATUS_DOT, formatDur, formatTimestamp } from '@/lib/run-utils'
+import { RunStatusBadge } from '@/components/StatusBadge'
 import ReplayControls from './run-detail/ReplayControls'
 import RootCauseBanner from './run-detail/RootCauseBanner'
 import MetricsGrid from './run-detail/MetricsGrid'
+import RunMetricsBar from './run-detail/RunMetricsBar'
 import ExecutionTimeline from './run-detail/ExecutionTimeline'
 import AIAnalysisPanel from './run-detail/AIAnalysisPanel'
 import CorrelationPanel from './run-detail/CorrelationPanel'
@@ -16,22 +19,6 @@ import BehaviorPanel from './run-detail/BehaviorPanel'
 import OverviewTab from './run-detail/OverviewTab'
 import JsonViewer from './JsonViewer'
 import CliLogViewer from './CliLogViewer'
-
-const STATUS_BG: Record<string, string> = {
-  clean: 'rgba(61,158,125,0.08)',
-  silent_failure: 'rgba(212,154,46,0.08)',
-  crashed: 'rgba(214,92,92,0.08)',
-  semantic_fail: 'rgba(154,109,198,0.08)',
-  interrupted: 'rgba(212,154,46,0.08)',
-}
-
-const STATUS_TEXT: Record<string, string> = {
-  clean: '#3d9e7d',
-  silent_failure: '#d49a2e',
-  crashed: '#d65c5c',
-  semantic_fail: '#9a6dc6',
-  interrupted: '#d49a2e',
-}
 
 const TABS = ['Overview', 'Pipeline', 'AI Analysis', 'Correlations', 'State', 'Logs'] as const
 type Tab = typeof TABS[number]
@@ -49,8 +36,8 @@ function LogsTab({ runId }: { runId: string }) {
       .catch(() => setLoading(false))
   }, [runId])
 
-  if (loading) return <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading logs...</div>
-  if (!log) return <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>No logs available for this run.</div>
+  if (loading) return <div className="p-8 text-center text-sm text-muted-foreground">Loading logs...</div>
+  if (!log) return <div className="p-8 text-center text-sm text-muted-foreground">No logs available for this run.</div>
 
   return (
     <div className="p-5">
@@ -84,23 +71,23 @@ export default function RunDetailPanel({
 
   if (!runId) {
     return (
-      <div className="h-full flex flex-col items-center justify-center" style={{ background: 'var(--bg-base)' }}>
+      <div className="h-full flex flex-col items-center justify-center bg-background">
         <svg width="48" height="48" viewBox="0 0 18 18" fill="none" className="mb-4 opacity-20">
-          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#7c7fc7" strokeWidth="1.2" fill="none"/>
-          <circle cx="9" cy="9" r="2.2" fill="rgba(124,127,199,0.15)" stroke="#7c7fc7" strokeWidth="1.1"/>
-          <circle cx="9" cy="9" r="0.9" fill="#7c7fc7"/>
+          <path d="M9 1.5L16.5 5.5V12.5L9 16.5L1.5 12.5V5.5L9 1.5Z" stroke="#5b6af0" strokeWidth="1.2" fill="none"/>
+          <circle cx="9" cy="9" r="2.2" fill="rgba(91,106,240,0.15)" stroke="#5b6af0" strokeWidth="1.1"/>
+          <circle cx="9" cy="9" r="0.9" fill="#5b6af0"/>
         </svg>
-        <p className="text-[14px] font-medium" style={{ color: 'var(--text-muted)' }}>Select a run to view details</p>
+        <p className="text-[14px] font-medium text-muted-foreground">Select a run to view details</p>
       </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
+      <div className="h-full flex items-center justify-center bg-background">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-subtle)', borderTopColor: '#7c7fc7' }} />
-          <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Loading run...</span>
+          <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.08)', borderTopColor: '#5b6af0' }} />
+          <span className="text-[13px] text-muted-foreground">Loading run...</span>
         </div>
       </div>
     )
@@ -108,8 +95,8 @@ export default function RunDetailPanel({
 
   if (error || !run) {
     return (
-      <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <p className="text-[13px]" style={{ color: '#d65c5c' }}>Error: {error ?? 'Run not found'}</p>
+      <div className="h-full flex items-center justify-center bg-background">
+        <p className="text-[13px] text-destructive">Error: {error ?? 'Run not found'}</p>
       </div>
     )
   }
@@ -125,100 +112,54 @@ export default function RunDetailPanel({
   }
 
   return (
-    <div className="h-full flex flex-col panel-slide-in" style={{ background: '#141519' }}>
-      {/* Run header */}
-      <div className="shrink-0 px-5 pt-3 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(20,21,25,0.86)' }}>
+    <div className="h-full flex flex-col panel-slide-in bg-background">
+      {/* Run header — reference style */}
+      <div className="shrink-0 px-5 pt-3 pb-3 border-b border-border bg-background">
+        {/* Back link */}
+        <button
+          onClick={onClose}
+          className="inline-flex items-center gap-1 text-[12px] font-medium mb-2 transition-colors text-muted-foreground bg-transparent border-none cursor-pointer p-0"
+        >
+          <ArrowLeft className="size-3.5" />
+          All runs
+        </button>
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-3 min-w-0">
-              <span
-                className="w-3.5 h-3.5 rounded-full shrink-0"
-                style={{
-                  border: `2px solid ${statusInfo.color}`,
-                  background: run.overall_status === 'clean' ? 'rgba(61,158,125,0.10)' : 'transparent',
-                }}
-              />
-              <span className="text-[17px] font-bold tracking-[-0.03em] leading-none truncate" style={{ color: 'var(--text-primary)' }}>{run.run_id}</span>
-            <span
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 leading-none"
-              style={{
-                background: STATUS_BG[run.overall_status] ?? 'rgba(156,163,175,0.08)',
-                color: STATUS_TEXT[run.overall_status] ?? '#5d6370',
-                border: `1px solid ${STATUS_TEXT[run.overall_status] ?? '#5d6370'}20`,
-              }}
-            >
-              {run.overall_status.replace(/_/g, ' ')}
-            </span>
-            <button onClick={copyRunId} className="p-1 rounded-md transition-colors hover:bg-white/5 shrink-0" style={{ color: 'var(--text-muted)' }}>
-              {copied ? (
-                <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M3.5 7.5l2 2 5-5" stroke="#3d9e7d" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="7.5" height="7.5" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M10 4V3a1.5 1.5 0 00-1.5-1.5H3A1.5 1.5 0 001.5 3v5.5A1.5 1.5 0 003 10h1" stroke="currentColor" strokeWidth="1.2"/></svg>
-              )}
-            </button>
-            {canReturnToPreviousRun && (
-              <button
-                onClick={() => router.replace(`/?run=${encodeURIComponent(previousRunId ?? '')}`, { scroll: false })}
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-md transition-colors shrink-0"
-                style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-              >
-                <svg width="11" height="11" viewBox="0 0 13 13" fill="none">
-                  <path d="M8 3L4.5 6.5 8 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Previous
-              </button>
-            )}
+              <span className="text-[20px] font-bold tracking-[-0.03em] leading-none truncate text-foreground">{run.run_id}</span>
+              <RunStatusBadge status={run.overall_status} />
             </div>
 
-            <div className="mt-2 flex items-center gap-2 flex-wrap text-[11.5px] font-medium" style={{ color: 'var(--text-muted)' }}>
-              <span>{formatTimestamp(run.started_at)}</span>
-              <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
-              <span>{steps.length} step{steps.length !== 1 ? 's' : ''}</span>
-              <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[12px] font-medium text-muted-foreground">
+              <span className="font-mono text-[11px]">{run.run_id.slice(0, 12)}</span>
+              <span className="text-muted-foreground/50">&middot;</span>
+              <span>Argus v{run.argus_version}</span>
+              <span className="text-muted-foreground/50">&middot;</span>
+              <span>{steps.length} steps</span>
+              <span className="text-muted-foreground/50">&middot;</span>
               <span>{formatDur(run.duration_ms)}</span>
-              <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
-              <span className="text-[12px] font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>v{run.argus_version}</span>
             </div>
           </div>
+
           <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href={`/compare?a=${run.run_id}`}
-              className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                <path d="M5.2 4.1h3.6a2.9 2.9 0 110 5.8H7.6" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round"/>
-                <path d="M8.8 9.9H5.2a2.9 2.9 0 110-5.8h1.2" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round"/>
-              </svg>
-              Compare
-            </Link>
             <button
-              className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+              className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors border border-border text-muted-foreground bg-transparent"
             >
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                <circle cx="4" cy="7" r="1.8" stroke="currentColor" strokeWidth="1.4"/>
-                <circle cx="10.5" cy="3.5" r="1.8" stroke="currentColor" strokeWidth="1.4"/>
-                <circle cx="10.5" cy="10.5" r="1.8" stroke="currentColor" strokeWidth="1.4"/>
-                <path d="M5.7 6.2l3.1-1.8M5.7 7.8l3.1 1.8" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-              </svg>
-              Share
+              <ScrollText className="size-3.5" />
+              Logs
             </button>
             <button
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+              className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors bg-primary text-white"
             >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                <circle cx="7" cy="3.5" r="1" fill="currentColor"/>
-                <circle cx="7" cy="7" r="1" fill="currentColor"/>
-                <circle cx="7" cy="10.5" r="1" fill="currentColor"/>
-              </svg>
+              <RefreshCw className="size-3.5" />
+              Replay
             </button>
           </div>
         </div>
 
         {run.parent_run_id && (
-          <div className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+          <div className="mt-1.5 text-[12px] text-muted-foreground">
             rerun of{' '}
             <button
               onClick={() => {
@@ -226,38 +167,39 @@ export default function RunDetailPanel({
                 const currentRun = encodeURIComponent(run.run_id)
                 router.replace(`/?run=${parentRun}&from=${currentRun}`, { scroll: false })
               }}
-              className="font-mono hover:text-indigo-500 transition-colors"
+              className="font-mono transition-colors text-primary"
             >
               {run.parent_run_id}
             </button>
             {run.replay_from_step && (
-              <> from <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{run.replay_from_step}</span></>
+              <> from <span className="font-mono font-semibold text-foreground">{run.replay_from_step}</span></>
             )}
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="shrink-0 px-5 flex items-center gap-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div className="shrink-0 px-5 flex items-center gap-0 overflow-x-auto border-b border-border bg-background">
         {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className="text-[13px] font-medium px-4 py-3 transition-colors relative whitespace-nowrap"
-            style={{
-              color: activeTab === tab ? '#7c7fc7' : 'var(--text-secondary)',
-            }}
+            className={`text-[13px] px-4 py-3 transition-colors relative whitespace-nowrap ${
+              activeTab === tab
+                ? 'text-foreground font-medium'
+                : 'text-muted-foreground hover:text-[#aaaaaa]'
+            }`}
           >
             {tab}
             {activeTab === tab && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full" style={{ background: '#7c7fc7' }} />
+              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-primary" />
             )}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="flex-1 overflow-y-auto overscroll-contain bg-background">
         {activeTab === 'Overview' && (
           <OverviewTab run={run} allRuns={allRuns} onSwitchTab={setActiveTab} />
         )}
@@ -269,7 +211,7 @@ export default function RunDetailPanel({
                 {run.root_cause_chain && run.root_cause_chain.length > 0 && (
                   <RootCauseBanner chain={run.root_cause_chain} />
                 )}
-                <MetricsGrid run={run} />
+                <RunMetricsBar run={run} />
                 <ExecutionTimeline
                   run={run}
                   onReplay={handleReplay}
@@ -299,7 +241,7 @@ export default function RunDetailPanel({
           <div className="p-5 space-y-6">
             {run.initial_state && Object.keys(run.initial_state).length > 0 && (
               <div>
-                <div className="text-[11px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Initial State</div>
+                <div className="text-[11px] uppercase tracking-widest font-semibold mb-2 text-muted-foreground">Initial State</div>
                 <JsonViewer data={run.initial_state} defaultCollapsed={true} />
               </div>
             )}

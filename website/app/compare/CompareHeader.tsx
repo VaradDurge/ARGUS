@@ -12,7 +12,7 @@ const STATUS_DISPLAY: Record<string, string> = {
 }
 
 function statusColor(s: string) {
-  return STATUS_DOT_COLOR[s] ?? '#5d6370'
+  return STATUS_DOT_COLOR[s] ?? '#6b6b6b'
 }
 
 function selectorLabel(run: RunRecord | null, fallback: string): string {
@@ -114,9 +114,9 @@ export default function CompareHeader({
           onChange={(e) => onSelectA(e.target.value)}
           className="text-[13px] px-3.5 py-2 rounded-lg outline-none"
           style={{
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-primary)',
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            color: 'var(--foreground)',
             minWidth: '200px',
           }}
         >
@@ -130,7 +130,7 @@ export default function CompareHeader({
             type="button"
             onClick={() => { onSelectA(selectedB); onSelectB(selectedA) }}
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+            style={{ color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}
             title="Swap runs"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -141,7 +141,7 @@ export default function CompareHeader({
           <button
             type="button"
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+            style={{ color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}
             title="Copy comparison URL"
             onClick={() => navigator.clipboard?.writeText(window.location.href)}
           >
@@ -157,9 +157,9 @@ export default function CompareHeader({
           onChange={(e) => onSelectB(e.target.value)}
           className="text-[13px] px-3.5 py-2 rounded-lg outline-none"
           style={{
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-primary)',
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            color: 'var(--foreground)',
             minWidth: '200px',
           }}
         >
@@ -174,7 +174,7 @@ export default function CompareHeader({
           <button
             type="button"
             className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
+            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
           >
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <path d="M4.5 2.5v-1a1 1 0 011-1h2a1 1 0 011 1v1M2 4.5h9M8.5 6v4M4.5 6v4M3 4.5l.5 6a1.5 1.5 0 001.5 1.5h3a1.5 1.5 0 001.5-1.5l.5-6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
@@ -184,7 +184,7 @@ export default function CompareHeader({
           <button
             type="button"
             className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}
+            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
           >
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <path d="M6.5 8.5V1.5M3.5 5.5l3 3 3-3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
@@ -195,7 +195,7 @@ export default function CompareHeader({
           <button
             type="button"
             className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-            style={{ color: '#3d9e7d', border: '1px solid #3d9e7d' }}
+            style={{ color: 'var(--primary)', border: '1px solid var(--primary)' }}
           >
             + Rerun from diff
           </button>
@@ -208,19 +208,19 @@ export default function CompareHeader({
           {/* Run A card */}
           <div
             className="flex-1 px-4 py-3 rounded-xl"
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: statusColor(runA.overall_status) }} />
-              <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--foreground)' }}>
                 {displayName(runA)}
               </span>
               {aliasMap.has(runA.run_id) && (
-                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{runA.run_id.slice(0, 8)}</span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{runA.run_id.slice(0, 8)}</span>
               )}
               <span
                 className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
-                style={{ color: statusColor(runA.overall_status), background: `${statusColor(runA.overall_status)}10` }}
+                style={{ color: statusColor(runA.overall_status), background: `color-mix(in srgb, ${statusColor(runA.overall_status)} 10%, transparent)` }}
               >
                 {badgeLabel(runA)}
               </span>
@@ -228,24 +228,24 @@ export default function CompareHeader({
           </div>
 
           {/* VS */}
-          <span className="text-[13px] font-bold shrink-0" style={{ color: 'var(--text-muted)' }}>vs</span>
+          <span className="text-[13px] font-bold shrink-0" style={{ color: 'var(--text-tertiary)' }}>vs</span>
 
           {/* Run B card */}
           <div
             className="flex-1 px-4 py-3 rounded-xl"
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: statusColor(runB.overall_status) }} />
-              <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-[13.5px] font-bold tracking-[-0.02em]" style={{ color: 'var(--foreground)' }}>
                 {displayName(runB)}
               </span>
               {aliasMap.has(runB.run_id) && (
-                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{runB.run_id.slice(0, 8)}</span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{runB.run_id.slice(0, 8)}</span>
               )}
               <span
                 className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
-                style={{ color: statusColor(runB.overall_status), background: `${statusColor(runB.overall_status)}10` }}
+                style={{ color: statusColor(runB.overall_status), background: `color-mix(in srgb, ${statusColor(runB.overall_status)} 10%, transparent)` }}
               >
                 {badgeLabel(runB)}
               </span>

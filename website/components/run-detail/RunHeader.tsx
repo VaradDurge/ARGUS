@@ -4,20 +4,12 @@ import Link from 'next/link'
 import type { RunRecord } from '@/lib/types'
 import { STATUS_DOT, formatDur, formatTimestamp } from '@/lib/run-utils'
 
-const STATUS_BG: Record<string, string> = {
-  clean: 'rgba(61,158,125,0.08)',
-  silent_failure: 'rgba(212,154,46,0.08)',
-  crashed: 'rgba(214,92,92,0.08)',
-  semantic_fail: 'rgba(154,109,198,0.08)',
-  interrupted: 'rgba(212,154,46,0.08)',
-}
-
-const STATUS_TEXT: Record<string, string> = {
-  clean: '#3d9e7d',
-  silent_failure: '#d49a2e',
-  crashed: '#d65c5c',
-  semantic_fail: '#9a6dc6',
-  interrupted: '#d49a2e',
+const STATUS_COLOR: Record<string, string> = {
+  clean: '#22c55e',
+  silent_failure: '#f59e0b',
+  crashed: '#ef4444',
+  semantic_fail: '#a855f7',
+  interrupted: '#8b8fa0',
 }
 
 export default function RunHeader({
@@ -36,50 +28,55 @@ export default function RunHeader({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold tracking-tight flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-3 text-foreground">
               <span style={{ color: statusInfo.color }} className="text-lg leading-none">{statusInfo.dot}</span>
-              <span className="font-mono text-base" style={{ color: '#e1e4ea' }}>{run.run_id}</span>
+              <span className="font-mono text-base text-foreground">{run.run_id}</span>
             </h1>
-            <span
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                background: STATUS_BG[run.overall_status] ?? 'rgba(93,99,112,0.08)',
-                color: STATUS_TEXT[run.overall_status] ?? '#5d6370',
-                border: `1px solid ${STATUS_TEXT[run.overall_status] ?? '#5d6370'}20`,
-              }}
-            >
-              {run.overall_status.replace('_', ' ')}
-            </span>
+            {(() => {
+              const sc = STATUS_COLOR[run.overall_status] ?? '#8b8fa0'
+              return (
+                <span
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full border"
+                  style={{
+                    background: `color-mix(in srgb, ${sc} 10%, transparent)`,
+                    color: sc,
+                    borderColor: `color-mix(in srgb, ${sc} 25%, transparent)`,
+                  }}
+                >
+                  {run.overall_status.replace('_', ' ')}
+                </span>
+              )
+            })()}
           </div>
 
           {/* Metadata row */}
-          <div className="mt-3 flex items-center gap-2 flex-wrap text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+          <div className="mt-3 flex items-center gap-2 flex-wrap text-[12px] text-muted-foreground">
             <span>{formatTimestamp(run.started_at)}</span>
-            <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>&middot;</span>
             <span>{formatDur(run.duration_ms)}</span>
-            <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>&middot;</span>
             <span>{steps.length} step{steps.length !== 1 ? 's' : ''}</span>
-            <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
-            <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>v{run.argus_version}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>&middot;</span>
+            <span className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>v{run.argus_version}</span>
             {run.is_cyclic && (
               <>
-                <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
-                <span style={{ color: '#9a6dc6' }}>cyclic</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>&middot;</span>
+                <span style={{ color: '#a855f7' }}>cyclic</span>
               </>
             )}
           </div>
 
           {/* Replay lineage */}
           {run.parent_run_id && (
-            <div className="mt-2 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            <div className="mt-2 text-[12px] text-muted-foreground">
               rerun of{' '}
-              <a href={`/runs/${run.parent_run_id}`} className="font-mono hover:text-indigo-500 transition-colors">
+              <a href={`/runs/${run.parent_run_id}`} className="font-mono hover:text-primary transition-colors">
                 {run.parent_run_id}
               </a>
               {run.replay_from_step && (
                 <>
                   {' '}from{' '}
-                  <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{run.replay_from_step}</span>
+                  <span className="font-mono font-semibold text-foreground">{run.replay_from_step}</span>
                 </>
               )}
             </div>
@@ -92,7 +89,7 @@ export default function RunHeader({
           <Link
             href={`/compare?a=${run.run_id}`}
             className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors"
-            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}
+            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)', background: 'var(--card)' }}
           >
             Compare
           </Link>

@@ -8,6 +8,7 @@ export default function ParallelGroup({
   events,
   nameCol,
   run,
+  startIndex,
   onReplay,
   onReplayNode,
   replayingNode,
@@ -17,6 +18,7 @@ export default function ParallelGroup({
   events: NodeEvent[]
   nameCol: number
   run: RunRecord
+  startIndex?: number
   onReplay?: (node: string) => void
   onReplayNode?: (node: string) => void
   replayingNode?: string | null
@@ -25,13 +27,15 @@ export default function ParallelGroup({
 }) {
   const nodeNames = events.map((e) => e.node_name).join(' · ')
   return (
-    <div
-      className="mx-3 my-2 rounded-lg overflow-hidden"
-      style={{ border: '1px solid rgba(59,130,246,0.25)', background: 'rgba(59,130,246,0.03)' }}
-    >
-      <div className="px-4 py-1.5 text-[11px] font-mono" style={{ borderBottom: '1px solid rgba(59,130,246,0.15)' }}>
-        <span className="text-blue-400 font-bold">⟼ parallel</span>
-        <span className="text-[#52525e] ml-3">{nodeNames}</span>
+    <div className="flex flex-col gap-2">
+      {/* Parallel group header */}
+      <div className="flex items-center gap-2 px-1">
+        <span className="rounded-[4px] bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-tertiary">
+          parallel
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {nodeNames}
+        </span>
       </div>
       {events.map((event, i) => (
         <StepRow
@@ -39,6 +43,7 @@ export default function ParallelGroup({
           event={event}
           nameCol={nameCol}
           run={run}
+          displayIndex={(startIndex ?? 0) + i}
           onReplay={onReplay}
           onReplayNode={onReplayNode}
           isReplaying={replayingNode === event.node_name}

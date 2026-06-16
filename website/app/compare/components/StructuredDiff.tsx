@@ -38,14 +38,14 @@ function DiffPanel({
 
   return (
     <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
         <span className="text-[12px] font-bold" style={{ color: labelColor }}>{label}</span>
       </div>
-      <div className="flex items-start gap-0 px-2 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <span className="text-[11px] font-medium px-1.5 py-0.5" style={{ color: 'var(--text-muted)' }}>
+      <div className="flex items-start gap-0 px-2 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+        <span className="text-[11px] font-medium px-1.5 py-0.5" style={{ color: 'var(--text-tertiary)' }}>
           {'\u25BC'} Output
         </span>
-        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ml-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ml-1" style={{ background: 'var(--card)', color: 'var(--text-tertiary)' }}>
           JSON
         </span>
       </div>
@@ -58,7 +58,7 @@ function DiffPanel({
                 <tr key={i} style={{ background: isChanged ? `${highlightColor}08` : 'transparent' }}>
                   <td
                     className="text-right px-2 py-0 select-none shrink-0"
-                    style={{ color: 'var(--text-faint)', width: '36px', borderRight: '1px solid var(--border-subtle)' }}
+                    style={{ color: 'var(--text-tertiary)', width: '36px', borderRight: '1px solid var(--border)' }}
                   >
                     {i + 1}
                   </td>
@@ -91,19 +91,19 @@ export default function StructuredDiff({ diffs, selectedNode }: { diffs: NodeDif
 
   return (
     <div className="card rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <h3 className="text-[13px] font-bold" style={{ color: 'var(--foreground)' }}>
           Diff View: <span className="font-mono">{activeDiff.name}</span>
-          <span className="ml-1 font-normal" style={{ color: 'var(--text-muted)' }}>(Node {nodeIndex})</span>
+          <span className="ml-1 font-normal" style={{ color: 'var(--text-tertiary)' }}>(Node {nodeIndex})</span>
         </h3>
-        <div className="flex items-center gap-0 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+        <div className="flex items-center gap-0 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
           <button
             type="button"
             onClick={() => setMode('structured')}
             className="text-[11px] font-semibold px-3 py-1 transition-colors"
             style={{
-              background: mode === 'structured' ? '#7c7fc7' : 'transparent',
-              color: mode === 'structured' ? '#ffffff' : 'var(--text-muted)',
+              background: mode === 'structured' ? '#5b6af0' : 'transparent',
+              color: mode === 'structured' ? '#ffffff' : 'var(--text-tertiary)',
             }}
           >
             Structured Diff
@@ -113,9 +113,9 @@ export default function StructuredDiff({ diffs, selectedNode }: { diffs: NodeDif
             onClick={() => setMode('raw')}
             className="text-[11px] font-semibold px-3 py-1 transition-colors"
             style={{
-              background: mode === 'raw' ? '#7c7fc7' : 'transparent',
-              color: mode === 'raw' ? '#ffffff' : 'var(--text-muted)',
-              borderLeft: '1px solid var(--border-default)',
+              background: mode === 'raw' ? '#5b6af0' : 'transparent',
+              color: mode === 'raw' ? '#ffffff' : 'var(--text-tertiary)',
+              borderLeft: '1px solid var(--border)',
             }}
           >
             Raw Diff
@@ -126,23 +126,23 @@ export default function StructuredDiff({ diffs, selectedNode }: { diffs: NodeDif
       <div className="flex" style={{ minHeight: '200px' }}>
         <DiffPanel
           label="Base Run (Failed)"
-          labelColor="#d65c5c"
+          labelColor="#ef4444"
           output={activeDiff.before?.output_dict ?? null}
           changedKeys={changedKeys}
-          highlightColor="#d65c5c"
+          highlightColor="#ef4444"
         />
-        <div style={{ width: '1px', background: 'var(--border-default)' }} />
+        <div style={{ width: '1px', background: 'var(--border)' }} />
         <DiffPanel
           label="Replay 1 (Fixed)"
-          labelColor="#3d9e7d"
+          labelColor="#22c55e"
           output={activeDiff.after?.output_dict ?? null}
           changedKeys={changedKeys}
-          highlightColor="#3d9e7d"
+          highlightColor="#22c55e"
         />
       </div>
 
-      <div className="px-4 py-2.5 flex items-center justify-end" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <span className="text-[11px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#7c7fc7' }}>
+      <div className="px-4 py-2.5 flex items-center justify-end" style={{ borderTop: '1px solid var(--border)' }}>
+        <span className="text-[11px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#5b6af0' }}>
           Open full diff in new tab
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 1h6v6M8.5 1.5L4 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </span>

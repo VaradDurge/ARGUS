@@ -15,33 +15,33 @@ function formatDelta(bMs: number | undefined, aMs: number | undefined): string {
 }
 
 function impactLabel(diff: NodeDiff): { text: string; color: string } {
-  if (diff.isFrozen) return { text: 'Only in A', color: '#d49a2e' }
-  if (diff.isNew) return { text: 'Only in B', color: '#7c7fc7' }
-  if (diff.isFixed) return { text: 'Improved', color: '#3d9e7d' }
-  if (diff.isRegression) return { text: 'Degraded', color: '#d65c5c' }
+  if (diff.isFrozen) return { text: 'Only in A', color: '#f59e0b' }
+  if (diff.isNew) return { text: 'Only in B', color: '#5b6af0' }
+  if (diff.isFixed) return { text: 'Improved', color: '#22c55e' }
+  if (diff.isRegression) return { text: 'Degraded', color: '#ef4444' }
   if (diff.inspectionDiffs.length > 0 || diff.fieldDiffs.length > 0) {
-    const hasImprovement = diff.inspectionDiffs.some((d) => d.iconColor === '#3d9e7d')
-    if (hasImprovement) return { text: 'Improved', color: '#3d9e7d' }
-    return { text: 'Changed', color: '#d49a2e' }
+    const hasImprovement = diff.inspectionDiffs.some((d) => d.iconColor === '#22c55e')
+    if (hasImprovement) return { text: 'Improved', color: '#22c55e' }
+    return { text: 'Changed', color: '#f59e0b' }
   }
-  return { text: 'No change', color: '#5d6370' }
+  return { text: 'No change', color: '#6b6b6b' }
 }
 
 export default function NodeComparisonTable({ diffs, runBColumnLabel = 'Replay' }: { diffs: NodeDiff[]; runBColumnLabel?: string }) {
   return (
     <div className="card rounded-xl overflow-hidden">
-      <div className="px-2.5 py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <h3 className="text-[11.5px] font-bold" style={{ color: 'var(--text-primary)' }}>Node Comparison</h3>
+      <div className="px-2.5 py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
+        <h3 className="text-[11.5px] font-bold" style={{ color: 'var(--foreground)' }}>Node Comparison</h3>
       </div>
 
       <table className="w-full text-[10px]">
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            <th className="text-left px-2.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '30%' }}>Node</th>
-            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>Base</th>
-            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '15%' }}>{runBColumnLabel}</th>
-            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '22%' }}>Change</th>
-            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-muted)', width: '18%' }}>Impact</th>
+          <tr style={{ borderBottom: '1px solid var(--border)' }}>
+            <th className="text-left px-2.5 py-1 font-semibold" style={{ color: 'var(--text-tertiary)', width: '30%' }}>Node</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-tertiary)', width: '15%' }}>Base</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-tertiary)', width: '15%' }}>{runBColumnLabel}</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-tertiary)', width: '22%' }}>Change</th>
+            <th className="text-left px-1.5 py-1 font-semibold" style={{ color: 'var(--text-tertiary)', width: '18%' }}>Impact</th>
           </tr>
         </thead>
         <tbody>
@@ -53,13 +53,13 @@ export default function NodeComparisonTable({ diffs, runBColumnLabel = 'Replay' 
             return (
               <tr
                 key={diff.name}
-                style={{ borderBottom: i < diffs.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
+                style={{ borderBottom: i < diffs.length - 1 ? '1px solid var(--border)' : 'none' }}
                 className="transition-colors hover:bg-black/[0.02]"
               >
                 <td className="px-2.5 py-1">
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
-                    <span className="font-mono font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{diff.name}</span>
+                    <span className="text-[9px] font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>{i + 1}</span>
+                    <span className="font-mono font-semibold truncate" style={{ color: 'var(--foreground)' }}>{diff.name}</span>
                     {beforeIcon && (
                       <span className="text-[9px]" style={{ color: beforeIcon.color }}>{beforeIcon.icon}</span>
                     )}
@@ -71,7 +71,7 @@ export default function NodeComparisonTable({ diffs, runBColumnLabel = 'Replay' 
                       {diff.before ? formatDur(diff.before.duration_ms) : '\u2014'}
                     </span>
                     {diff.before && (
-                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.before.status] ?? {}).color ?? '#5d6370' }}>
+                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.before.status] ?? {}).color ?? '#6b6b6b' }}>
                         {diff.before.status === 'pass' ? 'OK' : diff.before.status === 'fail' ? 'Fail' : diff.before.status}
                       </span>
                     )}
@@ -83,7 +83,7 @@ export default function NodeComparisonTable({ diffs, runBColumnLabel = 'Replay' 
                       {diff.after ? formatDur(diff.after.duration_ms) : '\u2014'}
                     </span>
                     {diff.after && (
-                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.after.status] ?? {}).color ?? '#5d6370' }}>
+                      <span className="text-[8.5px] font-semibold" style={{ color: (STEP_ICON[diff.after.status] ?? {}).color ?? '#6b6b6b' }}>
                         {diff.after.status === 'pass' ? 'OK' : diff.after.status === 'fail' ? 'Fail' : diff.after.status}
                       </span>
                     )}
@@ -103,8 +103,8 @@ export default function NodeComparisonTable({ diffs, runBColumnLabel = 'Replay' 
         </tbody>
       </table>
 
-      <div className="px-2.5 py-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <span className="text-[10px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#7c7fc7' }}>
+      <div className="px-2.5 py-1" style={{ borderTop: '1px solid var(--border)' }}>
+        <span className="text-[10px] font-medium flex items-center gap-1 cursor-pointer" style={{ color: '#5b6af0' }}>
           View all node details
           <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M3.5 2L6.5 5l-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </span>

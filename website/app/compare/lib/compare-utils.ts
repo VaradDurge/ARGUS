@@ -3,29 +3,29 @@ import type { RunRecord, NodeEvent } from '@/lib/types'
 // ── Status maps ───────────────────────────────────────────────────────────
 
 export const STEP_ICON: Record<string, { icon: string; color: string }> = {
-  pass:           { icon: '\u2713', color: '#3d9e7d' },
-  degraded_input: { icon: '\u2B07', color: '#d49a2e' },
-  fail:           { icon: '\u26A0', color: '#d49a2e' },
-  crashed:        { icon: '\u2717', color: '#d65c5c' },
-  semantic_fail:  { icon: '\u2298', color: '#9a6dc6' },
-  interrupted:    { icon: '\u23F8', color: '#d49a2e' },
+  pass:           { icon: '\u2713', color: '#22c55e' },
+  degraded_input: { icon: '\u2B07', color: '#f59e0b' },
+  fail:           { icon: '\u26A0', color: '#f59e0b' },
+  crashed:        { icon: '\u2717', color: '#ef4444' },
+  semantic_fail:  { icon: '\u2298', color: '#a855f7' },
+  interrupted:    { icon: '\u23F8', color: '#f59e0b' },
 }
 
 export const STEP_LABEL: Record<string, { label: string; color: string }> = {
-  pass:           { label: 'Passed',         color: '#3d9e7d' },
-  degraded_input: { label: 'Degraded',       color: '#d49a2e' },
-  fail:           { label: 'Failed',         color: '#d49a2e' },
-  crashed:        { label: 'Crashed',        color: '#d65c5c' },
-  semantic_fail:  { label: 'Semantic Fail',  color: '#9a6dc6' },
-  interrupted:    { label: 'Interrupted',    color: '#d49a2e' },
+  pass:           { label: 'Passed',         color: '#22c55e' },
+  degraded_input: { label: 'Degraded',       color: '#f59e0b' },
+  fail:           { label: 'Failed',         color: '#f59e0b' },
+  crashed:        { label: 'Crashed',        color: '#ef4444' },
+  semantic_fail:  { label: 'Semantic Fail',  color: '#a855f7' },
+  interrupted:    { label: 'Interrupted',    color: '#f59e0b' },
 }
 
 export const STATUS_DOT_COLOR: Record<string, string> = {
-  clean:          '#3d9e7d',
-  silent_failure: '#d49a2e',
-  crashed:        '#d65c5c',
-  semantic_fail:  '#9a6dc6',
-  interrupted:    '#d49a2e',
+  clean:          '#22c55e',
+  silent_failure: '#f59e0b',
+  crashed:        '#ef4444',
+  semantic_fail:  '#a855f7',
+  interrupted:    '#f59e0b',
 }
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -78,7 +78,7 @@ export function computeStructuralAnalysis(a: RunRecord, b: RunRecord): Structura
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 export function getEventColor(event: NodeEvent): string {
-  return STEP_ICON[event.status]?.color ?? '#5d6370'
+  return STEP_ICON[event.status]?.color ?? '#6b6b6b'
 }
 
 export function getEventIcon(event: NodeEvent): string {
@@ -163,10 +163,10 @@ export function diffInspection(before: NodeEvent | undefined, after: NodeEvent |
   const aMissing = new Set(aInsp?.missing_fields ?? [])
 
   bMissing.forEach((f) => {
-    if (!aMissing.has(f)) diffs.push({ text: `Missing required field "${f}" fixed`, icon: '\u2713', iconColor: '#3d9e7d' })
+    if (!aMissing.has(f)) diffs.push({ text: `Missing required field "${f}" fixed`, icon: '\u2713', iconColor: '#22c55e' })
   })
   aMissing.forEach((f) => {
-    if (!bMissing.has(f)) diffs.push({ text: `"${f}" now missing`, icon: '\u2717', iconColor: '#d65c5c' })
+    if (!bMissing.has(f)) diffs.push({ text: `"${f}" now missing`, icon: '\u2717', iconColor: '#ef4444' })
   })
 
   const bSev = bInsp?.severity ?? 'ok'
@@ -177,7 +177,7 @@ export function diffInspection(before: NodeEvent | undefined, after: NodeEvent |
     diffs.push({
       text: `Severity ${bSev} \u2192 ${aSev}`,
       icon: improved ? '\u2713' : '~',
-      iconColor: improved ? '#3d9e7d' : '#d49a2e',
+      iconColor: improved ? '#22c55e' : '#f59e0b',
     })
   }
 
@@ -194,12 +194,12 @@ export function diffValidators(before: NodeEvent | undefined, after: NodeEvent |
     const b = bMap.get(name)
     const a = aMap.get(name)
     if (b === undefined && a !== undefined) {
-      diffs.push({ name, change: 'new', icon: a ? '\u2713' : '\u2298', iconColor: a ? '#3d9e7d' : '#9a6dc6' })
+      diffs.push({ name, change: 'new', icon: a ? '\u2713' : '\u2298', iconColor: a ? '#22c55e' : '#a855f7' })
     } else if (b !== undefined && a === undefined) {
-      diffs.push({ name, change: 'removed', icon: '\u2212', iconColor: '#5d6370' })
+      diffs.push({ name, change: 'removed', icon: '\u2212', iconColor: '#6b6b6b' })
     } else if (b !== a) {
-      if (!b && a) diffs.push({ name, change: 'fail \u2192 pass', icon: '\u2713', iconColor: '#3d9e7d' })
-      else diffs.push({ name, change: 'pass \u2192 fail', icon: '\u2298', iconColor: '#9a6dc6' })
+      if (!b && a) diffs.push({ name, change: 'fail \u2192 pass', icon: '\u2713', iconColor: '#22c55e' })
+      else diffs.push({ name, change: 'pass \u2192 fail', icon: '\u2298', iconColor: '#a855f7' })
     }
   })
 
@@ -363,7 +363,7 @@ export function computeSummaryMetrics(runA: RunRecord, runB: RunRecord): Summary
 
   const bWorse = b.failureCount < a.failureCount
   const overallStatus = bWorse ? 'Improved' : a.failureCount === b.failureCount ? 'No Change' : 'Degraded'
-  const overallColor = bWorse ? '#3d9e7d' : a.failureCount === b.failureCount ? '#5d6370' : '#d65c5c'
+  const overallColor = bWorse ? '#22c55e' : a.failureCount === b.failureCount ? '#6b6b6b' : '#ef4444'
 
   const failDelta = a.failureCount - b.failureCount
   const failPct = a.failureCount > 0 ? Math.round((failDelta / a.failureCount) * 100) : 0
@@ -400,7 +400,7 @@ export function computeSummaryMetrics(runA: RunRecord, runB: RunRecord): Summary
       displayValue: `${nodesImproved} / ${totalNodes}`,
       delta: totalNodes > 0 ? `+${Math.round((nodesImproved / totalNodes) * 100)}%` : '',
       trend: nodesImproved > 0 ? 'up' : 'neutral',
-      color: nodesImproved > 0 ? '#3d9e7d' : '#5d6370',
+      color: nodesImproved > 0 ? '#22c55e' : '#6b6b6b',
     },
     {
       label: 'Failures',
@@ -409,7 +409,7 @@ export function computeSummaryMetrics(runA: RunRecord, runB: RunRecord): Summary
       displayValue: `${a.failureCount} \u2192 ${b.failureCount}`,
       delta: failDelta !== 0 ? `${failDelta > 0 ? '+' : ''}${-failPct}%` : '',
       trend: b.failureCount < a.failureCount ? 'up' : b.failureCount === a.failureCount ? 'neutral' : 'down',
-      color: b.failureCount < a.failureCount ? '#3d9e7d' : b.failureCount === a.failureCount ? '#5d6370' : '#d65c5c',
+      color: b.failureCount < a.failureCount ? '#22c55e' : b.failureCount === a.failureCount ? '#6b6b6b' : '#ef4444',
     },
     {
       label: 'Pass Rate',
@@ -418,7 +418,7 @@ export function computeSummaryMetrics(runA: RunRecord, runB: RunRecord): Summary
       displayValue: `${a.successRate}% \u2192 ${b.successRate}%`,
       delta: passDelta !== 0 ? `${passDelta > 0 ? '+' : ''}${passDelta}%` : '',
       trend: passDelta > 0 ? 'up' : passDelta === 0 ? 'neutral' : 'down',
-      color: passDelta > 0 ? '#3d9e7d' : passDelta === 0 ? '#5d6370' : '#d65c5c',
+      color: passDelta > 0 ? '#22c55e' : passDelta === 0 ? '#6b6b6b' : '#ef4444',
     },
     {
       label: 'Duration',
@@ -427,7 +427,7 @@ export function computeSummaryMetrics(runA: RunRecord, runB: RunRecord): Summary
       displayValue: `${fmtDur(durA)} \u2192 ${fmtDur(durB)}`,
       delta: durDelta !== 0 ? `${durDelta > 0 ? '+' : ''}${durDelta.toFixed(1)}%` : '',
       trend: durB < durA ? 'up' : durB === durA ? 'neutral' : 'down',
-      color: durB < durA ? '#3d9e7d' : durB === durA ? '#5d6370' : '#d65c5c',
+      color: durB < durA ? '#22c55e' : durB === durA ? '#6b6b6b' : '#ef4444',
     },
     {
       label: 'Confidence',
@@ -436,7 +436,7 @@ export function computeSummaryMetrics(runA: RunRecord, runB: RunRecord): Summary
       displayValue: `${Math.round(confA * 100)}% \u2192 ${Math.round(confB * 100)}%`,
       delta: confDelta !== 0 ? `${confDelta > 0 ? '+' : ''}${Math.round(confDelta * 100)}%` : '',
       trend: confDelta > 0 ? 'up' : confDelta === 0 ? 'neutral' : 'down',
-      color: confDelta > 0 ? '#3d9e7d' : confDelta === 0 ? '#5d6370' : '#d65c5c',
+      color: confDelta > 0 ? '#22c55e' : confDelta === 0 ? '#6b6b6b' : '#ef4444',
     },
   ]
 }
@@ -465,7 +465,7 @@ export function computeChangeImpact(nodes: NodeDiff[]): ChangeImpact {
       const bBad = n.before && ['crashed', 'fail', 'semantic_fail'].includes(n.before.status)
       if (bBad) positive++
       else negative++
-    } else if (n.inspectionDiffs.some((d) => d.iconColor === '#3d9e7d')) positive++
+    } else if (n.inspectionDiffs.some((d) => d.iconColor === '#22c55e')) positive++
     else unchanged++
   }
 
@@ -504,7 +504,7 @@ export function computeKeyChanges(nodes: NodeDiff[]): KeyChange[] {
       return { nodeName: n.name, description: 'Status regressed to failed', type: 'degraded' as const }
     }
     if (n.inspectionDiffs.length > 0) {
-      const hasImprovement = n.inspectionDiffs.some((d) => d.iconColor === '#3d9e7d')
+      const hasImprovement = n.inspectionDiffs.some((d) => d.iconColor === '#22c55e')
       return {
         nodeName: n.name,
         description: n.inspectionDiffs[0].text,
