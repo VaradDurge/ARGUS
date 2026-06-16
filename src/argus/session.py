@@ -540,45 +540,26 @@ class ArgusSession:
                 if any(a.severity == "critical" for a in anomaly_signals) and status == "pass":
                     status = "semantic_fail"
 
-            # per-node semantic coherence check (LLM)
+            # per-node semantic coherence check (LLM) — FINAL AUTHORITY
             #
-            # Runs in three modes:
-            #   1. Still-passing nodes → can DOWNGRADE to semantic_fail
-            #   2. Heuristic-only failures → can OVERRIDE back to pass
-            #      (the heuristic scanner is context-blind; the LLM sees
-            #       input+output and can determine if the output is
-            #       actually valid for this node's purpose)
-            #   3. Anomaly-detector-only failures → can OVERRIDE back to pass
-            #      (behavioral heuristics like BA-001..BA-008 are shape-based;
-            #       the LLM understands whether the shape is valid in context)
+            # The LLM judge is the ultimate decision-maker for node status.
+            # Heuristic scanners, anomaly detectors, and tool-failure checks
+            # are context-blind; the LLM sees input+output and determines
+            # whether the output is actually valid for this node's purpose.
+            #
+            # Runs on all non-crash/non-interrupt statuses and can:
+            #   - DOWNGRADE pass → semantic_fail (LLM says output is wrong)
+            #   - OVERRIDE any heuristic failure → pass (LLM says output is fine)
+            #     including tool failures, semantic signals, anomaly signals
             semantic_check_result: SemanticCheckResult | None = None
-            _has_hard_failure = (
-                (inspection is not None and (inspection.is_silent_failure
-                                             or inspection.has_tool_failure
-                                             or inspection.missing_fields))
-                or any(not r.is_valid for r in validator_results)
-            )
-            _heuristic_only_fail = (
-                status == "semantic_fail"
-                and not _has_hard_failure
-                and inspection is not None
-                and inspection.semantic_signals
-                and not any(a.severity == "critical" for a in anomaly_signals)
-            )
-            _anomaly_only_fail = (
-                status == "semantic_fail"
-                and not _has_hard_failure
-                and any(a.severity == "critical" for a in anomaly_signals)
-                and (inspection is None or not inspection.semantic_signals)
-            )
-            _soft_fail = _heuristic_only_fail or _anomaly_only_fail
+            _pre_llm_status = status
             _should_run_judge = (
                 output_snap is not None
                 and input_snap
                 and self._llm_investigation_config
                 and self._llm_investigation_config.enabled
                 and self._llm_investigation_config.semantic_check
-                and (status == "pass" or _soft_fail)
+                and status not in ("crashed", "interrupted")
             )
             if _should_run_judge:
                 try:
@@ -593,49 +574,48 @@ class ArgusSession:
                     )
                     sc_passed = semantic_check_result.passed
                     sc_confident = semantic_check_result.confidence >= 0.7
-                    if status == "pass" and not sc_passed and sc_confident:
-                        # LLM says output is incoherent → downgrade
-                        status = "semantic_fail"
-                    elif _soft_fail and sc_passed and sc_confident:
-                        # LLM overrides heuristic/anomaly false positive → restore
-                        status = "pass"
-                        # Record override for user feedback
-                        try:
-                            from argus.feedback_store import record_override  # noqa: PLC0415
+                    if sc_passed and sc_confident:
+                        # LLM says output is valid → override ALL heuristic
+                        # failures (tool failures, semantic signals, anomalies)
+                        if status != "pass":
+                            status = "pass"
+                            # Record the override for feedback/learning
+                            try:
+                                from argus.feedback_store import record_override  # noqa: PLC0415
 
-                            override_type = (
-                                "anomaly_override" if _anomaly_only_fail
-                                else "heuristic_override"
-                            )
-                            record_override(
-                                run_id=self.run_id,
-                                node_name=node_name,
-                                override_type=override_type,
-                                anomaly_ids=[
-                                    a.anomaly_id for a in anomaly_signals
-                                    if a.severity == "critical"
-                                ],
-                                anomaly_reasons=[
-                                    a.reason for a in anomaly_signals
-                                    if a.severity == "critical"
-                                ],
-                                llm_reason=semantic_check_result.reason,
-                                llm_confidence=semantic_check_result.confidence,
-                                behavior_type=behavior_type_val or "unknown",
-                                output_shape={
-                                    "key_count": len(output_snap) if output_snap else 0,
-                                    "depth": _measure_output_depth(output_snap),
-                                    "total_chars": len(
-                                        json.dumps(output_snap, default=str)
-                                    ) if output_snap else 0,
-                                },
-                                auto_approve_threshold=(
-                                    self._llm_investigation_config.false_positive_auto_approve_threshold
-                                    if self._llm_investigation_config else 0.0
-                                ),
-                            )
-                        except Exception:
-                            pass
+                                record_override(
+                                    run_id=self.run_id,
+                                    node_name=node_name,
+                                    override_type="llm_full_override",
+                                    anomaly_ids=[
+                                        a.anomaly_id for a in anomaly_signals
+                                        if a.severity == "critical"
+                                    ],
+                                    anomaly_reasons=[
+                                        a.reason for a in anomaly_signals
+                                        if a.severity == "critical"
+                                    ],
+                                    llm_reason=semantic_check_result.reason,
+                                    llm_confidence=semantic_check_result.confidence,
+                                    behavior_type=behavior_type_val or "unknown",
+                                    output_shape={
+                                        "key_count": len(output_snap) if output_snap else 0,
+                                        "depth": _measure_output_depth(output_snap),
+                                        "total_chars": len(
+                                            json.dumps(output_snap, default=str)
+                                        ) if output_snap else 0,
+                                    },
+                                    auto_approve_threshold=(
+                                        self._llm_investigation_config.false_positive_auto_approve_threshold
+                                        if self._llm_investigation_config else 0.0
+                                    ),
+                                )
+                            except Exception:
+                                pass
+                    elif not sc_passed and sc_confident:
+                        # LLM says output is incoherent → downgrade to semantic_fail
+                        if status == "pass":
+                            status = "semantic_fail"
                 except Exception:
                     pass
 

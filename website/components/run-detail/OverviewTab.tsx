@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { RunRecord, RunSummary } from '@/lib/types'
 import { ChevronRight } from 'lucide-react'
 import ExecutionGraph from './ExecutionGraph'
@@ -84,15 +85,17 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
 type Tab = 'Overview' | 'Pipeline' | 'AI Analysis' | 'Correlations' | 'State' | 'Logs'
 
 export default function OverviewTab({ run, allRuns, onSwitchTab }: { run: RunRecord; allRuns: RunSummary[]; onSwitchTab: (tab: Tab) => void }) {
+  const [selectedNode, setSelectedNode] = useState<string | null>(null)
+
   return (
     <div className="flex flex-col gap-6 p-5">
-      <ExecutionGraph run={run} onViewFull={() => onSwitchTab('Pipeline')} />
+      <ExecutionGraph run={run} onViewFull={() => onSwitchTab('Pipeline')} onSelectNode={setSelectedNode} />
 
       <AIAnalysisSummaryCard run={run} onViewFull={() => onSwitchTab('AI Analysis')} />
 
       <RunMetricsBar run={run} />
 
-      <StepInspector run={run} />
+      <StepInspector run={run} selectedNodeName={selectedNode} onDismiss={() => setSelectedNode(null)} />
 
       <ReplayBranches run={run} allRuns={allRuns} onSwitchTab={onSwitchTab} />
     </div>

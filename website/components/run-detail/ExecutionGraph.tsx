@@ -231,9 +231,11 @@ function Legend() {
 export default function ExecutionGraph({
   run,
   onViewFull,
+  onSelectNode,
 }: {
   run: RunRecord
   onViewFull?: () => void
+  onSelectNode?: (nodeName: string | null) => void
 }) {
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
 
@@ -391,7 +393,13 @@ export default function ExecutionGraph({
                 key={n.id}
                 node={n}
                 selected={selectedNode === n.id}
-                onSelect={(id) => setSelectedNode((p) => (p === id ? null : id))}
+                onSelect={(id) => {
+                  setSelectedNode((p) => {
+                    const next = p === id ? null : id
+                    onSelectNode?.(next)
+                    return next
+                  })
+                }}
               />
             ))}
           </div>

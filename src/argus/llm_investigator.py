@@ -90,7 +90,15 @@ def should_investigate(
             reasons.append(detail)
         elif event.status == "pass" and event.inspection:
             insp = event.inspection
-            if insp.tool_failures:
+            # If the per-node semantic check passed, its LLM judge already
+            # confirmed the output is valid — don't surface warning-level
+            # tool failures as investigation triggers (they are false positives).
+            sc_approved = (
+                event.semantic_check is not None
+                and event.semantic_check.passed
+                and event.semantic_check.confidence >= 0.7
+            )
+            if insp.tool_failures and not sc_approved:
                 tf_detail = ", ".join(
                     f"{tf.failure_type} on '{tf.field_name}'" for tf in insp.tool_failures[:3]
                 )

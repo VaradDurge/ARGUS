@@ -28,10 +28,19 @@ def _is_truncated(s: str) -> bool:
     tail = s[-12:]
     if _TERMINAL_PUNCT.search(tail):
         return False
+    # Short strings (< 200 chars) are likely titles, labels, or short
+    # self-contained text — they don't need sentence-ending punctuation.
+    if len(s) < 200:
+        return False
     # If the string ends with a complete number (year, etc.) it's likely
     # a topic/title, not truncated mid-word
     last_word = s.rsplit(None, 1)[-1] if s.rsplit(None, 1) else ""
     if re.fullmatch(r"\d{2,}", last_word):
+        return False
+    # Only flag as truncated if the last word looks like a fragment:
+    # a single lowercase letter or very short (1-2 char) non-word.
+    # Complete words like "markets" or "analysis" are not fragments.
+    if len(last_word) >= 3:
         return False
     return True
 
