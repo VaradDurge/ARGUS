@@ -3,7 +3,7 @@
   <a href="https://arguslabs.in"><img src="https://img.shields.io/badge/website-arguslabs.in-6366f1" alt="Website"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/pypi/v/argus-agents" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/></a>
-  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.5"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
+  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.6"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
 </div>
 
 ---
@@ -13,8 +13,6 @@
 Your LangGraph pipeline runs. No exception. But three nodes later something crashes with a `KeyError`. The node that crashed didn't cause it — some node upstream returned a dict with a missing field, and nothing caught it.
 
 ARGUS sits between your nodes and catches silent failures, semantic degradation, and contract violations before they reach production.
-
-<img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_website.png?raw=true" width="700"/>
 
 ---
 
@@ -259,7 +257,35 @@ argus ui
 
 Opens at `http://localhost:7842`. Serves runs from `.argus/runs/` in your current directory — no account needed.
 
-**v0.6.5 redesign** — dark observability theme with execution graph DAG, card-based pipeline steps, horizontal metrics bar, side-by-side run comparison with full graph visualization, and AI root cause investigation.
+### Runs List
+
+<img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsList.png?raw=true" width="820"/>
+
+### Run Detail
+
+<table>
+  <tr>
+    <td><img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsInfo_1.png?raw=true" width="400"/></td>
+    <td><img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsInfo_2.png?raw=true" width="400"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsInfo_3.png?raw=true" width="400"/></td>
+    <td><img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsInfo_4.png?raw=true" width="400"/></td>
+  </tr>
+</table>
+
+### Compare Runs
+
+<table>
+  <tr>
+    <td><img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsCompare_1.png?raw=true" width="400"/></td>
+    <td><img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_RunsCompare_2.png?raw=true" width="400"/></td>
+  </tr>
+</table>
+
+### Approvals
+
+<img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus_Approvals_1.png?raw=true" width="500"/>
 
 ---
 
@@ -300,4 +326,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.6.5** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.5)
+**v0.6.6** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.6)
