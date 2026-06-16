@@ -43,6 +43,10 @@ coverage.xml
 # ARGUS runtime data (saved pipeline runs)
 .argus/
 
+# Reference / design files
+AI Agent Dashboard/
+ARGUS Redesign/
+
 # Local demo / exercise pipelines (not part of src/argus)
 Cursor_Tests/
 test_workflow/
