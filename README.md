@@ -3,7 +3,7 @@
   <a href="https://arguslabs.in"><img src="https://img.shields.io/badge/website-arguslabs.in-6366f1" alt="Website"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/pypi/v/argus-agents" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/></a>
-  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
+  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.5"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
 </div>
 
 ---
@@ -259,7 +259,7 @@ argus ui
 
 Opens at `http://localhost:7842`. Serves runs from `.argus/runs/` in your current directory — no account needed.
 
-Run detail, rerun tree, side-by-side diff, LLM cost per node, AI root cause investigation.
+**v0.6.5 redesign** — dark observability theme with execution graph DAG, card-based pipeline steps, horizontal metrics bar, side-by-side run comparison with full graph visualization, and AI root cause investigation.
 
 ---
 
@@ -300,4 +300,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.6.2** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.2)
+**v0.6.5** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.5)
