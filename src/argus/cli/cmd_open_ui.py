@@ -748,7 +748,7 @@ def _make_handler(
                 except Exception:
                     pass  # Supabase upload is best-effort
 
-                # Discord webhook notification (non-blocking)
+                # Discord webhook notification — primary delivery channel
                 try:
                     import urllib.request  # noqa: PLC0415
 
@@ -760,25 +760,111 @@ def _make_handler(
                     icon = emoji.get(category, "\U0001f4cb")
                     title = icon + " Diagnostic Report: " + category
                     ver = system_info.get("argus_version", "?")
-                    py_msg = system_info.get("python", {}).get(
-                        "message", "?"
-                    )
+                    py_info = system_info.get("python", {})
+                    lg_info = system_info.get("langgraph", {})
+                    stor_info = system_info.get("storage", {})
+                    replay_info = system_info.get("replay", {})
+                    deps_info = system_info.get("optional_deps", {})
+
+                    # Build full system info block
+                    sys_lines = [
+                        f"Python: {py_info.get('message', '?')}",
+                        f"LangGraph: {lg_info.get('message', '?')}",
+                        f"Storage: {stor_info.get('message', '?')}",
+                        f"Replay: {replay_info.get('message', '?')}",
+                        f"Deps: {deps_info.get('message', '?')}",
+                    ]
+
                     embed = {
                         "title": title,
-                        "description": description[:500],
+                        "description": description[:1500],
                         "color": 0xEF4444 if category == "bug" else 0xF59E0B,
                         "fields": [
-                            {"name": "ARGUS", "value": ver, "inline": True},
-                            {"name": "Python", "value": py_msg, "inline": True},
+                            {
+                                "name": "ARGUS Version",
+                                "value": ver,
+                                "inline": True,
+                            },
+                            {
+                                "name": "Category",
+                                "value": category,
+                                "inline": True,
+                            },
+                            {
+                                "name": "System Info",
+                                "value": "```\n"
+                                + "\n".join(sys_lines)
+                                + "\n```",
+                                "inline": False,
+                            },
                         ],
                         "footer": {"text": "ARGUS Diagnostic Report"},
                     }
                     if run_diagnostics:
                         rid = run_diagnostics.get("run_id", "?")
                         st = run_diagnostics.get("overall_status", "?")
-                        embed["fields"].append(
-                            {"name": "Run", "value": rid + " — " + st, "inline": False}
+                        dur = run_diagnostics.get("duration_ms", "?")
+                        nodes = run_diagnostics.get(
+                            "graph_node_names", []
                         )
+                        rcc = run_diagnostics.get(
+                            "root_cause_chain", []
+                        )
+                        steps = run_diagnostics.get("steps", [])
+
+                        run_summary = f"**Status:** {st}\n"
+                        run_summary += f"**Duration:** {dur}ms\n"
+                        run_summary += (
+                            f"**Nodes:** {', '.join(nodes)}\n"
+                        )
+                        if rcc:
+                            run_summary += (
+                                f"**Root cause:** {' -> '.join(rcc)}\n"
+                            )
+
+                        # Per-step summary
+                        step_lines = []
+                        for s in steps[:10]:
+                            sn = s.get("node_name", "?")
+                            ss = s.get("status", "?")
+                            sm = s.get("inspection_message", "")
+                            line = f"{sn}: {ss}"
+                            if sm:
+                                line += f" — {sm[:80]}"
+                            step_lines.append(line)
+
+                        embed["fields"].append(
+                            {
+                                "name": f"Run: {rid}",
+                                "value": run_summary[:1024],
+                                "inline": False,
+                            }
+                        )
+                        if step_lines:
+                            embed["fields"].append(
+                                {
+                                    "name": "Steps",
+                                    "value": "```\n"
+                                    + "\n".join(step_lines)
+                                    + "\n```",
+                                    "inline": False,
+                                }
+                            )
+
+                        # LLM investigation if present
+                        llm_inv = run_diagnostics.get(
+                            "llm_investigation", {}
+                        )
+                        if llm_inv and llm_inv.get("root_cause"):
+                            embed["fields"].append(
+                                {
+                                    "name": "LLM Investigation",
+                                    "value": llm_inv[
+                                        "root_cause"
+                                    ][:1024],
+                                    "inline": False,
+                                }
+                            )
                     webhook_body = json.dumps({"embeds": [embed]}).encode()
                     req = urllib.request.Request(
                         _DISCORD_WEBHOOK,
