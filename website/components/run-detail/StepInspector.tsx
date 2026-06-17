@@ -58,7 +58,14 @@ function NodeDetail({ step, onDismiss }: { step: NodeEvent; onDismiss?: () => vo
   const hasSemantic = !!step.semantic_check
   const hasValidators = step.validator_results.length > 0
   const hasException = !!step.exception
-  const hasInspection = !!step.inspection?.message
+  // Filter out "Unannotated successors" noise — shown as a banner instead
+  const rawMessage = step.inspection?.message ?? ''
+  const filteredMessage = rawMessage
+    .split('. ')
+    .filter((s) => !s.startsWith('Unannotated successors'))
+    .join('. ')
+    .trim()
+  const hasInspection = !!filteredMessage
   const hasMissing = (step.inspection?.missing_fields?.length ?? 0) > 0
 
   // Build inline metrics
@@ -143,7 +150,7 @@ function NodeDetail({ step, onDismiss }: { step: NodeEvent; onDismiss?: () => vo
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Inspection</span>
               </div>
               <p className="text-[13px] text-foreground/90 leading-relaxed">
-                {step.inspection!.message}
+                {filteredMessage}
               </p>
               {hasMissing && (
                 <div className="mt-2 flex flex-wrap gap-1.5">

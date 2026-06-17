@@ -821,6 +821,16 @@ def _make_handler(
                             run_summary += (
                                 f"**Root cause:** {' -> '.join(rcc)}\n"
                             )
+                        # Check for unannotated pattern
+                        unann_count = sum(
+                            1 for s in steps
+                            if "Unannotated" in s.get("inspection_message", "")
+                        )
+                        if unann_count > 0:
+                            run_summary += (
+                                f"**Note:** {unann_count}/{len(steps)} steps lack"
+                                " type annotations (structural inspection skipped)\n"
+                            )
 
                         # Per-step summary
                         step_lines = []
@@ -828,6 +838,9 @@ def _make_handler(
                             sn = s.get("node_name", "?")
                             ss = s.get("status", "?")
                             sm = s.get("inspection_message", "")
+                            # Filter out unannotated noise
+                            if sm and "Unannotated successors" in sm:
+                                sm = ""
                             line = f"{sn}: {ss}"
                             if sm:
                                 line += f" — {sm[:80]}"

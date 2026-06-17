@@ -84,11 +84,47 @@ function AIAnalysisSummaryCard({ run, onViewFull }: { run: RunRecord; onViewFull
 
 type Tab = 'Overview' | 'Pipeline' | 'AI Analysis' | 'Correlations' | 'State' | 'Logs'
 
+function UnannotatedBanner({ run }: { run: RunRecord }) {
+  const steps = run.steps ?? []
+  const unannotatedSteps = steps.filter(
+    (s) => (s.inspection?.unannotated_successors?.length ?? 0) > 0
+  )
+  if (unannotatedSteps.length === 0) return null
+
+  // Only show if most/all steps have this issue
+  const ratio = unannotatedSteps.length / steps.length
+  if (ratio < 0.5) return null
+
+  return (
+    <div
+      className="rounded-xl border px-4 py-3 flex items-start gap-3"
+      style={{
+        background: 'rgba(99,102,241,0.06)',
+        borderColor: 'rgba(99,102,241,0.2)',
+      }}
+    >
+      <span className="text-[18px] leading-none mt-0.5">💡</span>
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold text-foreground" style={{ lineHeight: 1.4 }}>
+          Add type annotations to unlock full silent-failure detection
+        </p>
+        <p className="text-[12px] text-muted-foreground mt-1" style={{ lineHeight: 1.5 }}>
+          {unannotatedSteps.length} of {steps.length} steps have unannotated successors — ARGUS can&apos;t check
+          if the right fields are being passed between nodes. Add a <code className="font-mono text-[11px] px-1 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}>TypedDict</code> annotation
+          to your node functions&apos; <code className="font-mono text-[11px] px-1 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}>state</code> parameter to enable this.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function OverviewTab({ run, allRuns, onSwitchTab }: { run: RunRecord; allRuns: RunSummary[]; onSwitchTab: (tab: Tab) => void }) {
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
 
   return (
     <div className="flex flex-col gap-6 p-5">
+      <UnannotatedBanner run={run} />
+
       <ExecutionGraph run={run} onViewFull={() => onSwitchTab('Pipeline')} onSelectNode={setSelectedNode} />
 
       <AIAnalysisSummaryCard run={run} onViewFull={() => onSwitchTab('AI Analysis')} />
