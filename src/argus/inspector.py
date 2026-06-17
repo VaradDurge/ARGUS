@@ -876,10 +876,17 @@ def _is_empty(value: Any) -> bool:
 
 def _get_fn_name(fn: Any) -> str:
     """Best-effort human-readable name for a function."""
-    name = getattr(fn, "__name__", None)
+    import functools
+
+    # Unwrap functools.partial to get the underlying function's name
+    unwrapped = fn
+    while isinstance(unwrapped, functools.partial):
+        unwrapped = unwrapped.func
+
+    name = getattr(unwrapped, "__name__", None)
     if name:
         return name
-    name = getattr(fn, "__qualname__", None)
+    name = getattr(unwrapped, "__qualname__", None)
     if name:
         return name
     return repr(fn)

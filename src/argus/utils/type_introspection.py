@@ -78,21 +78,44 @@ def extract_fields(state_type: type) -> dict[str, dict[str, Any]]:
 
 
 def get_node_state_type(fn: Any) -> type | None:
-    """Extract the state type from a node function's first parameter annotation."""
+    """Extract the state type from a node function's first parameter annotation.
+
+    Handles ``functools.partial`` by unwrapping to the underlying function
+    and resolving which parameter is the first *unbound* one (i.e. the state
+    parameter that LangGraph will pass at call time).
+    """
+    import functools
+
+    # Unwrap functools.partial to reach the real function and track bound args
+    bound_positional_count = 0
+    bound_keyword_names: set[str] = set()
+    unwrapped = fn
+    while isinstance(unwrapped, functools.partial):
+        bound_positional_count += len(unwrapped.args)
+        bound_keyword_names.update(unwrapped.keywords.keys())
+        unwrapped = unwrapped.func
+
     try:
-        hints = get_type_hints(fn)
+        hints = get_type_hints(unwrapped)
     except Exception:
         hints = {}
 
     try:
-        params = list(inspect.signature(fn).parameters.keys())
+        params = list(inspect.signature(unwrapped).parameters.keys())
     except Exception:
         return None
 
     if not params:
         return None
 
-    first_param = params[0]
+    # Skip parameters that were already bound by partial()
+    unbound_params = params[bound_positional_count:]
+    unbound_params = [p for p in unbound_params if p not in bound_keyword_names]
+
+    if not unbound_params:
+        return None
+
+    first_param = unbound_params[0]
     return hints.get(first_param)
 
 
