@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import type { RunRecord } from '@/lib/types'
 import { STATUS_DOT, formatDur, formatTimestamp } from '@/lib/run-utils'
+import SendReportDialog from '@/components/SendReportDialog'
 
 const STATUS_COLOR: Record<string, string> = {
   clean: '#22c55e',
@@ -19,6 +21,7 @@ export default function RunHeader({
   run: RunRecord
   actions?: React.ReactNode
 }) {
+  const [showReport, setShowReport] = useState(false)
   const statusInfo = STATUS_DOT[run.overall_status] ?? { dot: '\u25CF', color: '#5d6370' }
   const steps = run.steps ?? []
 
@@ -86,6 +89,14 @@ export default function RunHeader({
         {/* Action controls */}
         <div className="flex items-center gap-2 shrink-0">
           {actions}
+          <button
+            type="button"
+            onClick={() => setShowReport(true)}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors"
+            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)', background: 'var(--card)' }}
+          >
+            Report Issue
+          </button>
           <Link
             href={`/compare?a=${run.run_id}`}
             className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors"
@@ -95,6 +106,8 @@ export default function RunHeader({
           </Link>
         </div>
       </div>
+
+      <SendReportDialog open={showReport} onClose={() => setShowReport(false)} runId={run.run_id} />
     </div>
   )
 }

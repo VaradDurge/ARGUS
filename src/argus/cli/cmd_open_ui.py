@@ -14,6 +14,14 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from rich.console import Console
 
+from argus.cli.cmd_doctor import (
+    _check_langgraph,
+    _check_optional_deps,
+    _check_python_version,
+    _check_replay_readiness,
+    _check_storage,
+)
+
 _console = Console()
 _UI_PORT = 7842
 _UI_URL = f"http://localhost:{_UI_PORT}"
@@ -49,6 +57,102 @@ def _port_in_use() -> bool:
 def _content_type(suffix: str) -> str:
     ct, _ = mimetypes.guess_type(f"file{suffix}")
     return ct or "application/octet-stream"
+
+
+_DISCORD_WEBHOOK = (
+    "https://discord.com/api/webhooks/"
+    "1505632723539066980/"
+    "aV5SfeCJ_m6rdxweGQkX0sJUT5mcI95wFU5DVvy1ELTaZQgV34MnhvzwJzsoDZLARNoS"
+)
+
+
+def _collect_doctor_info() -> dict:
+    """Run all doctor checks and return structured results."""
+    checks = [
+        ("python", _check_python_version),
+        ("langgraph", _check_langgraph),
+        ("storage", _check_storage),
+        ("replay", _check_replay_readiness),
+        ("optional_deps", _check_optional_deps),
+    ]
+    results = {}
+    for name, fn in checks:
+        try:
+            passed, message = fn()
+        except Exception as e:
+            passed, message = False, f"check failed: {e}"
+        results[name] = {"passed": passed, "message": message}
+
+    from argus import __version__
+
+    results["argus_version"] = __version__
+    return results
+
+
+def _sanitize_run_for_report(run_data: dict) -> dict:
+    """Extract only diagnostic fields from a run — no user data."""
+    steps = []
+    for s in run_data.get("steps", []):
+        step_info: dict = {
+            "node_name": s.get("node_name"),
+            "status": s.get("status"),
+            "duration_ms": s.get("duration_ms"),
+            "behavior_type": s.get("behavior_type"),
+        }
+        insp = s.get("inspection")
+        if insp:
+            step_info["inspection_message"] = insp.get("message")
+            step_info["tool_failures"] = [
+                {"failure_type": tf.get("failure_type"), "severity": tf.get("severity")}
+                for tf in (insp.get("tool_failures") or [])
+            ]
+            step_info["missing_fields"] = insp.get("missing_fields", [])
+        exc = s.get("exception")
+        if exc:
+            step_info["exception"] = exc
+        sc = s.get("semantic_check")
+        if sc:
+            step_info["semantic_check"] = {
+                "passed": sc.get("passed"),
+                "confidence": sc.get("confidence"),
+                "reason": sc.get("reason"),
+            }
+        anomalies = s.get("anomaly_signals")
+        if anomalies:
+            step_info["anomaly_signals"] = [
+                {
+                    "anomaly_id": a.get("anomaly_id"),
+                    "severity": a.get("severity"),
+                    "reason": a.get("reason"),
+                }
+                for a in anomalies
+            ]
+        steps.append(step_info)
+
+    report: dict = {
+        "run_id": run_data.get("run_id"),
+        "argus_version": run_data.get("argus_version"),
+        "overall_status": run_data.get("overall_status"),
+        "first_failure_step": run_data.get("first_failure_step"),
+        "root_cause_chain": run_data.get("root_cause_chain", []),
+        "graph_node_names": run_data.get("graph_node_names", []),
+        "graph_edge_map": run_data.get("graph_edge_map", {}),
+        "duration_ms": run_data.get("duration_ms"),
+        "is_cyclic": run_data.get("is_cyclic", False),
+        "steps": steps,
+    }
+
+    inv = run_data.get("llm_investigation")
+    if inv:
+        report["llm_investigation"] = {
+            "triggered": inv.get("triggered"),
+            "root_cause_node": inv.get("root_cause_node"),
+            "root_cause_explanation": inv.get("root_cause_explanation"),
+            "confidence": inv.get("confidence"),
+            "trigger_reasons": inv.get("trigger_reasons", []),
+        }
+
+    return report
 
 
 _CONFIG_PATH = Path(".") / ".argus" / "config.json"
@@ -389,6 +493,8 @@ def _make_handler(
 
                 data = load_feedback()
                 self._send_json(data)
+            elif path == "/api/doctor":
+                self._send_json(_collect_doctor_info())
             elif path.startswith("/api/replay/status/"):
                 job_id = path[len("/api/replay/status/") :]
                 with _replay_lock:
@@ -556,6 +662,115 @@ def _make_handler(
                     self._send_json({"ok": True})
                 else:
                     self._send_json({"error": "feedback not found"}, 404)
+            elif path == "/api/send-report":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+
+                category = (data.get("category") or "").strip()
+                description = (data.get("description") or "").strip()
+                run_id = (data.get("run_id") or "").strip() or None
+                include_run = data.get("include_run", False)
+
+                if not category or not description:
+                    self._send_json({"error": "category and description are required"}, 400)
+                    return
+
+                # Collect system diagnostics
+                system_info = _collect_doctor_info()
+
+                # Collect sanitized run diagnostics if requested
+                run_diagnostics = None
+                if run_id and include_run:
+                    for f in _all_run_files(_project_dir):
+                        if f.stem == run_id or f.stem.startswith(run_id):
+                            try:
+                                run_data = json.loads(f.read_text())
+                                run_diagnostics = _sanitize_run_for_report(run_data)
+                            except Exception:
+                                pass
+                            break
+
+                report_id = str(uuid.uuid4())
+                report_payload = {
+                    "id": report_id,
+                    "category": category,
+                    "description": description,
+                    "system_info": system_info,
+                    "run_diagnostics": run_diagnostics,
+                    "argus_version": system_info.get("argus_version", ""),
+                    "created_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                }
+
+                # Try Supabase upload (non-blocking)
+                supabase_ok = False
+                try:
+                    from argus.cloud import (  # noqa: PLC0415
+                        _get_valid_credentials,
+                        _supabase_request,
+                    )
+
+                    creds = _get_valid_credentials()
+                    if creds:
+                        report_payload["user_id"] = creds.user_id
+                        _supabase_request(
+                            creds.access_token,
+                            "reports",
+                            method="POST",
+                            body=report_payload,
+                            extra_headers={"Prefer": "return=minimal"},
+                        )
+                        supabase_ok = True
+                except Exception:
+                    pass  # Supabase upload is best-effort
+
+                # Discord webhook notification (non-blocking)
+                try:
+                    import urllib.request  # noqa: PLC0415
+
+                    emoji = {
+                        "bug": "\U0001f41b",
+                        "setup_issue": "\U0001f527",
+                        "unexpected_result": "\U0001f914",
+                    }
+                    icon = emoji.get(category, "\U0001f4cb")
+                    title = icon + " Diagnostic Report: " + category
+                    ver = system_info.get("argus_version", "?")
+                    py_msg = system_info.get("python", {}).get(
+                        "message", "?"
+                    )
+                    embed = {
+                        "title": title,
+                        "description": description[:500],
+                        "color": 0xEF4444 if category == "bug" else 0xF59E0B,
+                        "fields": [
+                            {"name": "ARGUS", "value": ver, "inline": True},
+                            {"name": "Python", "value": py_msg, "inline": True},
+                        ],
+                        "footer": {"text": "ARGUS Diagnostic Report"},
+                    }
+                    if run_diagnostics:
+                        rid = run_diagnostics.get("run_id", "?")
+                        st = run_diagnostics.get("overall_status", "?")
+                        embed["fields"].append(
+                            {"name": "Run", "value": rid + " — " + st, "inline": False}
+                        )
+                    webhook_body = json.dumps({"embeds": [embed]}).encode()
+                    req = urllib.request.Request(
+                        _DISCORD_WEBHOOK,
+                        data=webhook_body,
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(req, timeout=5)
+                except Exception:
+                    pass  # Discord is best-effort
+
+                self._send_json({"ok": True, "report_id": report_id, "cloud_synced": supabase_ok})
             elif path.startswith("/api/candidates/") and path.endswith("/approve-shared"):
                 cand_id = path[len("/api/candidates/") : -len("/approve-shared")]
                 from argus.candidate_store import approve_candidate_shared  # noqa: PLC0415

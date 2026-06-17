@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import SendReportDialog from '@/components/SendReportDialog'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -190,6 +191,7 @@ export default function FeedbackBoardPage() {
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<SortMode>('most')
   const [filter, setFilter] = useState<Category | 'all'>('all')
+  const [showReportDialog, setShowReportDialog] = useState(false)
 
   // New post form
   const [showForm, setShowForm] = useState(false)
@@ -384,20 +386,34 @@ export default function FeedbackBoardPage() {
             Share feedback, request features, and report bugs.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (!user) { signInWithGoogle(); return }
-            setShowForm(!showForm)
-          }}
-          className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all shrink-0"
-          style={{
-            background: '#7c7fc7',
-            color: '#fff',
-          }}
-        >
-          + New Post
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowReportDialog(true)}
+            className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
+            style={{
+              background: 'transparent',
+              color: '#d65c5c',
+              border: '1px solid rgba(214,92,92,0.3)',
+            }}
+          >
+            Send Report
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!user) { signInWithGoogle(); return }
+              setShowForm(!showForm)
+            }}
+            className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
+            style={{
+              background: '#7c7fc7',
+              color: '#fff',
+            }}
+          >
+            + New Post
+          </button>
+        </div>
       </div>
 
       {/* New Post Form */}
@@ -592,6 +608,8 @@ export default function FeedbackBoardPage() {
           ))}
         </div>
       )}
+
+      <SendReportDialog open={showReportDialog} onClose={() => setShowReportDialog(false)} />
     </div>
   )
 }
