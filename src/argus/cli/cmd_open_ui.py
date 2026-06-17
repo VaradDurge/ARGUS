@@ -869,7 +869,10 @@ def _make_handler(
                     req = urllib.request.Request(
                         _DISCORD_WEBHOOK,
                         data=webhook_body,
-                        headers={"Content-Type": "application/json"},
+                        headers={
+                            "Content-Type": "application/json",
+                            "User-Agent": "ARGUS-Diagnostic/1.0",
+                        },
                         method="POST",
                     )
                     urllib.request.urlopen(req, timeout=5)
