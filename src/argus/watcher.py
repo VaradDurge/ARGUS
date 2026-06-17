@@ -55,7 +55,7 @@ class ArgusWatcher:
         investigate: bool | str = True,
         redact_keys: set[str] | list[str] | None = None,
         persist_state: bool = True,
-        record_http: bool = False,
+        record_http: bool = True,
         semantic_judge: bool = True,
         judge_model: str = "gpt-4o",
     ) -> None:

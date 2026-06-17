@@ -67,7 +67,7 @@ All three work. No changes to your node functions. Runs are saved automatically 
 | `investigate` | `bool \| str` | `True` | LLM root-cause investigation. `True` = on failure only, `"always"` = every node, `False` = off. |
 | `redact_keys` | `set[str]` | `None` | Field names to redact from stored outputs (e.g. `{"password", "api_key"}`). |
 | `persist_state` | `bool` | `True` | Save run records to `.argus/runs/`. Set `False` for ephemeral monitoring. |
-| `record_http` | `bool` | `False` | Record all HTTP calls for deterministic replay. Saved to disk per run. |
+| `record_http` | `bool` | `True` | Record all external HTTP/API calls for deterministic replay. Saved to disk per run. |
 | `semantic_judge` | `bool` | `False` | Enable LLM-powered quality judge on every node output. Requires `OPENAI_API_KEY`. |
 | `judge_model` | `str` | `"gpt-4o"` | Model for the semantic judge and investigation. |
 
@@ -155,17 +155,15 @@ From the web UI — hover any step, click `↺ Rerun From Here`. After rerun, th
 argus diff <rerun-id>    # compare rerun vs original
 ```
 
-### What about external API calls?
+### External API calls
 
-By default, reruns call external APIs live (OpenAI, search tools, databases). Results may differ from the original run.
+All external HTTP calls (OpenAI, search tools, databases) are **recorded by default**. Every API response is saved to disk alongside the run. During rerun, the recorded responses are served back — same data, zero extra cost, fully reproducible.
 
-For **fully deterministic** reruns, record HTTP calls during the original run:
+To disable recording (e.g. for lightweight monitoring without replay):
 
 ```python
-watcher = ArgusWatcher(graph, record_http=True)
+watcher = ArgusWatcher(graph, record_http=False)
 ```
-
-Every API response is saved to disk. During rerun, the recorded responses are served back — same data, zero extra cost, fully reproducible.
 
 ---
 
@@ -183,8 +181,8 @@ The LLM judge runs **after** deterministic checks on every node. It evaluates ou
 # With a specific model
 watcher = ArgusWatcher(graph, semantic_judge=True, judge_model="gpt-4o")
 
-# Combined with HTTP recording for deterministic + intelligent monitoring
-watcher = ArgusWatcher(graph, semantic_judge=True, record_http=True)
+# HTTP recording is on by default — deterministic + intelligent monitoring
+watcher = ArgusWatcher(graph, semantic_judge=True)
 ```
 
 Requires `OPENAI_API_KEY` in your environment. Uses GPT-4o by default.
