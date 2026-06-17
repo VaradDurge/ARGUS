@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ScrollText, RefreshCw, GitBranch } from 'lucide-react'
+import { ArrowLeft, ScrollText, RefreshCw, GitBranch, AlertTriangle } from 'lucide-react'
+import SendReportDialog from './SendReportDialog'
 import type { RunRecord, RunSummary } from '@/lib/types'
 import { useRunDetail } from '@/lib/hooks'
 import { STATUS_DOT, formatDur, formatTimestamp } from '@/lib/run-utils'
@@ -65,6 +66,7 @@ export default function RunDetailPanel({
   const { run, loading, error } = useRunDetail(runId)
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
   const [copied, setCopied] = useState(false)
+  const [showReport, setShowReport] = useState(false)
 
   // Reset tab when run changes
   useEffect(() => { setActiveTab('Overview') }, [runId])
@@ -143,6 +145,13 @@ export default function RunDetailPanel({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowReport(true)}
+              className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors border border-border text-muted-foreground bg-transparent hover:border-amber-500/40 hover:text-amber-400"
+            >
+              <AlertTriangle className="size-3.5" />
+              Report Issue
+            </button>
             <button
               className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors border border-border text-muted-foreground bg-transparent"
             >
@@ -253,6 +262,8 @@ export default function RunDetailPanel({
           <LogsTab runId={run.run_id} />
         )}
       </div>
+
+      <SendReportDialog open={showReport} onClose={() => setShowReport(false)} runId={run.run_id} />
     </div>
   )
 }
