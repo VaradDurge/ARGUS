@@ -710,6 +710,8 @@ def _make_handler(
                 supabase_ok = False
                 try:
                     from argus.cloud import (  # noqa: PLC0415
+                        SUPABASE_ANON_KEY,
+                        SUPABASE_URL,
                         _get_valid_credentials,
                         _supabase_request,
                     )
@@ -724,6 +726,24 @@ def _make_handler(
                             body=report_payload,
                             extra_headers={"Prefer": "return=minimal"},
                         )
+                        supabase_ok = True
+                    else:
+                        # Fallback: use anon key so reports work without login
+                        import urllib.request as _ur  # noqa: PLC0415
+
+                        _anon_body = json.dumps(report_payload).encode()
+                        _anon_req = _ur.Request(
+                            f"{SUPABASE_URL}/rest/v1/reports",
+                            data=_anon_body,
+                            headers={
+                                "Content-Type": "application/json",
+                                "apikey": SUPABASE_ANON_KEY,
+                                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                                "Prefer": "return=minimal",
+                            },
+                            method="POST",
+                        )
+                        _ur.urlopen(_anon_req, timeout=5)
                         supabase_ok = True
                 except Exception:
                     pass  # Supabase upload is best-effort
