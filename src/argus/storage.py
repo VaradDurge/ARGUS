@@ -14,9 +14,11 @@ from argus.models import (
     FieldMismatch,
     InspectionResult,
     LLMInvestigationResult,
+    NodeDiffSummary,
     NodeEvent,
     PropagationChain,
     PropagationLink,
+    ReplayComparisonResult,
     ReplayImpact,
     RunRecord,
     SemanticCheckResult,
@@ -238,6 +240,8 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
     correlation = _deserialize_correlation(corr_data) if corr_data else None
     llm_inv_data = data.get("llm_investigation")
     llm_investigation = _deserialize_llm_investigation(llm_inv_data) if llm_inv_data else None
+    rc_data = data.get("replay_comparison")
+    replay_comparison = _deserialize_replay_comparison(rc_data) if rc_data else None
     return RunRecord(
         run_id=data["run_id"],
         argus_version=data.get("argus_version", "unknown"),
@@ -263,6 +267,7 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         behavior_config=behavior_config,
         correlation=correlation,
         llm_investigation=llm_investigation,
+        replay_comparison=replay_comparison,
     )
 
 
@@ -362,6 +367,33 @@ def _deserialize_llm_investigation(data: dict[str, Any]) -> LLMInvestigationResu
         prompt_tokens=data.get("prompt_tokens", 0),
         completion_tokens=data.get("completion_tokens", 0),
         investigation_duration_ms=data.get("investigation_duration_ms", 0.0),
+        error=data.get("error"),
+    )
+
+
+def _deserialize_replay_comparison(data: dict[str, Any]) -> ReplayComparisonResult:
+    node_summaries = [
+        NodeDiffSummary(
+            node_name=ns.get("node_name", ""),
+            status_before=ns.get("status_before", ""),
+            status_after=ns.get("status_after", ""),
+            summary=ns.get("summary", ""),
+            verdict=ns.get("verdict", "changed"),
+        )
+        for ns in data.get("node_summaries", [])
+    ]
+    return ReplayComparisonResult(
+        structural_summary=data.get("structural_summary", ""),
+        failure_analysis=data.get("failure_analysis", ""),
+        root_cause_delta=data.get("root_cause_delta", ""),
+        key_insights=data.get("key_insights", []),
+        recommendation=data.get("recommendation", ""),
+        confidence=data.get("confidence", 0.0),
+        node_summaries=node_summaries,
+        model_used=data.get("model_used", ""),
+        prompt_tokens=data.get("prompt_tokens", 0),
+        completion_tokens=data.get("completion_tokens", 0),
+        duration_ms=data.get("duration_ms", 0.0),
         error=data.get("error"),
     )
 

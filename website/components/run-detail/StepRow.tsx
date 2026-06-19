@@ -117,6 +117,20 @@ function InlineNodeDiff({ diff, onDismiss }: { diff: NodeDiffData; onDismiss?: (
           </div>
         </div>
 
+        {diff.aiSummary && (
+          <div className="px-4 py-3 border-t border-border">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="h-3 w-[2px] rounded-full bg-primary" />
+              <span className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary">
+                AI Summary
+              </span>
+            </div>
+            <p className="text-[12px] leading-relaxed text-muted-foreground pl-3">
+              {diff.aiSummary}
+            </p>
+          </div>
+        )}
+
         {statusChanged && (
           <div className="flex items-center justify-center gap-3 px-4 py-2 font-mono text-[11px] border-t border-border bg-card">
             <span style={{ color: origDisplay.labelColor }}>{origDisplay.icon} {diff.originalStep.status}</span>

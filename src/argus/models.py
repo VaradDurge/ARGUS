@@ -135,6 +135,38 @@ class NodeEvent:
     semantic_check: SemanticCheckResult | None = None
 
 
+# ── Replay comparison dataclasses ─────────────────────────────────────────────
+
+
+@dataclass
+class NodeDiffSummary:
+    """Per-node natural language summary of what changed between original and replay."""
+
+    node_name: str
+    status_before: str
+    status_after: str
+    summary: str
+    verdict: str  # "fixed" | "regressed" | "unchanged" | "changed"
+
+
+@dataclass
+class ReplayComparisonResult:
+    """Structured LLM comparison of a replay run vs its parent."""
+
+    structural_summary: str
+    failure_analysis: str
+    root_cause_delta: str
+    key_insights: list[str]
+    recommendation: str
+    confidence: float
+    node_summaries: list[NodeDiffSummary] = field(default_factory=list)
+    model_used: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    duration_ms: float = 0.0
+    error: str | None = None
+
+
 @dataclass
 class RunRecord:
     run_id: str
@@ -164,6 +196,7 @@ class RunRecord:
     behavior_config: BehaviorConfig | None = None
     correlation: CorrelationReport | None = None
     llm_investigation: LLMInvestigationResult | None = None
+    replay_comparison: ReplayComparisonResult | None = None
 
 
 # ── Correlation layer dataclasses ──────────────────────────────────────────────

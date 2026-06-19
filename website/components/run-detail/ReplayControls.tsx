@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import type { NodeEvent, RunRecord } from '@/lib/types'
+import type { NodeEvent, NodeDiffSummary, RunRecord } from '@/lib/types'
 
 type ReplayPhase = 'idle' | 'submitting' | 'polling' | 'done' | 'error' | 'no_factory' | 'node_done'
 
@@ -19,6 +19,7 @@ export interface NodeDiffData {
   originalStep: NodeEvent
   replayStep: NodeEvent
   nodeName: string
+  aiSummary?: string | null
 }
 
 export default function ReplayControls({
@@ -120,8 +121,11 @@ export default function ReplayControls({
               const newRun = await newRunResp.json() as RunRecord
               const originalStep = run.steps.find(s => s.node_name === nodeName)
               const replayStep = newRun.steps?.find((s: NodeEvent) => s.node_name === nodeName)
+              const nodeSummary = newRun.replay_comparison?.node_summaries?.find(
+                (ns: NodeDiffSummary) => ns.node_name === nodeName
+              )
               if (originalStep && replayStep) {
-                setNodeDiff({ originalStep, replayStep, nodeName })
+                setNodeDiff({ originalStep, replayStep, nodeName, aiSummary: nodeSummary?.summary ?? null })
               }
             } catch {
               // ignore

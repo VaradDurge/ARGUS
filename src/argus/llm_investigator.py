@@ -21,6 +21,8 @@ from typing import Any
 from argus.models import (
     LLMInvestigationConfig,
     LLMInvestigationResult,
+    NodeDiffSummary,
+    ReplayComparisonResult,
     RunRecord,
     SemanticHypothesis,
     SuggestedSignature,
@@ -882,3 +884,181 @@ def compare_runs(
     except Exception as exc:
         duration_ms = (time.perf_counter() - t0) * 1000
         return {"error": f"OpenAI API call failed: {exc}", "duration_ms": round(duration_ms)}
+
+
+# ── Replay-specific LLM comparison ──────────────────────────────────────────
+
+_REPLAY_COMPARE_SYSTEM_PROMPT = """\
+You are a replay analysis engine for ARGUS, an agent pipeline monitoring system.
+
+You receive compressed execution intelligence from an ORIGINAL pipeline run and \
+its REPLAY run. The replay re-executed one or more nodes after the developer \
+applied a fix. Your job is to analyze what changed, whether the fix worked, \
+and what the developer should do next.
+
+Respond with a JSON object containing these fields:
+{
+  "structural_summary": "<1-2 sentences about the replay scope and structure>",
+  "failure_analysis": "<what failed in the original, what was fixed or still broken>",
+  "root_cause_delta": "<what specifically changed between original and replay>",
+  "key_insights": ["<insight 1>", "<insight 2>", ...],
+  "recommendation": "<actionable next step for the developer>",
+  "confidence": <0.0-1.0>,
+  "node_summaries": [
+    {
+      "node_name": "<node>",
+      "status_before": "<original status>",
+      "status_after": "<replay status>",
+      "summary": "<1-2 sentence explanation of what changed in this node's output>",
+      "verdict": "fixed" | "regressed" | "unchanged" | "changed"
+    }
+  ]
+}
+
+Include a node_summary entry for EVERY node that appears in both runs. \
+Be specific about field names, status transitions, and output differences. \
+For the confidence score, assess how certain you are about the root cause \
+and whether the fix is complete.
+"""
+
+
+def compare_replay_runs(
+    parent: RunRecord,
+    replay: RunRecord,
+    model: str = "gpt-4o-mini",
+    max_tokens: int = 3000,
+) -> ReplayComparisonResult:
+    """Generate LLM comparison between a replay run and its parent.
+
+    Returns a structured ReplayComparisonResult. On failure, the result's
+    ``error`` field is set and other fields contain defaults.
+    """
+    def _error_result(msg: str, dur: float = 0.0) -> ReplayComparisonResult:
+        return ReplayComparisonResult(
+            structural_summary="",
+            failure_analysis="",
+            root_cause_delta="",
+            key_insights=[],
+            recommendation="",
+            confidence=0.0,
+            duration_ms=dur,
+            error=msg,
+        )
+
+    # Load .env if present
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(override=True)
+    except ImportError:
+        pass
+
+    from argus.llm_proxy import is_available
+
+    own_key = os.environ.get("OPENAI_API_KEY")
+    if not own_key and not is_available():
+        return _error_result("No LLM available — set OPENAI_API_KEY or run argus login")
+
+    briefing_parent = compress_intelligence(parent)
+    briefing_replay = compress_intelligence(replay)
+
+    # Build per-node diff context for the LLM
+    parent_steps = {s.node_name: s for s in parent.steps}
+    replay_steps = {s.node_name: s for s in replay.steps}
+    shared_nodes = sorted(set(parent_steps) & set(replay_steps))
+
+    node_diffs: list[str] = []
+    for name in shared_nodes:
+        ps = parent_steps[name]
+        rs = replay_steps[name]
+        diff_lines = [f"- **{name}**: {ps.status} → {rs.status}"]
+        if ps.output_dict and rs.output_dict:
+            p_keys = set(ps.output_dict.keys())
+            r_keys = set(rs.output_dict.keys())
+            added = r_keys - p_keys
+            removed = p_keys - r_keys
+            if added:
+                diff_lines.append(f"  added keys: {sorted(added)}")
+            if removed:
+                diff_lines.append(f"  removed keys: {sorted(removed)}")
+            for k in sorted(p_keys & r_keys):
+                pv = str(ps.output_dict[k])[:150]
+                rv = str(rs.output_dict[k])[:150]
+                if pv != rv:
+                    diff_lines.append(f"  '{k}' changed: {pv[:80]}… → {rv[:80]}…")
+        node_diffs.append("\n".join(diff_lines))
+
+    user_content = (
+        "## Original Run\n"
+        f"Status: **{parent.overall_status}** | "
+        f"Nodes: {len(parent.graph_node_names)} | "
+        f"Steps: {len(parent.steps)} | "
+        f"Duration: {parent.duration_ms}ms\n\n"
+        "## Replay Run\n"
+        f"Status: **{replay.overall_status}** | "
+        f"Replay from: **{replay.replay_from_step}** | "
+        f"Steps: {len(replay.steps)} | "
+        f"Duration: {replay.duration_ms}ms\n\n"
+        "## Per-Node Status Changes\n"
+        + ("\n".join(node_diffs) if node_diffs else "No shared nodes.\n")
+        + "\n\n## Original Run Intelligence\n"
+        + json.dumps(briefing_parent, indent=2, default=str)
+        + "\n\n## Replay Run Intelligence\n"
+        + json.dumps(briefing_replay, indent=2, default=str)
+    )
+
+    messages = [
+        {"role": "system", "content": _REPLAY_COMPARE_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+    from argus.llm_proxy import create_chat_completion
+
+    t0 = time.perf_counter()
+    try:
+        resp = create_chat_completion(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            api_key=own_key,
+        )
+        duration_ms = (time.perf_counter() - t0) * 1000
+
+        if "error" in resp:
+            return _error_result(str(resp["error"]), duration_ms)
+
+        choices = resp.get("choices", [])
+        raw = choices[0]["message"]["content"] if choices else ""
+        result = _parse_response(raw)
+
+        node_summaries = [
+            NodeDiffSummary(
+                node_name=ns.get("node_name", ""),
+                status_before=ns.get("status_before", ""),
+                status_after=ns.get("status_after", ""),
+                summary=ns.get("summary", ""),
+                verdict=ns.get("verdict", "changed"),
+            )
+            for ns in result.get("node_summaries", [])
+        ]
+
+        usage = resp.get("usage", {})
+        return ReplayComparisonResult(
+            structural_summary=result.get("structural_summary", ""),
+            failure_analysis=result.get("failure_analysis", ""),
+            root_cause_delta=result.get("root_cause_delta", ""),
+            key_insights=result.get("key_insights", []),
+            recommendation=result.get("recommendation", ""),
+            confidence=result.get("confidence", 0.0),
+            node_summaries=node_summaries,
+            model_used=model,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            duration_ms=round(duration_ms),
+        )
+
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - t0) * 1000
+        return _error_result(f"LLM call failed: {exc}", round(duration_ms))

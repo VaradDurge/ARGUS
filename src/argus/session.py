@@ -797,22 +797,43 @@ class ArgusSession:
             behavior_config=self._behavior_config,
         )
 
+        # Load parent run once if this is a replay (reused by correlation + comparison)
+        parent_record = None
+        if record.parent_run_id:
+            try:
+                from argus.storage import load_run
+
+                parent_record = load_run(record.parent_run_id)
+            except Exception:
+                pass
+
         # Correlation analysis (non-critical — never blocks persistence)
         try:
             from argus.correlator import compare_replay, correlate
 
             correlation = correlate(record)
-            if record.parent_run_id:
+            if parent_record:
                 try:
-                    from argus.storage import load_run
-
-                    parent = load_run(record.parent_run_id)
-                    correlation.replay_impact = compare_replay(record, parent)
+                    correlation.replay_impact = compare_replay(record, parent_record)
                 except Exception:
                     pass
             record.correlation = correlation
         except Exception:
             pass
+
+        # Replay LLM comparison (non-critical)
+        llm_cfg = self._llm_investigation_config
+        if parent_record and llm_cfg and llm_cfg.enabled:
+            try:
+                from argus.llm_investigator import compare_replay_runs
+
+                record.replay_comparison = compare_replay_runs(
+                    parent_record,
+                    record,
+                    model=self._llm_investigation_config.model,
+                )
+            except Exception:
+                pass
 
         # LLM semantic investigation (non-critical — never blocks persistence)
         if self._llm_investigation_config and self._llm_investigation_config.enabled:

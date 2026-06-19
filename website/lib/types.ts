@@ -204,6 +204,29 @@ export interface LLMInvestigationResult {
   error?: string | null
 }
 
+export interface NodeDiffSummary {
+  node_name: string
+  status_before: string
+  status_after: string
+  summary: string
+  verdict: 'fixed' | 'regressed' | 'unchanged' | 'changed'
+}
+
+export interface ReplayComparisonResult {
+  structural_summary: string
+  failure_analysis: string
+  root_cause_delta: string
+  key_insights: string[]
+  recommendation: string
+  confidence: number
+  node_summaries: NodeDiffSummary[]
+  model_used: string
+  prompt_tokens: number
+  completion_tokens: number
+  duration_ms: number
+  error?: string | null
+}
+
 export interface RunRecord {
   run_id: string
   argus_version: string
@@ -229,6 +252,7 @@ export interface RunRecord {
   behavior_config?: BehaviorConfig | null
   correlation?: CorrelationReport | null
   llm_investigation?: LLMInvestigationResult | null
+  replay_comparison?: ReplayComparisonResult | null
 }
 
 export interface RunSummary {

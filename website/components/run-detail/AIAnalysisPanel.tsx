@@ -36,15 +36,21 @@ function renderWithCode(text: string): (string | JSX.Element)[] {
 
 export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
   const inv = run.llm_investigation
+  const rc = run.replay_comparison
   const [detailsOpen, setDetailsOpen] = useState(false)
 
-  if (!inv || !inv.triggered) return null
+  const hasComparison = rc && !rc.error
+  const hasInvestigation = inv && inv.triggered
 
-  const hasError = !!inv.error
+  if (!hasInvestigation && !hasComparison) return null
+
+  // Use comparison confidence for replay runs, investigation confidence otherwise
+  const confidence = hasComparison ? rc.confidence : (inv?.confidence ?? 0)
+  const hasError = hasInvestigation ? !!inv.error : false
   const isHealthy = !hasError && run.overall_status === 'clean'
 
   const confColor =
-    inv.confidence >= 0.75 ? 'var(--success)' : inv.confidence >= 0.45 ? 'var(--warning)' : 'var(--muted-foreground)'
+    confidence >= 0.75 ? 'var(--success)' : confidence >= 0.45 ? 'var(--warning)' : 'var(--muted-foreground)'
 
   return (
     <div className="rounded-[10px] border border-border bg-card p-5">
@@ -52,21 +58,83 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="h-4 w-[3px] rounded-full bg-primary" />
-          <h2 className="text-[15px] font-semibold text-foreground">AI Analysis</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">
+            {hasComparison ? 'Replay Analysis' : 'AI Analysis'}
+          </h2>
         </div>
-        {!hasError && (
-          <span
-            className="text-[11px] font-medium px-2 py-0.5 rounded-[4px] border"
-            style={{
-              color: confColor,
-              backgroundColor: `color-mix(in srgb, ${confColor} 10%, transparent)`,
-              borderColor: confColor,
-            }}
-          >
-            {(inv.confidence * 100).toFixed(0)}% confidence
-          </span>
-        )}
+        <span
+          className="text-[11px] font-medium px-2 py-0.5 rounded-[4px] border"
+          style={{
+            color: confColor,
+            backgroundColor: `color-mix(in srgb, ${confColor} 10%, transparent)`,
+            borderColor: confColor,
+          }}
+        >
+          {(confidence * 100).toFixed(0)}% confidence
+        </span>
       </div>
+
+      {/* Replay comparison section */}
+      {hasComparison && (
+        <div className="mt-4 space-y-4">
+          {/* Root cause delta */}
+          {rc.root_cause_delta && (
+            <div className="p-4 rounded-lg" style={{ background: 'color-mix(in srgb, var(--primary) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--primary) 12%, transparent)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--primary)' }}>
+                  What Changed
+                </span>
+              </div>
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                {renderWithCode(rc.root_cause_delta)}
+              </p>
+            </div>
+          )}
+
+          {/* Failure analysis */}
+          {rc.failure_analysis && (
+            <div className="p-4 rounded-lg" style={{ background: 'color-mix(in srgb, var(--foreground) 2%, transparent)', border: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary">
+                  Failure Analysis
+                </span>
+              </div>
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                {renderWithCode(rc.failure_analysis)}
+              </p>
+            </div>
+          )}
+
+          {/* Key insights */}
+          {rc.key_insights?.length > 0 && (
+            <div>
+              <span className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary">
+                Key Insights
+              </span>
+              <ul className="mt-2 space-y-1.5">
+                {rc.key_insights.map((insight, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[13px] text-muted-foreground">
+                    <span className="text-primary mt-0.5 shrink-0">{'•'}</span>
+                    <span className="leading-relaxed">{renderWithCode(insight)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Recommendation */}
+          {rc.recommendation && (
+            <div className="p-3 rounded-lg" style={{ background: 'color-mix(in srgb, var(--success) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 12%, transparent)' }}>
+              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--success)' }}>
+                Recommendation
+              </span>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+                {renderWithCode(rc.recommendation)}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-col gap-4">
 
