@@ -90,14 +90,11 @@ def check_semantic_coherence(
     """
     t0 = time.perf_counter()
 
-    api_key = api_key or os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        return _skip_result("check skipped: no API key", model, 0.0)
+    from argus.llm_proxy import create_chat_completion, is_available  # noqa: PLC0415
 
-    try:
-        import openai  # noqa: PLC0415
-    except ImportError:
-        return _skip_result("check skipped: openai not installed", model, 0.0)
+    own_key = api_key or os.environ.get("OPENAI_API_KEY")
+    if not own_key and not is_available():
+        return _skip_result("check skipped: no API key and not logged in", model, 0.0)
 
     compact_in = _compact_dict(input_state)
     compact_out = _compact_dict(output_dict)
@@ -113,8 +110,7 @@ def check_semantic_coherence(
     )
 
     try:
-        client = openai.OpenAI(api_key=api_key, timeout=5.0)
-        response = client.chat.completions.create(
+        result = create_chat_completion(
             model=model,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
@@ -123,20 +119,26 @@ def check_semantic_coherence(
             max_tokens=80,
             temperature=0.0,
             response_format={"type": "json_object"},
+            api_key=own_key,
+            timeout=5.0,
         )
         elapsed = (time.perf_counter() - t0) * 1000
 
-        raw = response.choices[0].message.content or "{}"
+        if "error" in result:
+            return _skip_result(f"check skipped: {result['error']}", model, elapsed)
+
+        choices = result.get("choices", [])
+        raw = choices[0]["message"]["content"] if choices else "{}"
         parsed = json.loads(raw)
-        usage = response.usage
+        usage = result.get("usage", {})
 
         return SemanticCheckResult(
             passed=bool(parsed.get("pass", True)),
             reason=str(parsed.get("reason", "")),
             confidence=float(parsed.get("confidence", 0.0)),
             model=model,
-            prompt_tokens=usage.prompt_tokens if usage else 0,
-            completion_tokens=usage.completion_tokens if usage else 0,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
             duration_ms=round(elapsed, 2),
         )
     except Exception as exc:

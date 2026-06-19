@@ -150,9 +150,11 @@ class ArgusWatcher:
         except ImportError:
             pass
 
-        # Auto-enable LLM investigation if key is available
+        # Auto-enable LLM investigation if key is available or user is logged in
+        from argus.llm_proxy import is_available as _llm_available
+
         llm_inv_config = None
-        if (self._investigate or self._semantic_judge) and os.environ.get("OPENAI_API_KEY"):
+        if (self._investigate or self._semantic_judge) and _llm_available():
             from argus.models import LLMInvestigationConfig
 
             always = (self._investigate == "always") or self._semantic_judge

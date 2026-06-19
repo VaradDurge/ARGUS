@@ -674,8 +674,10 @@ def investigate(
         pass
 
     # Resolve API key — server env var always takes precedence (SaaS mode)
-    api_key = os.environ.get("OPENAI_API_KEY") or cfg.api_key
-    if not api_key:
+    from argus.llm_proxy import create_chat_completion, is_available
+
+    own_key = os.environ.get("OPENAI_API_KEY") or cfg.api_key
+    if not own_key and not is_available():
         return LLMInvestigationResult(
             triggered=True,
             trigger_reasons=reasons,
@@ -690,47 +692,44 @@ def investigate(
             prompt_tokens=0,
             completion_tokens=0,
             investigation_duration_ms=0.0,
-            error="No OpenAI API key found (set OPENAI_API_KEY or pass api_key in config)",
+            error="No OpenAI API key and not logged in (set OPENAI_API_KEY or run: argus login)",
         )
 
-    # Call OpenAI API
-    try:
-        import openai  # type: ignore[import-untyped]
-    except ImportError:
-        return LLMInvestigationResult(
-            triggered=True,
-            trigger_reasons=reasons,
-            root_cause_explanation="",
-            causal_hypotheses=[],
-            degradation_narrative="",
-            observations=[],
-            debugging_suggestions=[],
-            confidence=0.0,
-            suggested_signatures=[],
-            model_used=cfg.model,
-            prompt_tokens=0,
-            completion_tokens=0,
-            investigation_duration_ms=0.0,
-            error="openai package not installed (pip install openai)",
-        )
-
-    client = openai.OpenAI(api_key=api_key)
     t0 = time.perf_counter()
     try:
-        response = client.chat.completions.create(
+        result = create_chat_completion(
             model=cfg.model,
-            messages=messages,  # type: ignore[arg-type]
+            messages=messages,
             max_tokens=cfg.max_tokens,
             temperature=cfg.temperature,
             response_format={"type": "json_object"},
+            api_key=own_key,
         )
         duration_ms = (time.perf_counter() - t0) * 1000
 
-        choice = response.choices[0]
-        raw_content = choice.message.content or ""
-        usage = response.usage
-        prompt_tok = usage.prompt_tokens if usage else 0
-        completion_tok = usage.completion_tokens if usage else 0
+        if "error" in result:
+            return LLMInvestigationResult(
+                triggered=True,
+                trigger_reasons=reasons,
+                root_cause_explanation="",
+                causal_hypotheses=[],
+                degradation_narrative="",
+                observations=[],
+                debugging_suggestions=[],
+                confidence=0.0,
+                suggested_signatures=[],
+                model_used=cfg.model,
+                prompt_tokens=0,
+                completion_tokens=0,
+                investigation_duration_ms=duration_ms,
+                error=result["error"],
+            )
+
+        choices = result.get("choices", [])
+        raw_content = choices[0]["message"]["content"] if choices else ""
+        usage = result.get("usage", {})
+        prompt_tok = usage.get("prompt_tokens", 0)
+        completion_tok = usage.get("completion_tokens", 0)
 
         return parse_investigation_response(
             raw=raw_content,
@@ -805,14 +804,11 @@ def compare_runs(
     except ImportError:
         pass
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        return {"error": "No OPENAI_API_KEY found in environment"}
+    from argus.llm_proxy import is_available
 
-    try:
-        import openai  # type: ignore[import-untyped]
-    except ImportError:
-        return {"error": "openai package not installed (pip install openai)"}
+    own_key = os.environ.get("OPENAI_API_KEY")
+    if not own_key and not is_available():
+        return {"error": "No OPENAI_API_KEY and not logged in (run: argus login)"}
 
     briefing_a = compress_intelligence(record_a)
     briefing_b = compress_intelligence(record_b)
@@ -856,24 +852,30 @@ def compare_runs(
         {"role": "user", "content": user_content},
     ]
 
-    client = openai.OpenAI(api_key=api_key)
+    from argus.llm_proxy import create_chat_completion
+
     t0 = time.perf_counter()
     try:
-        response = client.chat.completions.create(
+        resp = create_chat_completion(
             model=model,
-            messages=messages,  # type: ignore[arg-type]
+            messages=messages,
             max_tokens=max_tokens,
             temperature=0.3,
             response_format={"type": "json_object"},
+            api_key=own_key,
         )
         duration_ms = (time.perf_counter() - t0) * 1000
 
-        raw = response.choices[0].message.content or ""
-        usage = response.usage
+        if "error" in resp:
+            return {"error": resp["error"]}
+
+        choices = resp.get("choices", [])
+        raw = choices[0]["message"]["content"] if choices else ""
+        usage = resp.get("usage", {})
         result = _parse_response(raw)
         result["model_used"] = model
-        result["prompt_tokens"] = usage.prompt_tokens if usage else 0
-        result["completion_tokens"] = usage.completion_tokens if usage else 0
+        result["prompt_tokens"] = usage.get("prompt_tokens", 0)
+        result["completion_tokens"] = usage.get("completion_tokens", 0)
         result["duration_ms"] = round(duration_ms)
         return result
 

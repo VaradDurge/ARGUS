@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -35,8 +34,10 @@ def _smart_merge(state: dict, partial: dict) -> dict:
 
 
 def _make_llm_inv_config():
-    """Return LLMInvestigationConfig if an OpenAI key is available, else None."""
-    if not os.environ.get("OPENAI_API_KEY"):
+    """Return LLMInvestigationConfig if LLM calls are available, else None."""
+    from argus.llm_proxy import is_available
+
+    if not is_available():
         return None
     try:
         from argus.models import LLMInvestigationConfig

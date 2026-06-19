@@ -27,7 +27,6 @@ from __future__ import annotations
 import asyncio
 import functools
 import json
-import os
 import threading
 import time
 import traceback
@@ -150,7 +149,9 @@ class ArgusSession:
                 load_dotenv(override=True)
             except ImportError:
                 pass
-            if os.environ.get("OPENAI_API_KEY"):
+            from argus.llm_proxy import is_available as _llm_available
+
+            if _llm_available():
                 from argus.models import LLMInvestigationConfig
 
                 llm_investigation = LLMInvestigationConfig(enabled=True)

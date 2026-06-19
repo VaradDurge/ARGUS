@@ -3,288 +3,126 @@
 import Image from 'next/image'
 import { useState } from 'react'
 
-// ── Typography ──────────────────────────────────────────────────────────────
+// ── Prompt ─────────────────────────────────────────────────────────────────
 
-const serif = { fontFamily: "'Georgia', 'Times New Roman', serif" }
+const LLM_PROMPT = `I want to add ARGUS monitoring to my LangGraph pipeline. Before writing any code, audit my codebase and then integrate it properly.
 
-function PageTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h1
-      className="text-[32px] font-bold tracking-tight mb-3 leading-tight"
-      style={{ ...serif, color: 'var(--text-primary)' }}
-    >
-      {children}
-    </h1>
-  )
-}
+## STEP 1 — AUDIT MY PIPELINE
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2
-      className="text-[22px] font-semibold mt-14 mb-4 leading-snug"
-      style={{ ...serif, color: 'var(--text-primary)' }}
-    >
-      {children}
-    </h2>
-  )
-}
+Find the file where my StateGraph is defined and check these things:
 
-function SubTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3
-      className="text-[15px] font-semibold mt-6 mb-2 tracking-wide uppercase"
-      style={{ letterSpacing: '0.06em', color: 'var(--text-muted)', fontFamily: 'inherit' }}
-    >
-      {children}
-    </h3>
-  )
-}
+1. STATE TYPE: Find my state class. ARGUS works best when state is a TypedDict (or Pydantic model / dataclass). If my state is just a plain dict, convert it to a TypedDict with proper field annotations. Example:
 
-function Body({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="text-[15px] leading-[1.75] mb-4"
-      style={{ color: 'var(--text-secondary)', fontFamily: "'Georgia', serif" }}
-    >
-      {children}
-    </p>
-  )
-}
+   # BAD — plain dict, ARGUS can't check field contracts
+   app = graph.compile()
+   result = app.invoke({"query": "...", "results": []})
 
-function Note({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="text-[13px] leading-relaxed mt-3 italic"
-      style={{ color: 'var(--text-muted)', fontFamily: "'Georgia', serif" }}
-    >
-      {children}
-    </p>
-  )
-}
+   # GOOD — TypedDict lets ARGUS verify fields between nodes
+   class AgentState(TypedDict):
+       query: str
+       results: list[str]
+       summary: str
 
-function Code({ children }: { children: string }) {
-  return (
-    <code
-      className="text-[12.5px] font-mono px-1.5 py-0.5 rounded"
-      style={{ background: 'var(--bg-overlay)', color: 'var(--text-primary)' }}
-    >
-      {children}
-    </code>
-  )
-}
+2. NODE RETURN TYPES: Check every node function. Each should:
+   - Accept the state type as its first parameter (type-annotated)
+   - Return a dict with only the fields it's responsible for
+   - NOT return the entire state — just the fields it modifies
 
-function CodeBlock({ children, title }: { children: string; title?: string }) {
-  return (
-    <div className="my-5 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-      {title && (
-        <div
-          className="px-4 py-2 text-[11px] font-mono"
-          style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}
-        >
-          {title}
-        </div>
-      )}
-      <pre
-        className="px-4 py-3 text-[12.5px] leading-relaxed font-mono overflow-x-auto"
-        style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
-      >
-        {children}
-      </pre>
-    </div>
-  )
-}
+   # BAD — no type hint, returns everything
+   def search(state):
+       return {**state, "results": [...]}
 
-function Divider() {
-  return <div className="my-10" style={{ height: '1px', background: 'var(--border-subtle)' }} />
-}
+   # GOOD — typed, returns only what it produces
+   def search(state: AgentState) -> dict:
+       return {"results": [...]}
 
-function Screenshot({ src, alt, caption }: { src: string; alt: string; caption?: string }) {
-  return (
-    <div className="my-6">
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}
-      >
-        <Image
-          src={src}
-          alt={alt}
-          width={1200}
-          height={700}
-          className="w-full h-auto"
-          style={{ display: 'block' }}
-        />
-      </div>
-      {caption && (
-        <p
-          className="text-[12px] mt-2 text-center italic"
-          style={{ color: 'var(--text-muted)', fontFamily: "'Georgia', serif" }}
-        >
-          {caption}
-        </p>
-      )}
-    </div>
-  )
-}
+3. GRAPH STRUCTURE: Check if the graph is:
+   - Linear (A → B → C) — auto-finalize works, no extra code needed
+   - Fan-out/fan-in (DAG) — auto-finalize works
+   - Cyclic (has loops / back-edges) — will need watcher.finalize() after invoke
 
-function StepItem({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-4 mb-5">
-      <div
-        className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5"
-        style={{ background: 'var(--bg-overlay)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
-      >
-        {n}
-      </div>
-      <div className="flex-1">
-        <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{title}</p>
-        <div className="text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: "'Georgia', serif" }}>{children}</div>
-      </div>
-    </div>
-  )
-}
+4. ASYNC CHECK: If node functions are async (async def), ARGUS handles both — just make sure you're using await app.ainvoke() not app.invoke().
 
-const FIELD_COLORS = [
-  { bg: 'rgba(124,127,199,0.08)', color: '#818cf8', border: 'rgba(124,127,199,0.2)' },   // indigo
-  { bg: 'rgba(61,158,125,0.08)', color: '#34d399', border: 'rgba(61,158,125,0.2)' },   // emerald
-  { bg: 'rgba(212,154,46,0.08)', color: '#fbbf24', border: 'rgba(212,154,46,0.2)' },   // amber
-  { bg: 'rgba(154,109,198,0.08)', color: '#c084fc', border: 'rgba(154,109,198,0.2)' },   // purple
-  { bg: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: 'rgba(59,130,246,0.2)' },   // blue
-  { bg: 'rgba(236,72,153,0.08)', color: '#f472b6', border: 'rgba(236,72,153,0.2)' },   // pink
-]
+5. EXTERNAL CALLS: List which nodes make external API calls (OpenAI, search APIs, databases). This determines whether to enable record_http.
 
-function FieldRow({ field, description, colorIdx }: { field: string; description: string; colorIdx: number }) {
-  const c = FIELD_COLORS[colorIdx % FIELD_COLORS.length]
-  return (
-    <div className="flex gap-3 mb-2 items-start">
-      <span
-        className="text-[12px] font-semibold px-2 py-0.5 rounded shrink-0 mt-0.5"
-        style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, fontFamily: 'inherit' }}
-      >
-        {field}
-      </span>
-      <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: "'Georgia', serif" }}>
-        {description}
-      </span>
-    </div>
-  )
-}
+Print a summary of what you found and any fixes needed before proceeding.
 
-function FieldGroup({ items }: { items: { field: string; description: string }[] }) {
-  return (
-    <div className="mb-4 space-y-2">
-      {items.map((item, i) => (
-        <FieldRow key={item.field} field={item.field} description={item.description} colorIdx={i} />
-      ))}
-    </div>
-  )
-}
+## STEP 2 — FIX COMPATIBILITY ISSUES
 
-const LLM_PROMPT = `Add ARGUS monitoring to my LangGraph pipeline. ARGUS watches every node and catches silent failures, missing fields, and semantic issues.
+If you found issues in Step 1, fix them now:
+- Convert plain dict state to TypedDict
+- Add type annotations to node function parameters
+- Make nodes return only their output fields (not the full state)
+- Ensure all fields referenced by downstream nodes exist in the TypedDict
+
+## STEP 3 — INTEGRATE ARGUS
 
 Install: pip install argus-agents
 
-Then add 2 lines to the file where the graph is built:
+Add ArgusWatcher to the file where the graph is built:
 
 from argus import ArgusWatcher
 
-watcher = ArgusWatcher(graph)          # pass your StateGraph directly
+watcher = ArgusWatcher(graph)          # pass StateGraph before compile()
 app = graph.compile()
-result = app.invoke(initial_state)     # run auto-saves when done
-print(watcher.run_id)                  # access the run ID directly
+result = app.invoke(initial_state)
+print(watcher.run_id)
 
-If the graph is already compiled, use watch_compiled() instead:
+If the graph is already compiled elsewhere, use watch_compiled():
 
 watcher = ArgusWatcher()
 app = watcher.watch_compiled(app)
-result = app.invoke(initial_state)
 
-That's it. Run the pipeline, then use "argus show last" to see what ARGUS caught.
+## STEP 4 — PICK THE RIGHT CONFIG
 
-All parameters are keyword-only (except graph):
+Choose parameters based on what you found in the audit:
 
 watcher = ArgusWatcher(graph,
-    record_http=True,       # save API calls to disk for deterministic reruns
-    semantic_judge=True,    # LLM judge on every node (needs OPENAI_API_KEY)
-    judge_model="gpt-4o",   # model for the judge. default: gpt-4o
-    strict=True,            # extra checks for CI/staging
-    max_field_size=50000,   # max chars per field before truncation
-    investigate=True,       # LLM root-cause analysis (True/False/"always")
-    redact_keys={"token"},  # field names to redact from stored outputs
-    persist_state=True,     # save run records to .argus/runs/
-    validators={            # per-node semantic validators
-        "summarize": lambda o: (len(o.get("summary","")) > 10, "Summary too short"),
+    # ALWAYS RECOMMENDED
+    strict=True,              # catches empty lists, nested errors, type mismatches
+    persist_state=True,       # saves runs to .argus/runs/
+
+    # IF nodes make paid API calls (OpenAI, etc.) — enables free deterministic reruns
+    record_http=True,
+
+    # IF you want LLM-powered quality checks on outputs (needs OPENAI_API_KEY)
+    semantic_judge=True,      # reviews every node's output for subtle issues
+    judge_model="gpt-4o",     # or "gpt-4o-mini" for cheaper runs
+
+    # IF you want automatic root cause analysis on failures
+    investigate=True,         # or "always" to investigate every run
+
+    # IF any fields contain secrets or tokens
+    redact_keys={"token", "api_key", "password"},
+
+    # ADD validators for nodes that produce critical output:
+    validators={
+        # example: ensure summaries aren't empty stubs
+        "summarize": lambda o: (len(o.get("summary", "")) > 10, "Summary too short"),
+        # wildcard: runs on every node
         "*": lambda o: ("error" not in o, "error key present"),
     },
 )
 
-Runs auto-save for linear and fan-out/fan-in graphs.
-Only cyclic graphs need watcher.finalize().`
+# IF the graph has cycles (loops / back-edges):
+# watcher.finalize()    ← call after invoke
 
-function LLMPromptBox() {
+After running the pipeline, use "argus show last" to see what ARGUS caught.`
+
+function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
-
-  function handleCopy() {
-    navigator.clipboard.writeText(LLM_PROMPT).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
   return (
-    <div
-      className="my-6 rounded-xl overflow-hidden"
-      style={{ border: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded transition-colors"
+      style={{
+        color: copied ? 'var(--success)' : 'var(--muted-foreground)',
+        background: copied ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${copied ? 'rgba(34,197,94,0.25)' : 'var(--border)'}`,
+      }}
     >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <rect x="1" y="1" width="12" height="12" rx="2" stroke="var(--text-muted)" strokeWidth="1.2"/>
-            <path d="M4 5h6M4 7.5h4M4 10h5" stroke="var(--text-muted)" strokeWidth="1.1" strokeLinecap="round"/>
-          </svg>
-          <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            LLM Prompt — paste into Claude Code, Cursor, etc.
-          </span>
-        </div>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded transition-all"
-          style={{
-            color: copied ? '#3d9e7d' : 'var(--text-secondary)',
-            background: copied ? 'rgba(61,158,125,0.08)' : 'var(--bg-overlay)',
-            border: `1px solid ${copied ? 'rgba(61,158,125,0.25)' : 'var(--border-subtle)'}`,
-          }}
-        >
-          {copied ? (
-            <>
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                <path d="M2 5.5l2.5 2.5 4.5-5" stroke="#3d9e7d" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Copied
-            </>
-          ) : (
-            <>
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                <rect x="3.5" y="1" width="6.5" height="7.5" rx="1.2" stroke="currentColor" strokeWidth="1.1"/>
-                <path d="M1 3.5h2M1 3.5v6.5h6.5v-1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
-              </svg>
-              Copy
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Prompt text */}
-      <pre
-        className="px-5 py-4 text-[12.5px] leading-relaxed font-mono overflow-x-auto whitespace-pre-wrap"
-        style={{ color: 'var(--text-primary)', background: 'var(--bg-surface)' }}
-      >
-        {LLM_PROMPT}
-      </pre>
-    </div>
+      {copied ? 'Copied' : 'Copy'}
+    </button>
   )
 }
 
@@ -292,284 +130,223 @@ function LLMPromptBox() {
 
 export default function GuideContent() {
   return (
-    <article className="pb-20 max-w-[720px]">
-      <PageTitle>How to Use Argus</PageTitle>
-      <Body>
-        A step-by-step walkthrough of every section in the Argus dashboard — from browsing
-        your run history to reading failure details, comparing executions, and rerunning from
-        a broken node.
-      </Body>
+    <div className="pb-24 max-w-[800px]">
 
-      {/* ── LLM Quick-start prompt ──────────────────────────────────────── */}
-      <div className="mt-6 mb-2">
-        <p className="text-[13px] font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
-          Quick-start — paste this into your LLM (Claude Code, Cursor, etc.) to add ARGUS to your pipeline:
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="mb-12">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          Guide
+        </h1>
+        <p className="text-base text-muted-foreground mt-2 leading-relaxed">
+          Dashboard walkthrough, integration setup, and configuration reference.
         </p>
-        <LLMPromptBox />
       </div>
 
-      <Divider />
-
-      {/* ── 1. Runs List ─────────────────────────────────────────────────── */}
-      <SectionTitle>1. Runs List</SectionTitle>
-      <Body>
-        The home page is your pipeline execution history. Every time your pipeline runs with
-        Argus attached, an entry appears here automatically.
-      </Body>
-
-      <Screenshot
-        src="/guide/runs-list.png"
-        alt="Argus runs list page"
-        caption="The runs list — aggregate stats at the top, evaluation panel, and the full run table below."
-      />
-
-      <SubTitle>Summary cards</SubTitle>
-      <FieldGroup items={[
-        { field: 'Total Runs', description: 'Number of pipeline executions recorded in your workspace.' },
-        { field: 'Clean', description: 'Runs where every node passed with no failures detected.' },
-        { field: 'Failed', description: 'Runs with at least one silent failure, crash, or semantic failure.' },
-        { field: 'Pass Rate', description: 'Percentage of clean runs over the total.' },
-      ]} />
-
-      <SubTitle>Run table columns</SubTitle>
-      <FieldGroup items={[
-        { field: 'RUN ID', description: 'Unique identifier for the run. Click to open the full detail view.' },
-        { field: 'STATUS', description: 'Overall result — clean, silent failure, crashed, or semantic fail.' },
-        { field: 'GRAPH', description: 'The node execution path, summarised as a chain.' },
-        { field: 'STEPS', description: 'Total number of nodes that executed in this run.' },
-        { field: 'FIRST FAILURE', description: 'The first node that produced bad output — the likely root cause.' },
-        { field: 'SHAPE', description: 'Whether all expected nodes ran (full) or the run was cut short (partial).' },
-      ]} />
-
-      <SubTitle>Evaluation panel</SubTitle>
-      <Body>
-        The Evaluation section lets you filter runs by criteria — set a goal description and
-        add constraints like <Code>overall_status == clean</Code> to find runs that meet
-        specific conditions. Hit <strong>Evaluate</strong> to filter the table.
-      </Body>
-
-      <Note>Click any run ID to open its full detail page.</Note>
-
-      <Divider />
-
-      {/* ── 2. Run Detail ────────────────────────────────────────────────── */}
-      <SectionTitle>2. Run Detail</SectionTitle>
-      <Body>
-        The run detail page gives you a complete picture of what happened during a single
-        pipeline execution — metrics, the execution trace, AI analysis, and the initial state.
-      </Body>
-
-      <Screenshot
-        src="/guide/run-detail-1.png"
-        alt="Run detail — header, root cause, metrics, and execution timeline"
-        caption="Top of the run detail page: run ID, status, root cause chain, metrics grid, and the execution timeline."
-      />
-
-      <SubTitle>Header</SubTitle>
-      <Body>
-        Shows the run ID, overall status badge, timestamp, total duration, step count, and
-        Argus version. The <strong>Compare</strong> button lets you immediately diff this run
-        against another.
-      </Body>
-
-      <SubTitle>Root cause chain</SubTitle>
-      <Body>
-        When a failure propagates downstream, Argus traces back to find the originating node.
-        The red banner shows the chain — e.g. <Code>extract_skills → generate_summary</Code> — so
-        you know exactly which node to fix, not which node complained.
-      </Body>
-
-      <SubTitle>Metrics</SubTitle>
-      <FieldGroup items={[
-        { field: 'Duration', description: 'Total wall-clock time for the full pipeline execution.' },
-        { field: 'Success Rate', description: 'Percentage of nodes in this run that passed.' },
-        { field: 'Failures', description: 'Number of nodes with any failure status.' },
-        { field: 'Severity', description: 'Worst severity level seen: ok, warning, or critical.' },
-        { field: 'Completed', description: 'Whether the pipeline ran to the final node or was cut short.' },
-      ]} />
-
-      <SubTitle>Execution timeline</SubTitle>
-      <Body>
-        Each node is listed in order with its name, output type tag, duration, and status.
-        Nodes with failures show an indented root cause annotation — the specific field that
-        was missing and which upstream node failed to produce it. Expand any row with the
-        arrow to see the full input/output JSON.
-      </Body>
-
-      <Screenshot
-        src="/guide/run-detail-2.png"
-        alt="Execution timeline showing degraded input nodes and AI analysis"
-        caption="Lower execution timeline showing degraded_input propagation, followed by the AI Analysis panel."
-      />
-
-      <SubTitle>AI Analysis</SubTitle>
-      <Body>
-        When <Code>OPENAI_API_KEY</Code> is set, Argus automatically investigates non-clean
-        runs. The panel breaks down the failure into three parts:
-      </Body>
-      <div className="my-4 space-y-3 pl-1">
-        <div>
-          <p className="text-[14px] font-semibold mb-0.5" style={{ color: 'var(--text-primary)', fontFamily: "'Georgia', serif" }}>
-            Root Cause Node
-          </p>
-          <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: "'Georgia', serif" }}>
-            The specific node Argus identified as the origin of the failure — not the node
-            that complained, but the one that first produced the broken state.
-          </p>
+      {/* ── AI Integration Prompt ───────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+          AI Integration Prompt
+        </h2>
+        <p className="text-[15px] text-muted-foreground mb-5 leading-relaxed max-w-[620px]">
+          Paste this into Claude Code, Cursor, or Copilot. It audits your pipeline
+          for compatibility, fixes issues, and adds ARGUS with the right config.
+        </p>
+        <div
+          className="rounded-lg overflow-hidden"
+          style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
+        >
+          <div
+            className="flex items-center justify-between px-5 py-3"
+            style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}
+          >
+            <span className="text-xs font-mono text-muted-foreground">prompt.txt</span>
+            <CopyButton text={LLM_PROMPT} />
+          </div>
+          <pre
+            className="px-5 py-4 text-[13px] leading-[1.75] font-mono overflow-x-auto whitespace-pre-wrap text-foreground"
+            style={{ background: 'var(--card)', maxHeight: '400px', overflowY: 'auto' }}
+          >
+            {LLM_PROMPT}
+          </pre>
         </div>
-        <div>
-          <p className="text-[14px] font-semibold mb-0.5" style={{ color: 'var(--text-primary)', fontFamily: "'Georgia', serif" }}>
-            Reason
-          </p>
-          <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: "'Georgia', serif" }}>
-            A concise explanation of why that node failed and how the bad state propagated
-            through downstream nodes.
-          </p>
+      </section>
+
+      <hr className="border-border mb-16" />
+
+      {/* ── Runs List ───────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Runs List</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Your pipeline execution history. Every run with ARGUS attached shows up here automatically.
+        </p>
+
+        <div className="rounded-lg overflow-hidden mb-8" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/runs-list.png" alt="Runs list" width={1200} height={700} className="w-full h-auto block" />
         </div>
-        <div>
-          <p className="text-[14px] font-semibold mb-0.5" style={{ color: 'var(--text-primary)', fontFamily: "'Georgia', serif" }}>
-            How to Fix It
-          </p>
-          <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: "'Georgia', serif" }}>
-            Numbered action items — each targeting a specific node — telling you exactly
-            what to change to prevent the failure from recurring.
-          </p>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Summary cards</h3>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5 mb-8">
+          <Field label="Total Runs" text="Pipeline executions recorded in your workspace." />
+          <Field label="Clean" text="Runs where every node passed." />
+          <Field label="Failed" text="Runs with at least one failure or crash." />
+          <Field label="Pass Rate" text="Clean runs as a percentage of total." />
         </div>
-      </div>
-      <Body>
-        A confidence score is shown in the top-right of the panel. The footer shows how many
-        causal hypotheses were evaluated and how many observations were used.
-      </Body>
 
-      <Screenshot
-        src="/guide/run-detail-3.png"
-        alt="AI analysis fix steps, correlation panel, and behavior section"
-        caption="AI fix steps, the Correlation panel (origin node + confidence), and the Behavior/Initial State sections."
-      />
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Table columns</h3>
+        <div className="space-y-3 mb-6">
+          <Row label="RUN ID" text="Unique identifier. Click to open the detail view." />
+          <Row label="STATUS" text="Overall result: clean, silent failure, crashed, or semantic fail." />
+          <Row label="GRAPH" text="Node execution path shown as a chain." />
+          <Row label="STEPS" text="Number of nodes that executed." />
+          <Row label="FIRST FAILURE" text="First node that produced bad output — the likely root cause." />
+          <Row label="SHAPE" text="Whether all expected nodes ran (full) or the run was cut short (partial)." />
+        </div>
 
-      <SubTitle>Correlation</SubTitle>
-      <Body>
-        Argus runs a correlation analysis to confirm which node is the true origin of the
-        degradation. Shows the origin node name, step index, failure signals (e.g.{' '}
-        <Code>missing_field</Code>), and a confidence score.
-      </Body>
+        <p className="text-[15px] text-muted-foreground leading-[1.7]">
+          The <strong className="text-foreground font-medium">Evaluation</strong> panel lets you filter runs by constraints
+          like <Code>overall_status == clean</Code>.
+        </p>
+      </section>
 
-      <SubTitle>Behavior &amp; Initial State</SubTitle>
-      <Body>
-        The Behavior section shows the raw initial state your pipeline received — the exact
-        input dict at invocation time. Useful for reproducing the failure locally.
-      </Body>
+      <hr className="border-border mb-16" />
 
-      <Divider />
+      {/* ── Run Detail ──────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Run Detail</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Full picture of a single pipeline execution — metrics, execution trace, AI analysis, and initial state.
+        </p>
 
-      {/* ── 3. Compare ───────────────────────────────────────────────────── */}
-      <SectionTitle>3. Compare</SectionTitle>
-      <Body>
-        Compare two runs side-by-side to see exactly what changed — useful for verifying a
-        fix worked, catching regressions, or understanding why one run is faster than another.
-      </Body>
+        <div className="rounded-lg overflow-hidden mb-8" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/run-detail-1.png" alt="Run detail header and metrics" width={1200} height={700} className="w-full h-auto block" />
+        </div>
 
-      <Screenshot
-        src="/guide/compare.png"
-        alt="Compare page showing winner verdict and node-by-node diff"
-        caption="Compare page: winner verdict at the top, aggregate stats table, then a node-by-node status comparison."
-      />
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5 mb-8">
+          <Field label="Header" text="Run ID, status, timestamp, duration, step count, and ARGUS version." />
+          <Field label="Root Cause Chain" text="Traces failures back to the originating node, not the node that complained." />
+        </div>
 
-      <SubTitle>How to compare</SubTitle>
-      <div className="mb-5 space-y-1">
-        <StepItem n={1} title="Open Compare">
-          Click <strong>Compare</strong> in the sidebar, or use the Compare button on any run detail page (pre-fills Run A).
-        </StepItem>
-        <StepItem n={2} title="Enter two run IDs">
-          Paste a Run A (typically the older / broken run) and Run B (the newer / fixed run).
-        </StepItem>
-        <StepItem n={3} title="Read the verdict">
-          The winner banner shows which run performed better and why — fewer failures, faster duration, higher success rate.
-        </StepItem>
-        <StepItem n={4} title="Read the node diff">
-          Each node is listed with its status in A and B. Nodes only present in one run are labelled <em>only in A</em> or <em>only in B</em>. Status changes are highlighted.
-        </StepItem>
-      </div>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Metrics</h3>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5 mb-8">
+          <Field label="Duration" text="Wall-clock time for the full run." />
+          <Field label="Success Rate" text="Percentage of nodes that passed." />
+          <Field label="Failures" text="Nodes with any failure status." />
+          <Field label="Severity" text="Worst level seen: ok, warning, or critical." />
+          <Field label="Completed" text="Whether the pipeline reached the final node." />
+        </div>
 
-      <Body>
-        The aggregate table shows Failures, Duration, and Success Rate side-by-side with a
-        winner indicator (<Code>B ✓</Code>) for each metric.
-      </Body>
+        <div className="rounded-lg overflow-hidden mb-8" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/run-detail-2.png" alt="Execution timeline and AI analysis" width={1200} height={700} className="w-full h-auto block" />
+        </div>
 
-      <Divider />
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Execution timeline</h3>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-8">
+          Nodes listed in execution order with name, output type, duration, and status.
+          Failed nodes show a root cause annotation — which field was missing and which
+          upstream node dropped it. Expand any row to see full I/O JSON.
+        </p>
 
-      {/* ── 4. Rerun ─────────────────────────────────────────────────────── */}
-      <SectionTitle>4. Rerun</SectionTitle>
-      <Body>
-        Rerun re-executes your pipeline from a specific node using the frozen input state
-        captured from a previous run. This means you can test a fix without re-running
-        the full pipeline or making new LLM calls for the nodes before the broken one.
-        External API calls (OpenAI, search tools, etc.) execute live by default.
-        Use <Code>record_http=True</Code> to capture and replay them from disk for
-        fully deterministic reruns.
-      </Body>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">AI Analysis</h3>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-5">
+          When <Code>OPENAI_API_KEY</Code> is set, ARGUS investigates non-clean runs automatically.
+          The analysis panel has three sections:
+        </p>
+        <div className="space-y-3 mb-8 pl-1">
+          <Row label="Root Cause Node" text="The node that first produced broken state." />
+          <Row label="Reason" text="Why the node failed and how it propagated downstream." />
+          <Row label="How to Fix" text="Numbered action items targeting specific nodes." />
+        </div>
 
-      <SubTitle>How rerun works</SubTitle>
-      <Body>
-        When Argus records a run, it saves the input state at every node. When you rerun
-        from node X, Argus loads the exact input that node X received originally, then
-        re-executes node X and everything downstream with your current code. A new run ID
-        is created for the result.
-      </Body>
+        <div className="rounded-lg overflow-hidden mb-6" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/run-detail-3.png" alt="AI fix steps and correlation" width={1200} height={700} className="w-full h-auto block" />
+        </div>
 
-      <SubTitle>Step by step — from the dashboard</SubTitle>
-      <div className="mb-5 space-y-1">
-        <StepItem n={1} title="Open the failing run">
-          Click the run ID on the runs list to open its detail page.
-        </StepItem>
-        <StepItem n={2} title="Find the root cause node">
-          Check the red root cause banner at the top — it names the node that first produced
-          bad output. That&apos;s the node you want to rerun from.
-        </StepItem>
-        <StepItem n={3} title="Click the rerun icon">
-          In the execution timeline, each node row has a rerun icon (↺) on the right.
-          Click it on the root cause node.
-        </StepItem>
-        <StepItem n={4} title="Wait for the new run">
-          Argus re-executes from that node forward. When done, you&apos;re taken to the new
-          run&apos;s detail page with a fresh set of results.
-        </StepItem>
-        <StepItem n={5} title="Compare to confirm">
-          Use the <strong>Compare</strong> button to diff the original run against the rerun.
-          The broken nodes should now show <Code>pass</Code>.
-        </StepItem>
-      </div>
+        <div className="rounded-lg overflow-hidden mb-8" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/run-detail-4.png" alt="Behavior and initial state" width={1200} height={700} className="w-full h-auto block" />
+        </div>
 
-      <SubTitle>Step by step — from the CLI</SubTitle>
-      <CodeBlock title="Rerun from a specific node">
-{`argus replay <run-id> <node-name>`}
-      </CodeBlock>
-      <CodeBlock title="If node functions weren't stored in the run">
-{`argus replay <run-id> <node-name> --app my_pipeline:build_graph`}
-      </CodeBlock>
-      <Body>
-        The <Code>--app</Code> flag takes a <Code>module:function</Code> path to your graph
-        factory function. Only needed if node function references weren&apos;t captured at
-        recording time. After rerun, use <Code>argus diff</Code> to compare:
-      </Body>
-      <CodeBlock>
-{`argus diff <original-run-id> <rerun-run-id>`}
-      </CodeBlock>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+          <Field label="Correlation" text="Confirms the true origin node with failure signals and a confidence score." />
+          <Field label="Behavior" text="Raw initial state your pipeline received — the exact input at invocation time." />
+        </div>
+      </section>
 
-      <Note>
-        Screenshots for the rerun UI will be added in a future update.
-      </Note>
+      <hr className="border-border mb-16" />
 
-      <Divider />
+      {/* ── Compare ─────────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Compare</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Side-by-side diff of two runs. Useful for verifying fixes, catching regressions,
+          or understanding performance differences.
+        </p>
 
-      {/* ── 5. ArgusWatcher Parameters ─────────────────────────────────── */}
-      <SectionTitle>5. ArgusWatcher Parameters</SectionTitle>
-      <Body>
-        Pass your graph as the first argument, then use keyword arguments for everything else.
-        Mix and match whatever fits your pipeline:
-      </Body>
+        <div className="rounded-lg overflow-hidden mb-5" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/compare-1.png" alt="Compare page overview" width={1200} height={700} className="w-full h-auto block" />
+        </div>
+        <div className="rounded-lg overflow-hidden mb-8" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/compare-2.png" alt="Compare node diff" width={1200} height={700} className="w-full h-auto block" />
+        </div>
 
-      <CodeBlock title="All parameters explained">
+        <div className="space-y-4 mb-6">
+          <Step n={1} title="Open Compare" text="Sidebar link, or the Compare button on any run detail page." />
+          <Step n={2} title="Enter two run IDs" text="Run A is typically the broken run, Run B is the fix." />
+          <Step n={3} title="Read the verdict" text="Winner banner shows which run performed better and why." />
+          <Step n={4} title="Read the node diff" text="Status in A vs B per node. Missing nodes labelled only in A / only in B." />
+        </div>
+      </section>
+
+      <hr className="border-border mb-16" />
+
+      {/* ── Approvals ──────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Approvals</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Gate deployments on ARGUS results. Runs that meet your criteria get approved;
+          everything else is held for review.
+        </p>
+
+        <div className="rounded-lg overflow-hidden mb-8" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/approvals.png" alt="Approvals page" width={1200} height={700} className="w-full h-auto block" />
+        </div>
+      </section>
+
+      <hr className="border-border mb-16" />
+
+      {/* ── Rerun ───────────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Rerun</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Re-execute from a specific node using the frozen input state from a previous run.
+          Test a fix without re-running the full pipeline or making upstream LLM calls.
+          Use <Code>record_http=True</Code> for fully deterministic reruns from disk.
+        </p>
+
+        <div className="space-y-4 mb-8">
+          <Step n={1} title="Open the failing run" text="Click the run ID to open its detail page." />
+          <Step n={2} title="Find the root cause node" text="Red banner at the top names the originating node." />
+          <Step n={3} title="Click the rerun icon" text="Each node row has a rerun icon. Click it on the root cause node." />
+          <Step n={4} title="Wait for the new run" text="ARGUS re-executes from that node forward, creates a new run." />
+          <Step n={5} title="Compare to confirm" text="Diff the original against the rerun — broken nodes should now pass." />
+        </div>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">From the CLI</h3>
+        <CodeBlock title="Rerun from a specific node">{`argus replay <run-id> <node-name>`}</CodeBlock>
+        <CodeBlock title="With graph factory">{`argus replay <run-id> <node-name> --app my_pipeline:build_graph`}</CodeBlock>
+        <CodeBlock title="Diff the results">{`argus diff <original-run-id> <rerun-run-id>`}</CodeBlock>
+      </section>
+
+      <hr className="border-border mb-16" />
+
+      {/* ── Configuration Reference ─────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Configuration Reference</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          All <Code>ArgusWatcher</Code> parameters.
+          Graph is the only positional argument — everything else is keyword-only.
+        </p>
+
+        <CodeBlock title="ArgusWatcher(graph, **kwargs)">
 {`watcher = ArgusWatcher(
     graph,                  # your LangGraph StateGraph — auto-calls watch()
 
@@ -593,65 +370,119 @@ export default function GuideContent() {
                             # set to "always" for every node, False to disable
 
     # --- Deterministic rerun ---
-    record_http=True,       # saves every outbound API call (OpenAI, search, etc.)
-                            # to disk. reruns replay from disk instead of calling
-                            # live APIs — zero extra cost, fully reproducible.
+    record_http=True,       # saves every outbound API call to disk.
+                            # reruns replay from disk — zero extra cost.
 
     # --- LLM semantic judge ---
-    semantic_judge=True,    # enables an LLM that reviews every node's output for
-                            # subtle quality issues (wrong tone, unhelpful, outdated).
-                            # runs AFTER deterministic checks — so it only adds cost
-                            # where structural checks can't tell if something's off.
-                            # heads up: this calls GPT-4o once per node, so your
-                            # OpenAI bill will go up. worth it for complex pipelines,
-                            # probably overkill for simple ones.
-
-    judge_model="gpt-4o",  # which model the semantic judge uses. default is gpt-4o.
-                            # swap to gpt-4o-mini if you want cheaper runs.
+    semantic_judge=True,    # LLM reviews every node's output for subtle quality issues.
+                            # runs AFTER deterministic checks. needs OPENAI_API_KEY.
+    judge_model="gpt-4o",  # or "gpt-4o-mini" for cheaper runs.
 )`}
-      </CodeBlock>
+        </CodeBlock>
 
-      <Body>
-        After the run, access <Code>watcher.run_id</Code> to get the run ID.
-        Runs auto-save for linear and fan-out/fan-in (DAG) graphs — you only need to
-        call <Code>watcher.finalize()</Code> for cyclic graphs with back-edges.
-      </Body>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-8">
+          Access <Code>watcher.run_id</Code> after the run. Auto-saves for linear and DAG
+          graphs. Call <Code>watcher.finalize()</Code> only for cyclic graphs.
+        </p>
 
-      <SubTitle>record_http — deterministic reruns</SubTitle>
-      <Body>
-        By default, when you rerun from a node, any external API calls (OpenAI, DuckDuckGo, etc.)
-        execute live again. Different results, extra cost.
-        With <Code>record_http=True</Code>, ARGUS captures every HTTP request and response
-        during the original run. On rerun, it serves the recorded responses back — same data,
-        zero cost, fully reproducible.
-      </Body>
-      <Body>
-        <strong>Use it</strong> when your pipeline calls paid APIs and you want cheap, identical reruns.
-        <strong> Skip it</strong> when you <em>want</em> the rerun to hit the real API — e.g. testing a new prompt.
-      </Body>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">record_http</h3>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-3">
+          Captures every HTTP request/response during the original run. On rerun, serves
+          recorded responses back — same data, zero cost, fully reproducible.
+        </p>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-8">
+          <strong className="text-foreground font-medium">Enable</strong> when nodes call paid APIs and you want cheap, identical reruns.{' '}
+          <strong className="text-foreground font-medium">Skip</strong> when you want the rerun to hit the real API.
+        </p>
 
-      <SubTitle>semantic_judge — LLM-powered quality checks</SubTitle>
-      <Body>
-        ARGUS catches ~80% of production failures deterministically (missing fields, empty results,
-        type mismatches, placeholder outputs) — zero cost, zero false positives.
-        The remaining ~20% are subtle: wrong tone, unhelpful responses, outdated info,
-        answering the wrong question. That&apos;s what the semantic judge is for.
-      </Body>
-      <FieldGroup items={[
-        { field: 'Deterministic first', description: 'Structural checks always run first — free, instant, reproducible.' },
-        { field: 'LLM second', description: 'The judge only reviews what the structural layer couldn\'t decide.' },
-        { field: 'Per-node', description: 'Each node\'s output is evaluated in context of its input and the pipeline\'s purpose.' },
-        { field: 'Hypotheses', description: 'The judge generates causal hypotheses ranked by confidence, with supporting evidence.' },
-      ]} />
-      <Body>
-        Requires <Code>OPENAI_API_KEY</Code> in your environment. Uses GPT-4o by default.
-      </Body>
-      <Body>
-        <strong>Use it</strong> for complex multi-agent pipelines, customer-facing outputs,
-        or when deterministic checks show &ldquo;pass&rdquo; but outputs still feel wrong.
-        <strong> Skip it</strong> for simple pipelines, CI/CD speed runs, or if you want
-        zero monitoring costs.
-      </Body>
-    </article>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">semantic_judge</h3>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-5">
+          ARGUS catches ~80% of production failures deterministically — missing fields, empty results,
+          type mismatches, placeholder outputs. The remaining ~20% are subtle: wrong tone, unhelpful
+          responses, outdated info. The semantic judge covers those.
+        </p>
+        <div className="space-y-3 mb-5">
+          <Row label="Deterministic first" text="Structural checks run first — free, instant, reproducible." />
+          <Row label="LLM second" text="Judge only reviews what structural checks couldn't decide." />
+          <Row label="Per-node" text="Each output evaluated in context of its input and the pipeline's purpose." />
+        </div>
+        <p className="text-[15px] text-muted-foreground leading-[1.7]">
+          Requires <Code>OPENAI_API_KEY</Code>.
+          {' '}<strong className="text-foreground font-medium">Enable</strong> for complex multi-agent pipelines.
+          {' '}<strong className="text-foreground font-medium">Skip</strong> for simple pipelines or zero-cost monitoring.
+        </p>
+      </section>
+    </div>
+  )
+}
+
+// ── Primitives ──────────────────────────────────────────────────────────────
+
+function Code({ children }: { children: string }) {
+  return (
+    <code className="text-[13px] font-mono px-1.5 py-0.5 rounded bg-card text-foreground">
+      {children}
+    </code>
+  )
+}
+
+function Field({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <p className="text-[15px] font-medium text-foreground mb-1">{label}</p>
+      <p className="text-[15px] text-muted-foreground leading-[1.7]">{text}</p>
+    </div>
+  )
+}
+
+function Row({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="flex gap-4 items-baseline">
+      <span
+        className="text-xs font-mono font-medium px-2 py-1 rounded shrink-0"
+        style={{ background: 'rgba(91,106,240,0.08)', color: 'var(--primary)', border: '1px solid rgba(91,106,240,0.15)' }}
+      >
+        {label}
+      </span>
+      <span className="text-[15px] text-muted-foreground leading-[1.7]">{text}</span>
+    </div>
+  )
+}
+
+function Step({ n, title, text }: { n: number; title: string; text: string }) {
+  return (
+    <div className="flex gap-4 items-start">
+      <span
+        className="w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-medium shrink-0 mt-0.5"
+        style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--muted-foreground)', border: '1px solid var(--border)' }}
+      >
+        {n}
+      </span>
+      <p className="text-[15px] leading-[1.7]">
+        <span className="font-medium text-foreground">{title}</span>
+        <span className="text-muted-foreground"> — {text}</span>
+      </p>
+    </div>
+  )
+}
+
+function CodeBlock({ children, title }: { children: string; title?: string }) {
+  return (
+    <div className="my-5 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+      {title && (
+        <div
+          className="px-5 py-2.5 text-xs font-mono text-muted-foreground"
+          style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}
+        >
+          {title}
+        </div>
+      )}
+      <pre
+        className="px-5 py-4 text-[13px] leading-[1.75] font-mono overflow-x-auto text-foreground"
+        style={{ background: 'var(--card)' }}
+      >
+        {children}
+      </pre>
+    </div>
   )
 }
