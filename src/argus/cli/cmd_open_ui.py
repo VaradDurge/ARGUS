@@ -238,8 +238,19 @@ def _run_replay_worker(
         with _replay_lock:
             _replay_jobs[job_id] = {"status": "done", "run_id": new_run_id, "error": None}
     except Exception as exc:
+        error_str = str(exc)
+        error_code = "replay_failed"
+        if "returned a dict" in error_str or "app_factory must return" in error_str:
+            error_code = "bad_factory"
+        elif "returned None" in error_str:
+            error_code = "bad_factory"
         with _replay_lock:
-            _replay_jobs[job_id] = {"status": "error", "run_id": None, "error": str(exc)}
+            _replay_jobs[job_id] = {
+                "status": "error",
+                "run_id": None,
+                "error": error_str,
+                "error_code": error_code,
+            }
 
 
 def _all_run_files(project_dir: Path) -> list[Path]:
@@ -507,6 +518,8 @@ def _make_handler(
                         resp["run_id"] = job["run_id"]
                     if job.get("error"):
                         resp["message"] = job["error"]
+                    if job.get("error_code"):
+                        resp["error_code"] = job["error_code"]
                     self._send_json(resp)
             else:
                 self._serve_static(parsed.path)

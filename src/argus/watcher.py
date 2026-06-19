@@ -256,8 +256,13 @@ def _detect_caller_factory() -> str | None:
     works regardless of cwd or project layout — pip-installed packages,
     src/ layouts, nested folders all resolve correctly.
 
+    Skips functions that appear to compile AND invoke the graph (they would
+    return a result dict, not a StateGraph).
+
     Returns "module:function" string suitable for importlib, or None.
     """
+    fallback: str | None = None
+
     for frame_info in inspect.stack()[2:]:  # skip _detect_caller_factory + watch
         func_name = frame_info.function
         filename = frame_info.filename
@@ -277,9 +282,26 @@ def _detect_caller_factory() -> str | None:
             if not module_name:
                 continue
 
-        return f"{module_name}:{func_name}"
+        ref = f"{module_name}:{func_name}"
 
-    return None
+        # Check if this frame has a compiled graph in its locals — if so,
+        # the function likely compiles AND invokes the graph and would
+        # return a result dict, not the StateGraph builder.
+        locals_dict = frame_info.frame.f_locals
+        has_compiled = any(
+            hasattr(v, "invoke") and hasattr(v, "get_graph")
+            for v in locals_dict.values()
+            if v is not None
+        )
+        if has_compiled:
+            # Remember as fallback but keep looking for a better candidate
+            if fallback is None:
+                fallback = ref
+            continue
+
+        return ref
+
+    return fallback
 
 
 def _capture_node_fn_refs(

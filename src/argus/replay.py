@@ -269,7 +269,34 @@ class ReplayEngine:
         """Replay using a factory function (legacy fallback)."""
         from argus.watcher import ArgusWatcher
 
-        graph = app_factory()
+        try:
+            graph = app_factory()
+        except Exception as exc:
+            raise ValueError(
+                f"app_factory raised an error: {exc}. "
+                "The factory should be a zero-arg function that returns a "
+                "StateGraph or CompiledGraph."
+            ) from exc
+
+        if graph is None:
+            raise ValueError(
+                "app_factory returned None. It should return a LangGraph "
+                "StateGraph or CompiledGraph."
+            )
+
+        if isinstance(graph, dict):
+            raise ValueError(
+                "app_factory returned a dict instead of a StateGraph. "
+                "This usually means the factory runs the graph and returns "
+                "its result. The factory should return the StateGraph BEFORE "
+                "calling .compile() or .invoke().\n\n"
+                "  def build_graph():\n"
+                "      graph = StateGraph(MyState)\n"
+                "      graph.add_node(...)\n"
+                "      return graph  # not graph.compile().invoke()\n\n"
+                "Set the correct factory via argus ui --app module:fn or in "
+                "the dashboard settings."
+            )
 
         # Unwrap compiled graphs
         if hasattr(graph, "invoke") and hasattr(graph, "graph"):

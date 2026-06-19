@@ -111,7 +111,7 @@ export default function ReplayControls({
       }
       try {
         const pr = await fetch(`/api/replay/status/${job_id}`)
-        const pdata = await pr.json() as { status: string; run_id?: string; message?: string }
+        const pdata = await pr.json() as { status: string; run_id?: string; message?: string; error_code?: string }
         if (pdata.status === 'done') {
           clearInterval(pollRef.current!)
           if (mode === 'node' && pdata.run_id && nodeName) {
@@ -136,7 +136,13 @@ export default function ReplayControls({
         } else if (pdata.status === 'error') {
           clearInterval(pollRef.current!)
           setReplayingNode(null)
-          setReplayState({ phase: 'error', message: pdata.message ?? 'Rerun failed' })
+          if (pdata.error_code === 'bad_factory') {
+            setPendingNode(nodeName ?? null)
+            setReplayState({ phase: 'no_factory' })
+            setTimeout(() => factoryInputRef.current?.focus(), 50)
+          } else {
+            setReplayState({ phase: 'error', message: pdata.message ?? 'Rerun failed' })
+          }
         }
       } catch {
         // transient - keep polling
@@ -174,7 +180,7 @@ export default function ReplayControls({
           style={{ background: 'var(--card)', border: '1px solid var(--warning)' }}
         >
           <span className="text-[12px] shrink-0" style={{ color: 'var(--warning)' }}>
-            app factory needed:
+            app factory needed — provide the function that builds your StateGraph:
           </span>
           <form
             onSubmit={(e) => { e.preventDefault(); handleFactorySubmit() }}
