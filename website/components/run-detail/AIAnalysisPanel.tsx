@@ -143,12 +143,12 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
           <div className="mt-4 p-4 rounded-lg text-[13px]"
             style={{ background: 'color-mix(in srgb, var(--failure) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--failure) 12%, transparent)' }}>
             <span className="font-semibold" style={{ color: 'var(--failure)' }}>Analysis failed: </span>
-            <span style={{ color: 'var(--failure)' }}>{inv.error}</span>
+            <span style={{ color: 'var(--failure)' }}>{inv?.error}</span>
           </div>
         )}
 
         {/* Healthy run */}
-        {!hasError && isHealthy && inv.root_cause_explanation && (
+        {!hasError && isHealthy && inv?.root_cause_explanation && (
           <div className="mt-4 p-5 rounded-xl"
             style={{ background: 'color-mix(in srgb, var(--success) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 12%, transparent)' }}>
             <div className="flex items-center gap-2.5 mb-3">
@@ -158,7 +158,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
               </span>
             </div>
             <p className="text-[14px] leading-relaxed" style={{ color: '#aaaaaa', maxWidth: '680px' }}>
-              {inv.root_cause_explanation}
+              {inv?.root_cause_explanation}
             </p>
           </div>
         )}
@@ -183,37 +183,37 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
             )}
 
             {/* Root Cause Reason */}
-            {inv.root_cause_explanation && (
+            {inv?.root_cause_explanation && (
               <div>
                 <p className="text-[13px] text-text-tertiary">
                   Root Cause Reason:
                 </p>
                 <p className="mt-1.5 text-sm leading-relaxed text-[#aaaaaa]" style={{ maxWidth: '680px' }}>
-                  {inv.root_cause_explanation}
+                  {inv?.root_cause_explanation}
                 </p>
               </div>
             )}
 
             {/* Forensic Narrative */}
-            {inv.degradation_narrative && (
+            {inv?.degradation_narrative && (
               <div>
                 <p className="text-[13px] text-text-tertiary">
                   What Happened:
                 </p>
                 <p className="mt-1.5 text-sm leading-relaxed text-[#aaaaaa]" style={{ maxWidth: '680px' }}>
-                  {inv.degradation_narrative}
+                  {inv?.degradation_narrative}
                 </p>
               </div>
             )}
 
             {/* Fix */}
-            {inv.debugging_suggestions.length > 0 && (
+            {(inv?.debugging_suggestions?.length ?? 0) > 0 && (
               <div>
                 <p className="text-[13px] text-text-tertiary">
                   Suggested Fixes:
                 </p>
                 <div className="mt-2 space-y-3">
-                  {inv.debugging_suggestions.map((s, i) => {
+                  {inv!.debugging_suggestions.map((s, i) => {
                     // Parse: "[node] what — why\n    code_hint"
                     // Also handles: "[node] what. — why." or plain text
                     const nodeMatch = s.match(/^\[([^\]]+)\]\s*/)
@@ -302,7 +302,7 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
         )}
 
         {/* Causal hypotheses */}
-        {!hasError && inv.causal_hypotheses.length > 0 && (
+        {!hasError && (inv?.causal_hypotheses?.length ?? 0) > 0 && (
           <div className="border-t border-border pt-5">
             <button
               type="button"
@@ -310,15 +310,15 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
               className="flex items-center gap-2 text-[12px] hover:opacity-80 transition-opacity text-muted-foreground"
             >
               <span className="text-[10px]">{detailsOpen ? '\u25BE' : '\u25B8'}</span>
-              <span>Causal Hypotheses ({inv.causal_hypotheses.length})</span>
-              {inv.observations.length > 0 && (
-                <span className="ml-1 text-muted-foreground">&middot; {inv.observations.length} observation{inv.observations.length !== 1 ? 's' : ''}</span>
+              <span>Causal Hypotheses ({inv!.causal_hypotheses.length})</span>
+              {(inv?.observations?.length ?? 0) > 0 && (
+                <span className="ml-1 text-muted-foreground">&middot; {inv!.observations.length} observation{inv!.observations.length !== 1 ? 's' : ''}</span>
               )}
             </button>
 
             {detailsOpen && (
               <div className="mt-4 space-y-3">
-                {inv.causal_hypotheses.map((h, i) => {
+                {inv!.causal_hypotheses.map((h, i) => {
                   const hc = h.confidence >= 0.7 ? 'var(--success)' : h.confidence >= 0.4 ? 'var(--warning)' : 'var(--muted-foreground)'
                   return (
                     <div
@@ -353,11 +353,11 @@ export default function AIAnalysisPanel({ run }: { run: RunRecord }) {
                   )
                 })}
 
-                {inv.observations.length > 0 && (
+                {(inv?.observations?.length ?? 0) > 0 && (
                   <div className="pt-3">
                     <div className="text-[10px] uppercase tracking-widest font-semibold mb-2 text-muted-foreground">Observations</div>
                     <div className="space-y-1.5">
-                      {inv.observations.map((o, i) => (
+                      {inv!.observations.map((o, i) => (
                         <div key={i} className="flex items-baseline gap-2 text-[12px]">
                           <span className="text-muted-foreground">&middot;</span>
                           <span className="text-muted-foreground">{o}</span>
