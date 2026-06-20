@@ -156,7 +156,7 @@
       "category": "placeholder_outputs",
       "pattern": "PLACEHOLDER",
       "match_strategy": "exact_ci",
-      "severity": "warning",
+      "severity": "critical",
       "description": "Field is a literal PLACEHOLDER string",
       "source": "builtin",
       "metadata": {

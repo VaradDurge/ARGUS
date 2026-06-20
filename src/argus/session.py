@@ -501,16 +501,30 @@ class ArgusSession:
                     input_state=input_snap,
                     current_node_fn=current_fn,
                 )
-                if inspection.is_silent_failure or inspection.has_tool_failure:
-                    status = "fail"
-                elif inspection.semantic_signals:
-                    status = "semantic_fail"
+                # Determine raw status from inspection
+                _has_failure = (
+                    inspection.is_silent_failure or inspection.has_tool_failure
+                )
+                _has_signals = bool(inspection.semantic_signals)
 
-                # Upstream propagation: if this node passed but an upstream
-                # node was flagged as `fail` with missing fields, and those
-                # fields are also absent from THIS node's input, this node
-                # is operating on degraded upstream context.
-                if status == "pass":
+                if _has_failure or _has_signals:
+                    # Before blaming this node, check if it's operating on
+                    # degraded upstream data. If an upstream node already
+                    # failed, this node's failures are a symptom, not cause.
+                    degraded_fields, upstream_node = self._check_degraded_input(
+                        input_snap,
+                    )
+                    if degraded_fields:
+                        status = "degraded_input"
+                        inspection.degraded_fields = degraded_fields
+                        inspection.degraded_upstream_node = upstream_node
+                    elif _has_failure:
+                        status = "fail"
+                    else:
+                        status = "semantic_fail"
+                elif status == "pass":
+                    # No inspection failures — still check for degraded input
+                    # from upstream (e.g. empty fields that weren't flagged)
                     degraded_fields, upstream_node = self._check_degraded_input(
                         input_snap,
                     )
@@ -576,9 +590,19 @@ class ArgusSession:
                     sc_passed = semantic_check_result.passed
                     sc_confident = semantic_check_result.confidence >= 0.7
                     if sc_passed and sc_confident:
-                        # LLM says output is valid → override ALL heuristic
-                        # failures (tool failures, semantic signals, anomalies)
-                        if status != "pass":
+                        # LLM says output is valid — but only override if
+                        # the heuristic failures are ambiguous.  Never override
+                        # structural failures (missing fields) or high-confidence
+                        # semantic detections (placeholder values).
+                        _has_structural = inspection and (
+                            inspection.is_silent_failure or inspection.has_tool_failure
+                        )
+                        _has_placeholder = inspection and any(
+                            tf.failure_type == "placeholder_detected"
+                            for tf in (inspection.tool_failures or [])
+                        )
+                        _can_override = not _has_structural and not _has_placeholder
+                        if _can_override and status != "pass":
                             status = "pass"
                             # Record the override for feedback/learning
                             try:

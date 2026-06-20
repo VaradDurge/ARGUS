@@ -1060,7 +1060,13 @@ def build_root_cause_chain(
 
     # Phase 2: inspection-based chain (silent failures, missing fields,
     # semantic degradation, tool failures, etc.)
+    # Only tag nodes that ORIGINATE failures, not those that merely propagate
+    # a bad value unchanged from their input.
     for event in reversed(steps_so_far):
+        # Skip nodes operating on degraded input — they are victims, not causes
+        if event.status == "degraded_input":
+            continue
+
         insp = event.inspection
 
         # Check for LLM semantic checker failure (semantic_check.passed == False)
@@ -1088,6 +1094,7 @@ def build_root_cause_chain(
         )
         if not has_any_failure:
             continue
+
         bad_fields = set()
         if insp is not None:
             bad_fields = set(insp.missing_fields + insp.empty_fields)
@@ -1096,10 +1103,9 @@ def build_root_cause_chain(
         if (
             real_bad
             or seen_bad_fields.intersection(real_bad)
-            or (
-                insp is not None
-                and (insp.has_tool_failure or insp.tool_failures or insp.semantic_signals)
-            )
+            or (insp is not None and insp.is_silent_failure)
+            or (insp is not None and insp.has_tool_failure)
+            or (insp is not None and insp.tool_failures)
             or has_semantic_check_failure
             or is_semantic_fail_status
         ):
