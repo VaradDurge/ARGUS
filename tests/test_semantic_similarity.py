@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -10,6 +11,8 @@ from unittest.mock import patch
 import pytest
 
 from argus.registry import _dispatch, scan_value
+
+_has_openai_key = bool(os.environ.get("OPENAI_API_KEY"))
 
 # ── Unit tests (no API calls) ───────────────────────────────────────────────
 
@@ -134,6 +137,7 @@ def test_custom_threshold_per_signature():
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not _has_openai_key, reason="OPENAI_API_KEY not set")
 def test_semantic_match_above_threshold():
     """A paraphrase of a known pattern triggers a semantic match."""
     import argus.registry as reg
@@ -161,6 +165,7 @@ def test_semantic_match_above_threshold():
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not _has_openai_key, reason="OPENAI_API_KEY not set")
 def test_semantic_no_match_below_threshold():
     """Unrelated text does not trigger a semantic match."""
     import argus.registry as reg
@@ -186,6 +191,7 @@ def test_semantic_no_match_below_threshold():
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not _has_openai_key, reason="OPENAI_API_KEY not set")
 def test_scan_value_end_to_end_with_mixed_strategies():
     """scan_value works with a registry containing both lexical and semantic sigs."""
     import argus.registry as reg
