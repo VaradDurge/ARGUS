@@ -1117,12 +1117,15 @@ def _make_handler(
                                 "improvement": "\U0001f4a1",
                             }
                             icon = emoji.get(category, "\U0001f4cb")
-                            lin_title = f"{icon} [{category.replace('_', ' ').title()}] {description[:80]}"
+                            cat_label = category.replace('_', ' ').title()
+                            desc_short = description[:80]
+                            lin_title = f"{icon} [{cat_label}] {desc_short}"
 
                             # Build markdown body with full diagnostics
                             lin_body = f"## Description\n\n{description}\n\n"
                             lin_body += f"**Category:** {category}\n"
-                            lin_body += f"**ARGUS Version:** {system_info.get('argus_version', '?')}\n"
+                            ver = system_info.get('argus_version', '?')
+                            lin_body += f"**ARGUS Version:** {ver}\n"
                             if run_diagnostics:
                                 rid = run_diagnostics.get("run_id", "?")
                                 st = run_diagnostics.get("overall_status", "?")
@@ -1133,7 +1136,7 @@ def _make_handler(
                                 is_cyclic = run_diagnostics.get("is_cyclic", False)
                                 first_fail = run_diagnostics.get("first_failure_step")
 
-                                lin_body += f"\n## Run Diagnostics\n\n"
+                                lin_body += "\n## Run Diagnostics\n\n"
                                 lin_body += f"- **Run ID:** `{rid}`\n"
                                 lin_body += f"- **Status:** {st}\n"
                                 if dur is not None:
@@ -1143,11 +1146,15 @@ def _make_handler(
                                 if rcc:
                                     lin_body += f"- **Root cause chain:** {' → '.join(rcc)}\n"
                                 if nodes:
-                                    lin_body += f"- **Graph nodes:** {', '.join(f'`{n}`' for n in nodes)}\n"
+                                    node_list = ', '.join(f'`{n}`' for n in nodes)
+                                    lin_body += f"- **Graph nodes:** {node_list}\n"
                                 if is_cyclic:
-                                    lin_body += f"- **Cyclic graph:** yes\n"
+                                    lin_body += "- **Cyclic graph:** yes\n"
                                 if edges:
-                                    edge_strs = [f"`{s}` → `{', '.join(ds)}`" for s, ds in edges.items()]
+                                    edge_strs = [
+                                        f"`{s}` → `{', '.join(ds)}`"
+                                        for s, ds in edges.items()
+                                    ]
                                     lin_body += f"- **Edges:** {'; '.join(edge_strs)}\n"
 
                                 steps = run_diagnostics.get("steps", [])
@@ -1170,7 +1177,8 @@ def _make_handler(
                                         # Missing fields
                                         mf = s.get("missing_fields", [])
                                         if mf:
-                                            lin_body += f"- **Missing fields:** {', '.join(f'`{f}`' for f in mf)}\n"
+                                            mf_list = ', '.join(f'`{f}`' for f in mf)
+                                            lin_body += f"- **Missing fields:** {mf_list}\n"
 
                                         # Tool failures
                                         tfs = s.get("tool_failures", [])
@@ -1186,7 +1194,10 @@ def _make_handler(
                                             passed = "PASS" if sc.get("passed") else "FAIL"
                                             conf = sc.get("confidence", "?")
                                             reason = sc.get("reason", "")
-                                            lin_body += f"- **Semantic check:** {passed} (confidence: {conf})"
+                                            lin_body += (
+                                                f"- **Semantic check:** {passed}"
+                                                f" (confidence: {conf})"
+                                            )
                                             if reason:
                                                 lin_body += f" — {reason}"
                                             lin_body += "\n"
@@ -1198,19 +1209,25 @@ def _make_handler(
                                                 aid = a.get("anomaly_id", "?")
                                                 asev = a.get("severity", "?")
                                                 areason = a.get("reason", "")
-                                                lin_body += f"- **Anomaly [{aid}]:** {areason} ({asev})\n"
+                                                lin_body += (
+                                                    f"- **Anomaly [{aid}]:**"
+                                                    f" {areason} ({asev})\n"
+                                                )
 
                                         # Exception
                                         exc = s.get("exception")
                                         if exc:
-                                            lin_body += f"- **Exception:**\n```\n{exc[:500]}\n```\n"
+                                            exc_short = exc[:500]
+                                            lin_body += (
+                                                f"- **Exception:**\n```\n{exc_short}\n```\n"
+                                            )
 
                                         lin_body += "\n"
 
                                 # LLM investigation
                                 llm_inv = run_diagnostics.get("llm_investigation", {})
                                 if llm_inv and llm_inv.get("triggered"):
-                                    lin_body += f"### LLM Investigation\n\n"
+                                    lin_body += "### LLM Investigation\n\n"
                                     rc_expl = llm_inv.get("root_cause_explanation", "")
                                     rc_node = llm_inv.get("root_cause_node", "")
                                     conf = llm_inv.get("confidence", "?")
@@ -1221,7 +1238,8 @@ def _make_handler(
                                         lin_body += f"- **Explanation:** {rc_expl}\n"
                                     lin_body += f"- **Confidence:** {conf}\n"
                                     if triggers:
-                                        lin_body += f"- **Trigger reasons:** {', '.join(triggers)}\n"
+                                        trig_list = ', '.join(triggers)
+                                        lin_body += f"- **Trigger reasons:** {trig_list}\n"
 
                             linear_result = _send_to_linear(
                                 lin_key, lin_team, category, lin_title, lin_body,
