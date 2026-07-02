@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.resources
 import json
 import re
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -88,8 +89,9 @@ def get_registry() -> list[dict[str, Any]]:
 
 def reload_registry() -> None:
     """Reload the registry from disk, picking up newly approved signatures."""
-    global _REGISTRY  # noqa: PLW0603
+    global _REGISTRY, _PATTERN_EMBEDDINGS_READY  # noqa: PLW0603
     _REGISTRY = _load_registry()
+    _PATTERN_EMBEDDINGS_READY = False
 
 
 def sync_shared_signatures() -> int:
@@ -269,6 +271,58 @@ def _match_repetition(value: str, threshold: int = 3) -> bool:
     return max(counts.values(), default=0) >= effective_threshold
 
 
+# ── Semantic similarity matching ─────────────────────────────────────────────
+
+_PATTERN_EMBEDDINGS_READY = False
+_PATTERN_EMBEDDINGS_LOCK = threading.Lock()
+_DEFAULT_SIMILARITY_THRESHOLD = 0.75
+
+# Stores the last similarity score per sig_id for evidence formatting.
+# Cleared at the start of each scan_value() call.
+_last_similarity_scores: dict[str, float] = {}
+
+
+def _ensure_pattern_embeddings(sigs: list[dict[str, Any]]) -> None:
+    """Lazily compute and cache pattern embeddings for semantic_similarity sigs."""
+    global _PATTERN_EMBEDDINGS_READY  # noqa: PLW0603
+    if _PATTERN_EMBEDDINGS_READY:
+        return
+    with _PATTERN_EMBEDDINGS_LOCK:
+        if _PATTERN_EMBEDDINGS_READY:
+            return
+        from argus import embedding_store  # noqa: PLC0415
+
+        sem_sigs = [s for s in sigs if s.get("match_strategy") == "semantic_similarity"]
+        if not sem_sigs:
+            _PATTERN_EMBEDDINGS_READY = True
+            return
+
+        patterns = [s["pattern"] for s in sem_sigs]
+        embeddings = embedding_store.get_cached_embeddings_batch(patterns)
+        for sig, emb in zip(sem_sigs, embeddings):
+            sig["_pattern_embedding"] = emb
+        _PATTERN_EMBEDDINGS_READY = True
+
+
+def _match_semantic_similarity(sig: dict[str, Any], value: str) -> bool:
+    """True if value is semantically similar to the signature pattern."""
+    from argus import embedding_store  # noqa: PLC0415
+
+    pattern_emb = sig.get("_pattern_embedding")
+    if pattern_emb is None:
+        return False
+
+    value_emb = embedding_store.get_cached_embedding(value)
+    score = embedding_store.cosine_similarity(value_emb, pattern_emb)
+    threshold = (
+        sig.get("metadata", {}).get("similarity_threshold", _DEFAULT_SIMILARITY_THRESHOLD)
+    )
+    if score >= threshold:
+        _last_similarity_scores[sig["id"]] = score
+        return True
+    return False
+
+
 # Strategy dispatch — avoids if/elif chain; each entry is a callable that
 # receives (sig, value) but exact_ci / contains_ci / prefix_ci only need
 # (pattern, value), so we wrap them below.
@@ -278,6 +332,8 @@ def _dispatch(sig: dict[str, Any], value: str) -> bool:
         return _match_regex(sig, value)
     if strategy == "repetition":
         return _match_repetition(value)
+    if strategy == "semantic_similarity":
+        return _match_semantic_similarity(sig, value)
     pattern: str = sig["pattern"]
     if strategy == "exact_ci":
         return _match_exact_ci(pattern, value)
@@ -304,18 +360,31 @@ def scan_value(
     Returns an empty list if no signatures match.
     """
     sigs = registry if registry is not None else _REGISTRY
+
+    # Lazily initialize pattern embeddings for semantic_similarity sigs
+    _ensure_pattern_embeddings(sigs)
+
+    # Clear per-scan similarity scores
+    _last_similarity_scores.clear()
+
     matches: list[SignatureMatch] = []
     for sig in sigs:
         if not _dispatch(sig, value):
             continue
         # Build a compact evidence snippet
-        snippet = value[:80].replace("\n", "\\n")
+        if sig["match_strategy"] == "semantic_similarity" and sig["id"] in _last_similarity_scores:
+            score = _last_similarity_scores[sig["id"]]
+            snippet = value[:60].replace("\n", "\\n")
+            evidence = f"cosine={score:.3f} | {repr(snippet)}"
+        else:
+            snippet = value[:80].replace("\n", "\\n")
+            evidence = repr(snippet) if len(snippet) < len(value) else repr(value[:80])
         match = SignatureMatch(
             sig_id=sig["id"],
             category=sig["category"],
             severity=sig["severity"],
             description=sig["description"],
-            evidence=repr(snippet) if len(snippet) < len(value) else repr(value[:80]),
+            evidence=evidence,
         )
         if sig["severity"] == "critical":
             # Return immediately — critical hit dominates

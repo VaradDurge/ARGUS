@@ -915,6 +915,102 @@
         "approval_status": "approved",
         "framework_specific": null
       }
+    },
+    {
+      "id": "SS-001",
+      "category": "semantic_refusal",
+      "pattern": "I'm sorry, but I cannot assist with that request",
+      "match_strategy": "semantic_similarity",
+      "severity": "critical",
+      "description": "LLM refusal response — safety guardrail or policy rejection",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null,
+        "similarity_threshold": 0.75
+      }
+    },
+    {
+      "id": "SS-002",
+      "category": "semantic_refusal",
+      "pattern": "As an AI language model, I don't have access to real-time data",
+      "match_strategy": "semantic_similarity",
+      "severity": "warning",
+      "description": "AI capability disclaimer — model acknowledges data limitations",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null,
+        "similarity_threshold": 0.75
+      }
+    },
+    {
+      "id": "SS-003",
+      "category": "semantic_refusal",
+      "pattern": "I cannot provide medical, legal, or financial advice",
+      "match_strategy": "semantic_similarity",
+      "severity": "critical",
+      "description": "Professional disclaimer refusal — domain-specific advice rejection",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null,
+        "similarity_threshold": 0.75
+      }
+    },
+    {
+      "id": "SS-004",
+      "category": "semantic_refusal",
+      "pattern": "The information provided is for general purposes only",
+      "match_strategy": "semantic_similarity",
+      "severity": "warning",
+      "description": "Generic boilerplate disclaimer — not actionable output",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null,
+        "similarity_threshold": 0.75
+      }
+    },
+    {
+      "id": "SS-005",
+      "category": "semantic_refusal",
+      "pattern": "Based on my training data, I don't have information beyond",
+      "match_strategy": "semantic_similarity",
+      "severity": "warning",
+      "description": "Training cutoff hedge — model disclaims temporal knowledge",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null,
+        "similarity_threshold": 0.75
+      }
+    },
+    {
+      "id": "SS-006",
+      "category": "semantic_refusal",
+      "pattern": "I don't have enough context to provide an accurate answer",
+      "match_strategy": "semantic_similarity",
+      "severity": "warning",
+      "description": "Context insufficiency response — model declines due to missing input",
+      "source": "builtin",
+      "metadata": {
+        "confidence": null,
+        "frequency": null,
+        "approval_status": "approved",
+        "framework_specific": null,
+        "similarity_threshold": 0.75
+      }
     }
   ]
 }

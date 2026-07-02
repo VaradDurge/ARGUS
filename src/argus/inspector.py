@@ -117,6 +117,7 @@ _CATEGORY_TO_FAILURE: dict[str, str] = {
     "malformed_payload": "semantic_degradation",
     "repeated_filler": "semantic_degradation",
     "empty_semantic_state": "structural_anomaly",
+    "semantic_refusal": "semantic_degradation",
 }
 
 
