@@ -3,7 +3,7 @@
   <a href="https://arguslabs.in"><img src="https://img.shields.io/badge/website-arguslabs.in-6366f1" alt="Website"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/pypi/v/argus-agents" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/></a>
-  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.18"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
+  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.7.0"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
 </div>
 
 ---
@@ -122,7 +122,7 @@ watcher = ArgusWatcher(graph, strict=True)
 
 ARGUS doesn't throw everything at an LLM. Detection runs in four layers, each more expensive than the last, and each only fires when needed:
 
-1. **Heuristic engine** — pattern matching against 150+ known failure signatures (placeholder outputs, empty results, error keys, semantic degradation markers). Deterministic, zero cost, catches ~80% of failures.
+1. **Heuristic engine** — pattern matching against 150+ known failure signatures (placeholder outputs, empty results, error keys, semantic degradation markers) plus **embedding-based semantic similarity** that catches paraphrased failures even when wording differs. Deterministic patterns are zero cost; semantic matching uses OpenAI embeddings with SQLite caching.
 
 2. **Anomaly detector** — statistical checks for suspicious patterns (unexpected field types, output size anomalies, timing outliers). Still deterministic.
 
@@ -229,6 +229,27 @@ The heuristic engine loads from three tiers: **bundled** (ships with ARGUS) → 
 argus ui          # open Approvals page to review candidates
 argus login       # required for cloud sync
 ```
+
+---
+
+## Semantic Similarity Matching
+
+Lexical pattern matching misses paraphrased failures. "I cannot provide financial advice" won't catch "I'm unable to offer investment guidance" — same meaning, different wording.
+
+ARGUS v0.7.0 adds **embedding-based semantic similarity** to the heuristic engine. Six built-in signatures detect common LLM failure patterns (refusals, disclaimers, capability hedges, context insufficiency) regardless of exact wording.
+
+How it works:
+1. Signature patterns and node outputs are converted to vector embeddings via OpenAI `text-embedding-3-small`
+2. Cosine similarity is computed between the output and each semantic signature
+3. If similarity exceeds the threshold (default 0.75, configurable per-signature), the output is flagged
+4. All embeddings are cached in a local SQLite database — repeat scans are instant
+
+```python
+# No config needed — semantic signatures are part of the bundled registry
+watcher = ArgusWatcher(graph)  # semantic matching is automatic
+```
+
+Requires `OPENAI_API_KEY` in your environment. If the key is absent, semantic signatures are silently skipped and all other detection layers continue working.
 
 ---
 
@@ -375,4 +396,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.6.18** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
+**v0.7.0** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
