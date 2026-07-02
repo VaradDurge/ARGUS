@@ -297,10 +297,13 @@ def _ensure_pattern_embeddings(sigs: list[dict[str, Any]]) -> None:
             _PATTERN_EMBEDDINGS_READY = True
             return
 
-        patterns = [s["pattern"] for s in sem_sigs]
-        embeddings = embedding_store.get_cached_embeddings_batch(patterns)
-        for sig, emb in zip(sem_sigs, embeddings):
-            sig["_pattern_embedding"] = emb
+        try:
+            patterns = [s["pattern"] for s in sem_sigs]
+            embeddings = embedding_store.get_cached_embeddings_batch(patterns)
+            for sig, emb in zip(sem_sigs, embeddings):
+                sig["_pattern_embedding"] = emb
+        except Exception:
+            pass  # No API key or network — semantic sigs skipped gracefully
         _PATTERN_EMBEDDINGS_READY = True
 
 
@@ -312,7 +315,11 @@ def _match_semantic_similarity(sig: dict[str, Any], value: str) -> bool:
     if pattern_emb is None:
         return False
 
-    value_emb = embedding_store.get_cached_embedding(value)
+    try:
+        value_emb = embedding_store.get_cached_embedding(value)
+    except Exception:
+        return False  # API unavailable — skip gracefully
+
     score = embedding_store.cosine_similarity(value_emb, pattern_emb)
     threshold = (
         sig.get("metadata", {}).get("similarity_threshold", _DEFAULT_SIMILARITY_THRESHOLD)
