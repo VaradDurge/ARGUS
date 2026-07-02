@@ -3,7 +3,7 @@
   <a href="https://arguslabs.in"><img src="https://img.shields.io/badge/website-arguslabs.in-6366f1" alt="Website"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/pypi/v/argus-agents" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/argus-agents/"><img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+"/></a>
-  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.6"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
+  <a href="https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.18"><img src="https://img.shields.io/badge/status-beta-6366f1" alt="Beta"/></a>
 </div>
 
 ---
@@ -44,7 +44,7 @@ app = graph.compile()
 result = app.invoke(initial_state)
 ```
 
-**Option C — after compile (new in v0.5.0):**
+**Option C — after compile:**
 ```python
 from argus import ArgusWatcher
 
@@ -67,8 +67,8 @@ All three work. No changes to your node functions. Runs are saved automatically 
 | `investigate` | `bool \| str` | `True` | LLM root-cause investigation. `True` = on failure only, `"always"` = every node, `False` = off. |
 | `redact_keys` | `set[str]` | `None` | Field names to redact from stored outputs (e.g. `{"password", "api_key"}`). |
 | `persist_state` | `bool` | `True` | Save run records to `.argus/runs/`. Set `False` for ephemeral monitoring. |
-| `record_http` | `bool` | `True` | Record all external HTTP/API calls for deterministic replay. Saved to disk per run. |
-| `semantic_judge` | `bool` | `False` | Enable LLM-powered quality judge on every node output. Requires `OPENAI_API_KEY`. |
+| `record_http` | `bool` | `True` | Record all external HTTP/API calls for deterministic replay. |
+| `semantic_judge` | `bool` | `False` | LLM-powered quality judge on every node output. Requires `OPENAI_API_KEY`. |
 | `judge_model` | `str` | `"gpt-4o"` | Model for the semantic judge and investigation. |
 
 ```python
@@ -118,6 +118,20 @@ watcher = ArgusWatcher(graph, strict=True)
 
 ---
 
+## Detection layers
+
+ARGUS doesn't throw everything at an LLM. Detection runs in four layers, each more expensive than the last, and each only fires when needed:
+
+1. **Heuristic engine** — pattern matching against 150+ known failure signatures (placeholder outputs, empty results, error keys, semantic degradation markers). Deterministic, zero cost, catches ~80% of failures.
+
+2. **Anomaly detector** — statistical checks for suspicious patterns (unexpected field types, output size anomalies, timing outliers). Still deterministic.
+
+3. **Correlator** — traces failure propagation across nodes. If node 3 dropped a field and node 5 crashed because of it, the correlator builds the causal chain and points you at node 3, not node 5.
+
+4. **LLM investigator** — only triggers on ambiguous failures or when explicitly enabled. Generates root cause explanations, causal hypotheses, and debugging suggestions. Also proposes new heuristic signatures so the same failure gets caught deterministically next time.
+
+---
+
 ## Output
 
 ```
@@ -139,7 +153,7 @@ Parallel nodes shown as a grouped panel. Cyclic graphs show each iteration separ
 
 ---
 
-## Rerun
+## Replay
 
 A 10-node pipeline fails at node 7. You fix the bug. Instead of re-running nodes 1–6 and burning API credits:
 
@@ -149,6 +163,12 @@ argus replay <run-id> node_7
 
 ARGUS restores the exact state at node 7 from disk and runs from there. Upstream outputs stay frozen. Only node 7 onward re-executes with your fixed code.
 
+Run just one node in isolation:
+
+```bash
+argus replay <run-id> node_7 --only
+```
+
 From the web UI — hover any step, click `↺ Rerun From Here`. After rerun, the diff view opens automatically.
 
 ```bash
@@ -157,13 +177,17 @@ argus diff <rerun-id>    # compare rerun vs original
 
 ### External API calls
 
-All external HTTP calls (OpenAI, search tools, databases) are **recorded by default**. Every API response is saved to disk alongside the run. During rerun, the recorded responses are served back — same data, zero extra cost, fully reproducible.
+All external HTTP calls (OpenAI, search tools, databases) are **recorded by default**. Every API response is saved to disk alongside the run. During replay, the recorded responses are served back — same data, zero extra cost, fully reproducible.
 
 To disable recording (e.g. for lightweight monitoring without replay):
 
 ```python
 watcher = ArgusWatcher(graph, record_http=False)
 ```
+
+### Auto-comparison
+
+When a replay finishes, ARGUS automatically compares it against the original run using an LLM. You get a per-node diff showing what changed, what improved, and whether the fix actually worked — without eyeballing two JSON blobs.
 
 ---
 
@@ -175,17 +199,16 @@ Deterministic checks catch ~80% of production failures (missing fields, empty re
 watcher = ArgusWatcher(graph, semantic_judge=True)
 ```
 
-The LLM judge runs **after** deterministic checks on every node. It evaluates output quality, generates causal hypotheses, and suggests debugging steps.
+The judge runs **after** deterministic checks on every passing node. It evaluates output quality and flags issues that pattern matching can't catch.
+
+The judge will not override a clear heuristic failure — if the heuristic engine already flagged something with high confidence, the LLM won't second-guess it. It only steps in when the picture is ambiguous.
 
 ```python
 # With a specific model
 watcher = ArgusWatcher(graph, semantic_judge=True, judge_model="gpt-4o")
-
-# HTTP recording is on by default — deterministic + intelligent monitoring
-watcher = ArgusWatcher(graph, semantic_judge=True)
 ```
 
-Requires `OPENAI_API_KEY` in your environment. Uses GPT-4o by default.
+Requires `OPENAI_API_KEY` in your environment.
 
 **When to use:** complex multi-agent pipelines, customer-facing outputs, LLM-generated content where quality matters.
 
@@ -193,7 +216,7 @@ Requires `OPENAI_API_KEY` in your environment. Uses GPT-4o by default.
 
 ---
 
-## Adaptive Learning (v0.6)
+## Adaptive Learning
 
 ARGUS learns from your runs. When the semantic judge discovers a new failure pattern, it proposes a candidate signature. You review it in the **Approvals** page (`argus ui`) and choose:
 
@@ -207,7 +230,32 @@ argus ui          # open Approvals page to review candidates
 argus login       # required for cloud sync
 ```
 
-The semantic judge also overrides heuristic false positives. If a node failed *only* due to a heuristic pattern match (no structural issues, no validator failures), the LLM reviews context and can clear the flag.
+---
+
+## Diagnostic Reports
+
+Found something weird? Hit **Report Issue** on any run detail page, or open **Report Board** from the sidebar.
+
+Pick a category — bug, feature request, improvement, setup issue, or unexpected result — add a description, and ARGUS sends a sanitized diagnostic payload. No input/output data or credentials leave your machine, just system info (Python/LangGraph versions), storage health, and node-level metadata (names, statuses, durations, error messages).
+
+Reports go to:
+- **Supabase** — stored for triage
+- **Discord** — real-time notification with formatted embed
+- **Linear** — optional, creates a labeled issue in your team's board (configure in Settings)
+
+No login required to submit a report.
+
+---
+
+## Linear Integration
+
+Connect your Linear workspace from the **Settings** page in the web UI:
+
+1. Add your Linear API key
+2. Select a team
+3. Done — every report you send can optionally create a Linear issue with the right label (Bug, Feature, Improvement, etc.)
+
+Labels are auto-created if they don't exist in your team. Issues include full diagnostics, root cause chain, and step statuses in a readable markdown format.
 
 ---
 
@@ -242,7 +290,10 @@ argus diff <id>                     # rerun vs original
 argus diff <id-a> <id-b>            # any two runs
 argus ui                            # open web dashboard
 argus doctor                        # check your setup
-argus login                         # sync runs to cloud
+argus login                         # sign in for cloud sync
+argus logout                        # clear credentials
+argus whoami                        # check login status
+argus update                        # check for new release
 ```
 
 ---
@@ -324,4 +375,4 @@ Works with Prefect, Temporal, or plain Python functions.
 
 Requires Python 3.9+. LangGraph 0.2+ only needed for `ArgusWatcher`.
 
-**v0.6.6** — [changelog](https://github.com/VaradDurge/ARGUS/releases/tag/v0.6.6)
+**v0.6.18** — [changelog](https://github.com/VaradDurge/ARGUS/releases)

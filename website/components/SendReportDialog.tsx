@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-type ReportCategory = 'bug' | 'setup_issue' | 'unexpected_result'
+type ReportCategory = 'bug' | 'feature' | 'improvement' | 'setup_issue' | 'unexpected_result'
 
 interface DoctorInfo {
   argus_version: string
@@ -13,8 +13,23 @@ interface DoctorInfo {
   optional_deps: { passed: boolean; message: string }
 }
 
+interface LinearSettings {
+  linear_api_key_set: boolean
+  linear_team_id: string
+  linear_team_name: string
+}
+
+interface LinearIssue {
+  id: string
+  identifier: string
+  url: string
+  title: string
+}
+
 const CATEGORIES: { value: ReportCategory; label: string; icon: string }[] = [
   { value: 'bug', label: 'Bug', icon: '\uD83D\uDC1B' },
+  { value: 'feature', label: 'Feature', icon: '\u2728' },
+  { value: 'improvement', label: 'Improvement', icon: '\uD83D\uDCA1' },
   { value: 'setup_issue', label: 'Setup Issue', icon: '\uD83D\uDD27' },
   { value: 'unexpected_result', label: 'Unexpected Result', icon: '\uD83E\uDD14' },
 ]
@@ -31,9 +46,12 @@ export default function SendReportDialog({
   const [category, setCategory] = useState<ReportCategory | null>(null)
   const [description, setDescription] = useState('')
   const [includeRun, setIncludeRun] = useState(!!runId)
+  const [sendToLinear, setSendToLinear] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null)
+  const [linearSettings, setLinearSettings] = useState<LinearSettings | null>(null)
+  const [linearIssue, setLinearIssue] = useState<LinearIssue | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -41,17 +59,32 @@ export default function SendReportDialog({
       setCategory(null)
       setDescription('')
       setIncludeRun(!!runId)
+      setSendToLinear(false)
       setSubmitted(false)
+      setLinearIssue(null)
       setError(null)
       // Fetch doctor info for preview
       fetch('/api/doctor')
         .then(r => r.json())
         .then(setDoctorInfo)
         .catch(() => {})
+      // Fetch Linear settings
+      fetch('/api/settings')
+        .then(r => r.json())
+        .then((data: LinearSettings) => {
+          setLinearSettings(data)
+          // Auto-enable Linear if configured
+          if (data.linear_api_key_set && data.linear_team_id) {
+            setSendToLinear(true)
+          }
+        })
+        .catch(() => {})
     }
   }, [open, runId])
 
   if (!open) return null
+
+  const linearConfigured = linearSettings?.linear_api_key_set && linearSettings?.linear_team_id
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -69,11 +102,15 @@ export default function SendReportDialog({
           description: description.trim(),
           run_id: runId || null,
           include_run: includeRun && !!runId,
+          send_to_linear: sendToLinear && linearConfigured,
         }),
       })
       const data = await res.json()
       if (data.ok) {
         setSubmitted(true)
+        if (data.linear) {
+          setLinearIssue(data.linear)
+        }
       } else {
         setError(data.error || 'Failed to send report')
       }
@@ -115,6 +152,22 @@ export default function SendReportDialog({
             <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Report sent
             </p>
+            {linearIssue && (
+              <div className="mb-3 mt-2 rounded-lg px-4 py-3 text-left" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                  Linear Issue Created
+                </p>
+                <a
+                  href={linearIssue.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13px] font-medium hover:underline"
+                  style={{ color: '#7c7fc7' }}
+                >
+                  {linearIssue.identifier} — {linearIssue.title?.slice(0, 60)}
+                </a>
+              </div>
+            )}
             <p className="text-[12px] mb-5" style={{ color: 'var(--text-secondary)' }}>
               We&apos;ll review this and follow up if needed.
             </p>
@@ -134,7 +187,7 @@ export default function SendReportDialog({
               <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
                 Category
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {CATEGORIES.map(cat => {
                   const active = category === cat.value
                   return (
@@ -197,6 +250,27 @@ export default function SendReportDialog({
               </label>
             )}
 
+            {/* Send to Linear toggle */}
+            {linearConfigured && (
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sendToLinear}
+                  onChange={e => setSendToLinear(e.target.checked)}
+                  className="rounded"
+                  style={{ accentColor: '#7c7fc7' }}
+                />
+                <span className="text-[12px] flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                  Create Linear issue
+                  {linearSettings?.linear_team_name && (
+                    <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                      {linearSettings.linear_team_name}
+                    </span>
+                  )}
+                </span>
+              </label>
+            )}
+
             {/* Preview — what will be sent */}
             <div className="rounded-lg px-3.5 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
               <p className="text-[10.5px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -212,6 +286,11 @@ export default function SendReportDialog({
                 {runId && includeRun && (
                   <div className="flex items-center gap-1.5">
                     <span style={{ color: '#22c55e' }}>&#x2713;</span> Run topology, node statuses, errors (no input/output data)
+                  </div>
+                )}
+                {sendToLinear && linearConfigured && (
+                  <div className="flex items-center gap-1.5">
+                    <span style={{ color: '#5e6ad2' }}>&#x2713;</span> Linear issue with label &quot;{category ? CATEGORIES.find(c => c.value === category)?.label || category : '...'}&quot;
                   </div>
                 )}
                 <div className="flex items-center gap-1.5">

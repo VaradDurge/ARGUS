@@ -68,7 +68,7 @@ const bottomItems: NavItem[] = [
   { id: 'guide', href: '/guide', label: 'Guide', icon: <BookOpen className="h-4 w-4" />, exact: true },
   { id: 'changelog', href: '/changelog', label: 'Changelog', icon: <Clock className="h-4 w-4" />, exact: true },
   { id: 'report', href: '/report', label: 'Report Board', icon: <MessageSquareWarning className="h-4 w-4" />, exact: true },
-  { id: 'settings', href: '/settings', label: 'Settings', icon: <Settings className="h-4 w-4" />, exact: false, soon: true },
+  { id: 'settings', href: '/settings', label: 'Settings', icon: <Settings className="h-4 w-4" />, exact: false },
 ]
 
 function NavRow({

@@ -157,6 +157,140 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
 
 _CONFIG_PATH = Path(".") / ".argus" / "config.json"
 
+_LINEAR_API_URL = "https://api.linear.app/graphql"
+
+# Category → Linear label name mapping
+_CATEGORY_LABEL_MAP = {
+    "bug": "Bug",
+    "feature": "Feature",
+    "improvement": "Improvement",
+    "setup_issue": "Setup Issue",
+    "unexpected_result": "Unexpected Result",
+}
+
+
+def _load_config() -> dict:
+    """Read the full .argus/config.json."""
+    try:
+        return json.loads(_CONFIG_PATH.read_text())
+    except Exception:
+        return {}
+
+
+def _save_config(data: dict) -> None:
+    """Write the full .argus/config.json (merge with existing)."""
+    _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        existing = json.loads(_CONFIG_PATH.read_text())
+    except Exception:
+        existing = {}
+    existing.update(data)
+    _CONFIG_PATH.write_text(json.dumps(existing, indent=2))
+
+
+def _linear_graphql(api_key: str, query: str, variables: dict | None = None) -> dict:
+    """Execute a Linear GraphQL query. Raises on failure."""
+    import urllib.request  # noqa: PLC0415
+
+    payload: dict = {"query": query}
+    if variables:
+        payload["variables"] = variables
+    body = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        _LINEAR_API_URL,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": api_key,
+        },
+        method="POST",
+    )
+    resp = urllib.request.urlopen(req, timeout=10)
+    return json.loads(resp.read())
+
+
+def _linear_get_teams(api_key: str) -> list[dict]:
+    """Fetch teams from Linear."""
+    result = _linear_graphql(api_key, "{ teams { nodes { id name key } } }")
+    return result.get("data", {}).get("teams", {}).get("nodes", [])
+
+
+def _linear_get_labels(api_key: str, team_id: str) -> list[dict]:
+    """Fetch labels for a Linear team."""
+    query = """
+    query($teamId: String!) {
+      issueLabels(filter: { team: { id: { eq: $teamId } } }) {
+        nodes { id name color }
+      }
+    }
+    """
+    result = _linear_graphql(api_key, query, {"teamId": team_id})
+    return result.get("data", {}).get("issueLabels", {}).get("nodes", [])
+
+
+def _linear_find_or_create_label(api_key: str, team_id: str, label_name: str) -> str | None:
+    """Find a label by name, or create it. Returns label ID or None."""
+    labels = _linear_get_labels(api_key, team_id)
+    for label in labels:
+        if label["name"].lower() == label_name.lower():
+            return label["id"]
+    # Create the label
+    mutation = """
+    mutation($input: IssueLabelCreateInput!) {
+      issueLabelCreate(input: $input) {
+        issueLabel { id name }
+        success
+      }
+    }
+    """
+    result = _linear_graphql(api_key, mutation, {
+        "input": {"name": label_name, "teamId": team_id},
+    })
+    created = result.get("data", {}).get("issueLabelCreate", {})
+    if created.get("success"):
+        return created.get("issueLabel", {}).get("id")
+    return None
+
+
+def _send_to_linear(
+    api_key: str,
+    team_id: str,
+    category: str,
+    title: str,
+    description_md: str,
+) -> dict | None:
+    """Create a Linear issue. Returns {"id", "identifier", "url"} or None."""
+    label_name = _CATEGORY_LABEL_MAP.get(category, category.replace("_", " ").title())
+    label_id = _linear_find_or_create_label(api_key, team_id, label_name)
+
+    mutation = """
+    mutation($input: IssueCreateInput!) {
+      issueCreate(input: $input) {
+        issue { id identifier url title }
+        success
+      }
+    }
+    """
+    issue_input: dict = {
+        "title": title,
+        "description": description_md,
+        "teamId": team_id,
+    }
+    if label_id:
+        issue_input["labelIds"] = [label_id]
+
+    result = _linear_graphql(api_key, mutation, {"input": issue_input})
+    created = result.get("data", {}).get("issueCreate", {})
+    if created.get("success"):
+        issue = created.get("issue", {})
+        return {
+            "id": issue.get("id"),
+            "identifier": issue.get("identifier"),
+            "url": issue.get("url"),
+            "title": issue.get("title"),
+        }
+    return None
+
 
 def _aliases_path(project_dir: Path) -> Path:
     return project_dir / ".argus" / "aliases.json"
@@ -435,6 +569,13 @@ def _make_handler(
                 self._send_file(index)
                 return
 
+            # SPA fallback for /settings → serve settings page
+            if path.startswith("/settings"):
+                settings_page = dist / "settings" / "index.html"
+                if settings_page.is_file():
+                    self._send_file(settings_page)
+                    return
+
             # SPA fallback for /runs/<any-id> → serve the placeholder shell
             if path.startswith("/runs/"):
                 placeholder = dist / "runs" / "_" / "index.html"
@@ -506,6 +647,39 @@ def _make_handler(
                 self._send_json(data)
             elif path == "/api/doctor":
                 self._send_json(_collect_doctor_info())
+            elif path == "/api/settings":
+                cfg = _load_config()
+                linear_key = cfg.get("linear_api_key", "")
+                masked = ("•" * 8 + linear_key[-4:]) if len(linear_key) > 4 else ""
+                self._send_json({
+                    "linear_api_key_set": bool(linear_key),
+                    "linear_api_key_masked": masked,
+                    "linear_team_id": cfg.get("linear_team_id", ""),
+                    "linear_team_name": cfg.get("linear_team_name", ""),
+                })
+            elif path == "/api/linear/teams":
+                cfg = _load_config()
+                api_key = cfg.get("linear_api_key", "")
+                if not api_key:
+                    self._send_json({"error": "Linear API key not configured"}, 400)
+                else:
+                    try:
+                        teams = _linear_get_teams(api_key)
+                        self._send_json({"teams": teams})
+                    except Exception as exc:
+                        self._send_json({"error": f"Linear API error: {exc}"}, 500)
+            elif path == "/api/linear/labels":
+                cfg = _load_config()
+                api_key = cfg.get("linear_api_key", "")
+                team_id = cfg.get("linear_team_id", "")
+                if not api_key or not team_id:
+                    self._send_json({"error": "Linear not configured"}, 400)
+                else:
+                    try:
+                        labels = _linear_get_labels(api_key, team_id)
+                        self._send_json({"labels": labels})
+                    except Exception as exc:
+                        self._send_json({"error": f"Linear API error: {exc}"}, 500)
             elif path.startswith("/api/replay/status/"):
                 job_id = path[len("/api/replay/status/") :]
                 with _replay_lock:
@@ -542,6 +716,27 @@ def _make_handler(
                     return
                 _save_config_app_factory(new_app)
                 self._send_json({"app": new_app})
+            elif path == "/api/settings":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+
+                updates: dict = {}
+                if "linear_api_key" in data:
+                    updates["linear_api_key"] = (data["linear_api_key"] or "").strip()
+                if "linear_team_id" in data:
+                    updates["linear_team_id"] = (data["linear_team_id"] or "").strip()
+                if "linear_team_name" in data:
+                    updates["linear_team_name"] = (data["linear_team_name"] or "").strip()
+                if not updates:
+                    self._send_json({"error": "no settings provided"}, 400)
+                    return
+                _save_config(updates)
+                self._send_json({"ok": True})
             elif path == "/api/compare-analysis":
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length)
@@ -905,7 +1100,143 @@ def _make_handler(
                 except Exception:
                     pass  # Discord is best-effort
 
-                self._send_json({"ok": True, "report_id": report_id, "cloud_synced": supabase_ok})
+                # Linear issue creation (if configured and requested)
+                linear_result = None
+                send_to_linear = data.get("send_to_linear", False)
+                if send_to_linear:
+                    try:
+                        cfg = _load_config()
+                        lin_key = cfg.get("linear_api_key", "")
+                        lin_team = cfg.get("linear_team_id", "")
+                        if lin_key and lin_team:
+                            emoji = {
+                                "bug": "\U0001f41b",
+                                "setup_issue": "\U0001f527",
+                                "unexpected_result": "\U0001f914",
+                                "feature": "\u2728",
+                                "improvement": "\U0001f4a1",
+                            }
+                            icon = emoji.get(category, "\U0001f4cb")
+                            lin_title = f"{icon} [{category.replace('_', ' ').title()}] {description[:80]}"
+
+                            # Build markdown body with full diagnostics
+                            lin_body = f"## Description\n\n{description}\n\n"
+                            lin_body += f"**Category:** {category}\n"
+                            lin_body += f"**ARGUS Version:** {system_info.get('argus_version', '?')}\n"
+                            if run_diagnostics:
+                                rid = run_diagnostics.get("run_id", "?")
+                                st = run_diagnostics.get("overall_status", "?")
+                                dur = run_diagnostics.get("duration_ms")
+                                rcc = run_diagnostics.get("root_cause_chain", [])
+                                nodes = run_diagnostics.get("graph_node_names", [])
+                                edges = run_diagnostics.get("graph_edge_map", {})
+                                is_cyclic = run_diagnostics.get("is_cyclic", False)
+                                first_fail = run_diagnostics.get("first_failure_step")
+
+                                lin_body += f"\n## Run Diagnostics\n\n"
+                                lin_body += f"- **Run ID:** `{rid}`\n"
+                                lin_body += f"- **Status:** {st}\n"
+                                if dur is not None:
+                                    lin_body += f"- **Duration:** {dur}ms\n"
+                                if first_fail:
+                                    lin_body += f"- **First failure:** `{first_fail}`\n"
+                                if rcc:
+                                    lin_body += f"- **Root cause chain:** {' → '.join(rcc)}\n"
+                                if nodes:
+                                    lin_body += f"- **Graph nodes:** {', '.join(f'`{n}`' for n in nodes)}\n"
+                                if is_cyclic:
+                                    lin_body += f"- **Cyclic graph:** yes\n"
+                                if edges:
+                                    edge_strs = [f"`{s}` → `{', '.join(ds)}`" for s, ds in edges.items()]
+                                    lin_body += f"- **Edges:** {'; '.join(edge_strs)}\n"
+
+                                steps = run_diagnostics.get("steps", [])
+                                if steps:
+                                    lin_body += f"\n### Steps ({len(steps)})\n\n"
+                                    for s in steps:
+                                        sn = s.get("node_name", "?")
+                                        ss = s.get("status", "?")
+                                        sd = s.get("duration_ms")
+                                        bt = s.get("behavior_type")
+                                        dur_str = f" ({sd}ms)" if sd is not None else ""
+                                        bt_str = f" [{bt}]" if bt else ""
+                                        lin_body += f"#### `{sn}`: {ss}{dur_str}{bt_str}\n\n"
+
+                                        # Inspection message
+                                        insp_msg = s.get("inspection_message")
+                                        if insp_msg and insp_msg != "All checks passed":
+                                            lin_body += f"> {insp_msg}\n\n"
+
+                                        # Missing fields
+                                        mf = s.get("missing_fields", [])
+                                        if mf:
+                                            lin_body += f"- **Missing fields:** {', '.join(f'`{f}`' for f in mf)}\n"
+
+                                        # Tool failures
+                                        tfs = s.get("tool_failures", [])
+                                        if tfs:
+                                            for tf in tfs:
+                                                ft = tf.get("failure_type", "?")
+                                                sev = tf.get("severity", "?")
+                                                lin_body += f"- **Tool failure:** {ft} ({sev})\n"
+
+                                        # Semantic check
+                                        sc = s.get("semantic_check")
+                                        if sc:
+                                            passed = "PASS" if sc.get("passed") else "FAIL"
+                                            conf = sc.get("confidence", "?")
+                                            reason = sc.get("reason", "")
+                                            lin_body += f"- **Semantic check:** {passed} (confidence: {conf})"
+                                            if reason:
+                                                lin_body += f" — {reason}"
+                                            lin_body += "\n"
+
+                                        # Anomaly signals
+                                        anomalies = s.get("anomaly_signals", [])
+                                        if anomalies:
+                                            for a in anomalies:
+                                                aid = a.get("anomaly_id", "?")
+                                                asev = a.get("severity", "?")
+                                                areason = a.get("reason", "")
+                                                lin_body += f"- **Anomaly [{aid}]:** {areason} ({asev})\n"
+
+                                        # Exception
+                                        exc = s.get("exception")
+                                        if exc:
+                                            lin_body += f"- **Exception:**\n```\n{exc[:500]}\n```\n"
+
+                                        lin_body += "\n"
+
+                                # LLM investigation
+                                llm_inv = run_diagnostics.get("llm_investigation", {})
+                                if llm_inv and llm_inv.get("triggered"):
+                                    lin_body += f"### LLM Investigation\n\n"
+                                    rc_expl = llm_inv.get("root_cause_explanation", "")
+                                    rc_node = llm_inv.get("root_cause_node", "")
+                                    conf = llm_inv.get("confidence", "?")
+                                    triggers = llm_inv.get("trigger_reasons", [])
+                                    if rc_node:
+                                        lin_body += f"- **Root cause node:** `{rc_node}`\n"
+                                    if rc_expl:
+                                        lin_body += f"- **Explanation:** {rc_expl}\n"
+                                    lin_body += f"- **Confidence:** {conf}\n"
+                                    if triggers:
+                                        lin_body += f"- **Trigger reasons:** {', '.join(triggers)}\n"
+
+                            linear_result = _send_to_linear(
+                                lin_key, lin_team, category, lin_title, lin_body,
+                            )
+                    except Exception:
+                        pass  # Linear is best-effort
+
+                resp: dict = {
+                    "ok": True,
+                    "report_id": report_id,
+                    "cloud_synced": supabase_ok,
+                }
+                if linear_result:
+                    resp["linear"] = linear_result
+                self._send_json(resp)
             elif path.startswith("/api/candidates/") and path.endswith("/approve-shared"):
                 cand_id = path[len("/api/candidates/") : -len("/approve-shared")]
                 from argus.candidate_store import approve_candidate_shared  # noqa: PLC0415

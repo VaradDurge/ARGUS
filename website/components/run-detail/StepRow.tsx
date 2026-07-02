@@ -189,6 +189,7 @@ export default function StepRow({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-sm font-semibold text-foreground">{event.node_name}</span>
+              <ResultBadge event={event} />
               {event.behavior_type && (
                 <span className="rounded-[4px] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                   {event.behavior_type}
@@ -238,9 +239,8 @@ export default function StepRow({
           </div>
         </div>
 
-        {/* Right: result + actions */}
+        {/* Right: actions */}
         <div className="flex flex-col items-end gap-3 shrink-0">
-          <ResultBadge event={event} />
           {isProblem && showActions && (onReplayNode || onReplay) && !isReplaying && (
             <div className="flex items-center gap-2">
               {onReplayNode && (
