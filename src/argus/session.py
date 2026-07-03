@@ -103,6 +103,28 @@ def _measure_output_depth(obj: Any, current: int = 0) -> int:
     return current
 
 
+def _merge_candidate(
+    data: dict[str, Any],
+    cluster_id: str,
+    sig: Any,
+    run_id: str,
+) -> None:
+    """Merge evidence from a new signature into an existing candidate."""
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    now = datetime.now(timezone.utc).isoformat()
+    for cand in data.get("candidates", []):
+        if cand["id"] == cluster_id:
+            cand["times_seen"] = cand.get("times_seen", 1) + 1
+            cand["last_seen"] = now
+            for ev in sig.evidence:
+                if ev not in cand.get("evidence", []):
+                    cand.setdefault("evidence", []).append(ev)
+            if run_id and run_id not in cand.get("source_run_ids", []):
+                cand.setdefault("source_run_ids", []).append(run_id)
+            break
+
+
 class ArgusSession:
     """Framework-agnostic monitoring session.
 
@@ -869,10 +891,31 @@ class ArgusSession:
                     self._llm_investigation_config,
                 )
                 if record.llm_investigation and record.llm_investigation.suggested_signatures:
-                    from argus.candidate_store import add_candidate  # noqa: PLC0415
+                    from argus.candidate_store import (  # noqa: PLC0415
+                        add_candidate,
+                        load_candidates,
+                        save_candidates,
+                    )
+                    from argus.signature_generalizer import (  # noqa: PLC0415
+                        cluster_with_existing,
+                        generalize_signature,
+                    )
 
                     for _sig in record.llm_investigation.suggested_signatures:
-                        add_candidate(_sig, record.run_id)
+                        gen_sig = generalize_signature(_sig)
+                        existing = load_candidates()
+                        cluster_id = cluster_with_existing(
+                            gen_sig,
+                            existing.get("candidates", []),
+                        )
+                        if cluster_id is not None:
+                            _merge_candidate(
+                                existing, cluster_id,
+                                gen_sig, record.run_id,
+                            )
+                            save_candidates(existing)
+                        else:
+                            add_candidate(gen_sig, record.run_id)
             except Exception:
                 pass
 

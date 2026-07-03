@@ -126,6 +126,8 @@ def add_candidate(
         "first_seen": now,
         "last_seen": now,
         "status": "pending",
+        "original_pattern": getattr(sig, "original_pattern", None),
+        "generalized": getattr(sig, "generalized", False),
     }
     data["candidates"].append(candidate)
     save_candidates(data)
@@ -170,6 +172,8 @@ def approve_candidate(candidate_id: str) -> dict[str, Any] | None:
             "approval_status": "approved",
             "approved_at": now,
             "framework_specific": None,
+            "original_pattern": cand.get("original_pattern"),
+            "generalized": cand.get("generalized", False),
         },
     }
     custom["signatures"].append(new_sig)
@@ -233,6 +237,8 @@ def approve_candidate_shared(candidate_id: str) -> dict[str, Any] | None:
             "approval_status": "approved",
             "approved_at": now,
             "framework_specific": None,
+            "original_pattern": cand.get("original_pattern"),
+            "generalized": cand.get("generalized", False),
         },
     }
 

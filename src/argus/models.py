@@ -296,6 +296,8 @@ class SuggestedSignature:
     evidence: tuple[str, ...]  # real examples from the run that triggered this suggestion
     confidence: float  # 0.0–1.0
     reasoning: str  # why the LLM thinks this is a recurring pattern
+    original_pattern: str | None = None  # pre-generalization literal
+    generalized: bool = False  # True if pattern was auto-generalized
 
 
 @dataclass

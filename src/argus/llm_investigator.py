@@ -425,17 +425,25 @@ already captured by the existing heuristic signatures, suggest new signatures in
       "proposed_category": "<category name>",
       "severity": "<critical|warning>",
       "description": "<what this pattern detects>",
-      "evidence": ["<real example from this run>", ...],
+      "evidence": ["<real example from this run>", "<another variant>", ...],
       "confidence": <0.0-1.0>,
       "reasoning": "<why this is a recurring degradation pattern>"
     }
   ]
 }
 
+IMPORTANT pattern guidelines:
+- Prefer "regex" match_strategy with alternation groups over literal "contains_ci". \
+For example, instead of "I cannot provide financial advice", use \
+"(?:cannot|unable to)\\s+(?:provide|offer|give)\\s+(?:financial|investment)".
+- Include 2+ evidence strings showing different wordings of the same failure. \
+This helps the system generalize the pattern to catch future variants.
+- Use "contains_ci" only for very short, exact phrases (1-2 words) that have no synonyms.
+
 Only suggest signatures you are >0.7 confident about. Focus on patterns that would \
 help catch similar degradation in future runs. Do NOT suggest patterns already covered \
 by these existing categories: placeholder_outputs, null_like_semantic, suspicious_phrases, \
-corrupted_markers, repeated_filler_text, malformed_embedded_json.
+corrupted_markers, repeated_filler_text, malformed_embedded_json, semantic_refusal.
 """
 
 
