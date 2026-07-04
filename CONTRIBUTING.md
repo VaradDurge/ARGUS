@@ -4,18 +4,21 @@ Thanks for your interest in contributing. ARGUS is a production readiness platfo
 
 ## Areas Where Contribution Is Needed
 
-### Framework Adapters
+### Framework Adapters — Planned (Not Yet Open for PRs)
 
-ARGUS currently has a first-class adapter for **LangGraph** only. The framework-agnostic core (`ArgusSession`) supports any pipeline via manual `wrap()` calls, but dedicated adapters would make onboarding seamless for other frameworks:
+ARGUS currently has a first-class adapter for **LangGraph** only. The core engine (`ArgusSession`, detection pipeline, replay, correlation) is still under active development — new fields are added to `NodeEvent`/`RunRecord` and the `wrap()` API is evolving with each release.
+
+Building adapters now would mean rewriting them every few versions. Once the core stabilizes, we'll open adapter work for:
 
 - **CrewAI** — auto-instrument crew tasks and agent handoffs
+- **Google ADK** — wrap agent actions and tool responses
 - **AutoGen** — wrap multi-agent conversations and tool calls
 - **LlamaIndex** — monitor query pipelines and retrieval nodes
 - **Haystack** — instrument pipeline components
 - **DSPy** — track module executions and optimizer runs
 - **SmolAgents** — wrap tool-calling agent steps
 
-Each adapter should follow the `ArgusWatcher` pattern — thin wrapper over `ArgusSession` that auto-patches the framework's execution model.
+**Want to help when the time comes?** Open an issue titled "Adapter interest: [framework]" so we can ping you when the API is stable. In the meantime, you can use `ArgusSession` directly with any framework via manual `wrap()` calls.
 
 ### Detection Signatures
 
@@ -67,7 +70,7 @@ The test suite is currently integration/smoke-style. Dedicated unit tests are ne
 
 ### Documentation
 
-- **Framework-specific guides** — step-by-step setup for CrewAI, AutoGen, etc.
+- **Framework-specific guides** — step-by-step setup for CrewAI, Google ADK, AutoGen, etc. (once adapters ship)
 - **CI/CD integration examples** — GitHub Actions, GitLab CI, Jenkins
 - **Advanced usage** — custom validators, semantic judge configuration, HTTP recording workflows
 
@@ -78,7 +81,7 @@ The test suite is currently integration/smoke-style. Dedicated unit tests are ne
 - **Fixture runs** — real agent output dicts that expose failure classes ARGUS should detect
 - **Bug reports** — open an issue with a minimal reproduction
 - **Detection improvements** — PRs against `src/argus/inspector.py` or `src/argus/registry.py`
-- **New adapters** — framework integrations under `src/argus/`
+- **Adapter interest** — open an issue so we can notify you when the API stabilizes
 - **UI pages** — React components under `website/`
 
 ## Adding Fixture Runs

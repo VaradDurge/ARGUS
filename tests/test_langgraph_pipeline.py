@@ -250,8 +250,8 @@ def build_sensitive_data_pipeline() -> StateGraph:
     """
     def inject_creds(state: ResearchState, **kwargs: Any) -> dict[str, Any]:
         return {
-            "api_key": "sk-proj-SUPER_SECRET_KEY_12345",
-            "auth_token": "Bearer eyJhbGciOiJIUzI1NiJ9.secret_payload",
+            "api_key": "fake-key-FOR-TESTING-ONLY-12345",  # noqa: S105
+            "auth_token": "Bearer fake.token.FOR-TESTING-ONLY",  # noqa: S105
             "messages": ["inject_creds: loaded credentials"],
         }
 

@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import type { NodeDiff } from '../lib/compare-utils'
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function syntaxHighlight(json: string): string {
-  return json.replace(
-    /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+  return escapeHtml(json).replace(
+    /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\&])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
     (match) => {
       let cls = 'json-number'
       if (/^"/.test(match)) {

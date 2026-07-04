@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import mimetypes
+import os
 import socket
 import sys
 import threading
@@ -24,6 +25,12 @@ from argus.cli.cmd_doctor import (
 
 _console = Console()
 _UI_PORT = 7842
+
+
+class _SkipWebhook(Exception):
+    """Sentinel to skip Discord webhook when not configured."""
+
+
 _UI_URL = f"http://localhost:{_UI_PORT}"
 _DIST_DIR = Path(__file__).parent.parent / "ui_dist"
 
@@ -59,11 +66,7 @@ def _content_type(suffix: str) -> str:
     return ct or "application/octet-stream"
 
 
-_DISCORD_WEBHOOK = (
-    "https://discord.com/api/webhooks/"
-    "1505632723539066980/"
-    "aV5SfeCJ_m6rdxweGQkX0sJUT5mcI95wFU5DVvy1ELTaZQgV34MnhvzwJzsoDZLARNoS"
-)
+_DISCORD_WEBHOOK = os.environ.get("ARGUS_DISCORD_WEBHOOK", "")
 
 
 def _collect_doctor_info() -> dict:
@@ -186,6 +189,7 @@ def _save_config(data: dict) -> None:
         existing = {}
     existing.update(data)
     _CONFIG_PATH.write_text(json.dumps(existing, indent=2))
+    _CONFIG_PATH.chmod(0o600)
 
 
 def _linear_graphql(api_key: str, query: str, variables: dict | None = None) -> dict:
@@ -418,11 +422,19 @@ def _make_handler(
             except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
                 self.close_connection = True
 
+        def _security_headers(self) -> None:
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header(
+                "Access-Control-Allow-Origin", f"http://localhost:{_UI_PORT}"
+            )
+
         def _send_json(self, data: object, status: int = 200) -> None:
             body = json.dumps(data).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
             self.end_headers()
             self.wfile.write(body)
 
@@ -431,6 +443,7 @@ def _make_handler(
             self.send_response(status)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
             self.end_headers()
             self.wfile.write(body)
 
@@ -443,6 +456,7 @@ def _make_handler(
             self.send_response(200)
             self.send_header("Content-Type", _content_type(path.suffix))
             self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
             self.end_headers()
             self.wfile.write(body)
 
@@ -549,7 +563,7 @@ def _make_handler(
             self._send_json({"a": read_run(a), "b": read_run(b)})
 
         def _serve_static(self, path: str) -> None:
-            dist = _DIST_DIR
+            dist = _DIST_DIR.resolve()
             path = unquote(path)  # decode %5B[%5D] → [...] etc.
 
             # Root
@@ -558,14 +572,18 @@ def _make_handler(
                 return
 
             # Try exact file first (JS, CSS, images, etc.)
-            candidate = dist / path.lstrip("/")
+            candidate = (dist / path.lstrip("/")).resolve()
+            if not candidate.is_relative_to(dist):
+                self.send_response(403)
+                self.end_headers()
+                return
             if candidate.is_file():
                 self._send_file(candidate)
                 return
 
             # Try path/index.html (Next.js trailing-slash pages)
             index = candidate / "index.html"
-            if index.is_file():
+            if index.resolve().is_relative_to(dist) and index.is_file():
                 self._send_file(index)
                 return
 
@@ -591,6 +609,10 @@ def _make_handler(
             path = parsed.path.rstrip("/")
 
             if path == "/api/auth":
+                origin = self.headers.get("Origin", "")
+                if origin and origin != f"http://localhost:{_UI_PORT}":
+                    self._send_json({"error": "forbidden"}, 403)
+                    return
                 auth = _get_cli_auth()
                 if auth:
                     self._send_json(auth)
@@ -958,6 +980,8 @@ def _make_handler(
 
                 # Discord webhook notification — primary delivery channel
                 try:
+                    if not _DISCORD_WEBHOOK:
+                        raise _SkipWebhook  # noqa: TRY301
                     import urllib.request  # noqa: PLC0415
 
                     emoji = {
@@ -1097,8 +1121,8 @@ def _make_handler(
                         method="POST",
                     )
                     urllib.request.urlopen(req, timeout=5)
-                except Exception:
-                    pass  # Discord is best-effort
+                except (_SkipWebhook, Exception):
+                    pass  # Discord is best-effort / no webhook configured
 
                 # Linear issue creation (if configured and requested)
                 linear_result = None

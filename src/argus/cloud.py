@@ -54,6 +54,7 @@ def save_credentials(creds: Credentials) -> None:
         ),
         encoding="utf-8",
     )
+    _CREDENTIALS_FILE.chmod(0o600)
 
 
 def load_credentials() -> Credentials | None:
