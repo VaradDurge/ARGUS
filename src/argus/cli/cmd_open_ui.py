@@ -653,8 +653,9 @@ def _make_handler(
                 data = load_custom_signatures()
                 self._send_json(data.get("signatures", []))
             elif path == "/api/signature-stats":
-                from argus.signature_stats import compute_stats  # noqa: PLC0415
                 import dataclasses  # noqa: PLC0415
+
+                from argus.signature_stats import compute_stats  # noqa: PLC0415
 
                 all_stats = compute_stats(include_builtins=False)
                 self._send_json(

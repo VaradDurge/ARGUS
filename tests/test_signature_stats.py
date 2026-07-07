@@ -14,7 +14,6 @@ from argus.signature_stats import (
     GRACE_PERIOD_DAYS,
     MIN_HITS_TO_KEEP,
     STALE_DAYS,
-    SignatureStats,
     compute_stats,
     dismiss_dispute,
     load_disputes,
@@ -252,7 +251,7 @@ def test_disabled_sig_skipped_by_registry():
     _setup_custom_sig("CS-001")
     disable_custom_signature("CS-001")
 
-    from argus.registry import reload_registry, get_registry
+    from argus.registry import get_registry, reload_registry
 
     reload_registry()
     registry = get_registry()
@@ -267,7 +266,7 @@ def test_enabled_sig_loaded_by_registry():
     disable_custom_signature("CS-001")
     enable_custom_signature("CS-001")
 
-    from argus.registry import reload_registry, get_registry
+    from argus.registry import get_registry, reload_registry
 
     reload_registry()
     registry = get_registry()
@@ -403,7 +402,10 @@ def test_prune_keeps_high_hit_signatures():
 
     old = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
     old_hit = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS + 10)).isoformat()
-    _setup_sig_with_meta("CS-001", approved_at=old, total_hits=MIN_HITS_TO_KEEP, last_hit_at=old_hit)
+    _setup_sig_with_meta(
+        "CS-001", approved_at=old,
+        total_hits=MIN_HITS_TO_KEEP, last_hit_at=old_hit,
+    )
 
     removed = prune_stale_signatures()
     assert removed == []
@@ -447,9 +449,18 @@ def test_prune_selective_removal():
     recent_hit = (now - timedelta(days=2)).isoformat()
     stale_hit = (now - timedelta(days=STALE_DAYS + 5)).isoformat()
 
-    _setup_sig_with_meta("CS-001", approved_at=old, total_hits=0)           # pruned: zero hits
-    _setup_sig_with_meta("CS-002", approved_at=old, total_hits=5, last_hit_at=recent_hit)  # kept: high hits
-    _setup_sig_with_meta("CS-003", approved_at=old, total_hits=1, last_hit_at=stale_hit)   # pruned: stale
+    # pruned: zero hits
+    _setup_sig_with_meta("CS-001", approved_at=old, total_hits=0)
+    # kept: high hits
+    _setup_sig_with_meta(
+        "CS-002", approved_at=old,
+        total_hits=5, last_hit_at=recent_hit,
+    )
+    # pruned: stale
+    _setup_sig_with_meta(
+        "CS-003", approved_at=old,
+        total_hits=1, last_hit_at=stale_hit,
+    )
 
     removed = prune_stale_signatures()
     assert sorted(removed) == ["CS-001", "CS-003"]
