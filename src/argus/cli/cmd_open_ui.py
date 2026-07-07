@@ -652,6 +652,14 @@ def _make_handler(
 
                 data = load_custom_signatures()
                 self._send_json(data.get("signatures", []))
+            elif path == "/api/signature-stats":
+                from argus.signature_stats import compute_stats  # noqa: PLC0415
+                import dataclasses  # noqa: PLC0415
+
+                all_stats = compute_stats(include_builtins=False)
+                self._send_json(
+                    [dataclasses.asdict(s) for s in all_stats.values()]
+                )
             elif path == "/api/shared-signatures":
                 from argus.cloud import pull_shared_signatures  # noqa: PLC0415
 
@@ -1310,6 +1318,45 @@ def _make_handler(
                     self._send_json({"ok": True})
                 else:
                     self._send_json({"error": "candidate not found"}, 404)
+            elif path.startswith("/api/custom-signatures/") and path.endswith("/disable"):
+                sig_id = path[len("/api/custom-signatures/") : -len("/disable")]
+                from argus.candidate_store import disable_custom_signature  # noqa: PLC0415
+                from argus.registry import reload_registry  # noqa: PLC0415
+
+                if disable_custom_signature(sig_id):
+                    reload_registry()
+                    self._send_json({"ok": True, "sig_id": sig_id, "disabled": True})
+                else:
+                    self._send_json({"error": "signature not found"}, 404)
+            elif path.startswith("/api/custom-signatures/") and path.endswith("/enable"):
+                sig_id = path[len("/api/custom-signatures/") : -len("/enable")]
+                from argus.candidate_store import enable_custom_signature  # noqa: PLC0415
+                from argus.registry import reload_registry  # noqa: PLC0415
+
+                if enable_custom_signature(sig_id):
+                    reload_registry()
+                    self._send_json({"ok": True, "sig_id": sig_id, "disabled": False})
+                else:
+                    self._send_json({"error": "signature not found"}, 404)
+            elif path == "/api/signature-stats/dispute":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    self._send_json({"error": "invalid JSON"}, 400)
+                    return
+                from argus.signature_stats import record_dispute  # noqa: PLC0415
+
+                dispute_id = record_dispute(
+                    sig_id=data.get("sig_id", ""),
+                    run_id=data.get("run_id", ""),
+                    node_name=data.get("node_name", ""),
+                    field_path=data.get("field_path", ""),
+                    evidence=data.get("evidence", ""),
+                    reason=data.get("reason", ""),
+                )
+                self._send_json({"ok": True, "dispute_id": dispute_id})
             else:
                 self._send_json({"error": "not found"}, 404)
 

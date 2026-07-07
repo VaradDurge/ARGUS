@@ -12,6 +12,7 @@ from argus.cli.cmd_login import login, logout, whoami
 from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
 from argus.cli.cmd_show import show_last, show_list, show_run
+from argus.cli.cmd_stats import stats
 from argus.cli.cmd_update import check_for_update
 
 app = typer.Typer(
@@ -310,3 +311,46 @@ def cmd_update() -> None:
 def cmd_doctor() -> None:
     """Diagnose integration issues: LangGraph version, storage, replay readiness."""
     doctor()
+
+
+@app.command("stats")
+def cmd_stats(
+    all_sigs: Annotated[
+        bool,
+        typer.Option("--all", "-a", help="Include builtin signatures"),
+    ] = False,
+    sig: Annotated[
+        Optional[str],
+        typer.Option("--sig", "-s", help="Show stats for a specific signature ID"),
+    ] = None,
+    disable: Annotated[
+        Optional[str],
+        typer.Option("--disable", help="Disable a custom signature by ID"),
+    ] = None,
+    enable: Annotated[
+        Optional[str],
+        typer.Option("--enable", help="Re-enable a disabled custom signature"),
+    ] = None,
+    dispute: Annotated[
+        Optional[str],
+        typer.Option("--dispute", help="Flag a signature hit as false positive"),
+    ] = None,
+    run_id: Annotated[
+        Optional[str],
+        typer.Option("--run", help="Run ID for dispute context"),
+    ] = None,
+    prune: Annotated[
+        bool,
+        typer.Option("--prune", help="Remove stale signatures that haven't proven useful"),
+    ] = False,
+) -> None:
+    """Show signature effectiveness stats and manage learned patterns."""
+    stats(
+        all_sigs=all_sigs,
+        sig=sig,
+        disable=disable,
+        enable=enable,
+        dispute=dispute,
+        run_id=run_id,
+        prune=prune,
+    )

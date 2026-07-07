@@ -37,27 +37,27 @@ interface Signature {
     approved_at?: string
     contributed_by?: string
     framework_specific: string | null
+    disabled?: boolean
+    total_hits?: number
+    last_hit_at?: string
   }
 }
 
-interface FeedbackEvent {
-  id: string
-  override_type: string
-  node_name: string
-  anomaly_ids: string[]
-  anomaly_reasons: string[]
-  llm_reason: string
-  llm_confidence: number
-  behavior_type: string
-  output_shape: { key_count: number; depth: number; total_chars: number }
-  source_run_ids: string[]
-  times_seen: number
-  first_seen: string
-  last_seen: string
-  status: string
+interface SignatureStatsData {
+  sig_id: string
+  source: string
+  description: string
+  total_hits: number
+  runs_hit: number
+  nodes_hit: number
+  first_hit: string
+  last_hit: string
+  hit_nodes: string[]
+  false_positive_count: number
+  disabled: boolean
 }
 
-type Tab = 'pending' | 'private' | 'shared' | 'feedback'
+type Tab = 'pending' | 'private' | 'shared'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -379,338 +379,380 @@ function CandidateCard({
 
 function SignatureRow({
   sig,
+  stats,
   onRemove,
+  onToggleDisable,
   acting,
 }: {
   sig: Signature
+  stats: SignatureStatsData | null
   onRemove: ((id: string) => void) | null
+  onToggleDisable: ((id: string, disabled: boolean) => void) | null
   acting: boolean
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false)
-
-  return (
-    <div
-      className="rounded-xl px-5 py-4 flex flex-col gap-2.5"
-      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-    >
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-[11px] font-bold shrink-0" style={{ color: '#7c7fc7', minWidth: 48 }}>
-          {sig.id}
-        </span>
-        <SeverityBadge severity={sig.severity} />
-        <StrategyBadge strategy={sig.match_strategy} />
-        <SourceBadge source={sig.source} />
-        {sig.metadata.contributed_by && (
-          <span className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
-            by {sig.metadata.contributed_by}
-          </span>
-        )}
-        <span className="ml-auto text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
-          {sig.metadata.approved_at ? timeAgo(sig.metadata.approved_at) : ''}
-        </span>
-      </div>
-
-      <div
-        className="rounded-lg px-3.5 py-2.5 font-mono text-[12.5px] break-all"
-        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-      >
-        {sig.pattern}
-      </div>
-
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          {sig.description}
-        </p>
-        {onRemove && (
-          <div className="shrink-0">
-            {confirmRemove ? (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => { onRemove(sig.id); setConfirmRemove(false) }}
-                  disabled={acting}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold"
-                  style={{ background: 'rgba(214,92,92,0.12)', color: '#d65c5c' }}
-                >
-                  Confirm
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmRemove(false)}
-                  className="px-2.5 py-1 rounded-md text-[11px]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  No
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmRemove(true)}
-                className="text-[11px] px-2.5 py-1 rounded-md transition-all"
-                style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Feedback Card (Feedback Tab) ─────────────────────────────
-
-function FeedbackCard({
-  event,
-  onResolve,
-  onDismiss,
-  acting,
-}: {
-  event: FeedbackEvent
-  onResolve: (id: string, verdict: string, share: boolean) => void
-  onDismiss: (id: string) => void
-  acting: string | null
-}) {
   const [expanded, setExpanded] = useState(false)
-  const [confirmAction, setConfirmAction] = useState<string | null>(null)
-  const isActing = acting === event.id
 
-  const isAnomaly = event.override_type === 'anomaly_override'
+  const isDisabled = sig.metadata.disabled || false
+  const hits = stats?.total_hits ?? sig.metadata.total_hits ?? 0
+  const runsHit = stats?.runs_hit ?? 0
+  const nodesHit = stats?.nodes_hit ?? 0
+  const fpCount = stats?.false_positive_count ?? 0
+  const lastHit = stats?.last_hit || sig.metadata.last_hit_at || ''
+  const hitNodes = stats?.hit_nodes ?? []
 
   return (
     <div
       className="rounded-xl overflow-hidden transition-all"
       style={{
         background: 'var(--bg-surface)',
-        border: '1px solid var(--border-subtle)',
+        border: `1px solid ${isDisabled ? 'rgba(214,92,92,0.15)' : 'var(--border-subtle)'}`,
+        opacity: isDisabled ? 0.65 : 1,
       }}
     >
-      {/* Header */}
-      <div className="px-5 pt-5 pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
+      {/* Main content */}
+      <div className="px-5 pt-4 pb-3 flex flex-col gap-2.5">
+        {/* Header row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[11px] font-bold shrink-0" style={{ color: '#7c7fc7', minWidth: 48 }}>
+            {sig.id}
+          </span>
+          <SeverityBadge severity={sig.severity} />
+          <StrategyBadge strategy={sig.match_strategy} />
+          <SourceBadge source={sig.source} />
+          {isDisabled && (
             <span
-              className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide"
               style={{
-                background: isAnomaly ? 'rgba(212,154,46,0.08)' : 'rgba(124,127,199,0.08)',
-                border: `1px solid ${isAnomaly ? 'rgba(212,154,46,0.25)' : 'rgba(124,127,199,0.2)'}`,
-                color: isAnomaly ? '#d49a2e' : '#7c7fc7',
+                background: 'rgba(214,92,92,0.08)',
+                border: '1px solid rgba(214,92,92,0.2)',
+                color: '#d65c5c',
               }}
             >
-              {isAnomaly ? 'anomaly override' : 'heuristic override'}
+              disabled
             </span>
-            {event.anomaly_ids.map((aid) => (
-              <span
-                key={aid}
-                className="text-[10.5px] font-mono font-medium px-2 py-0.5 rounded-md"
-                style={{ background: 'rgba(214,92,92,0.08)', border: '1px solid rgba(214,92,92,0.2)', color: '#d65c5c' }}
-              >
-                {aid}
-              </span>
-            ))}
-            <CategoryBadge category={event.behavior_type} />
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span
-              className="text-[10.5px] font-mono px-2 py-0.5 rounded-md"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-            >
-              {event.times_seen}x seen
-            </span>
+          )}
+          {sig.metadata.contributed_by && (
             <span className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
-              {timeAgo(event.last_seen)}
+              by {sig.metadata.contributed_by}
+            </span>
+          )}
+          <span className="ml-auto text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
+            {sig.metadata.approved_at ? timeAgo(sig.metadata.approved_at) : ''}
+          </span>
+        </div>
+
+        {/* Pattern */}
+        <div
+          className="rounded-lg px-3.5 py-2.5 font-mono text-[12.5px] break-all"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+        >
+          {sig.pattern}
+        </div>
+
+        {/* Description */}
+        <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          {sig.description}
+        </p>
+
+        {/* Stats bar */}
+        <div
+          className="flex items-center gap-4 rounded-lg px-3.5 py-2.5"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
+        >
+          <div className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v5l3.5 2" stroke={hits > 0 ? '#3d9e7d' : 'var(--text-faint)'} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="8" cy="8" r="6.5" stroke={hits > 0 ? '#3d9e7d' : 'var(--text-faint)'} strokeWidth="1.3"/>
+            </svg>
+            <span className="text-[12px] font-semibold" style={{ color: hits > 0 ? '#3d9e7d' : 'var(--text-muted)' }}>
+              {hits}
+            </span>
+            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {hits === 1 ? 'catch' : 'catches'}
             </span>
           </div>
-        </div>
 
-        {/* Node name */}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>Node:</span>
-          <span
-            className="font-mono text-[13px] font-semibold px-3 py-1.5 rounded-lg"
-            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-          >
-            {event.node_name}
-          </span>
-        </div>
-
-        {/* What happened */}
-        <div className="mt-3 rounded-lg px-4 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-start gap-2">
-              <span className="text-[11px] font-semibold shrink-0 mt-0.5" style={{ color: '#d65c5c', minWidth: 80 }}>
-                Detector said:
+          {runsHit > 0 && (
+            <div className="flex items-center gap-1">
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>across</span>
+              <span className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                {runsHit}
               </span>
-              <span className="text-[12.5px]" style={{ color: 'var(--text-secondary)' }}>
-                {event.anomaly_reasons.join('; ') || 'Suspicious output pattern'}
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {runsHit === 1 ? 'run' : 'runs'}
               </span>
             </div>
-            <div className="flex items-start gap-2">
-              <span className="text-[11px] font-semibold shrink-0 mt-0.5" style={{ color: '#3d9e7d', minWidth: 80 }}>
-                LLM said:
-              </span>
-              <span className="text-[12.5px]" style={{ color: 'var(--text-secondary)' }}>
-                {event.llm_reason}
+          )}
+
+          {fpCount > 0 && (
+            <div className="flex items-center gap-1">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                <path d="M8 5v3.5M8 11h.01" stroke="#d49a2e" strokeWidth="1.4" strokeLinecap="round"/>
+                <path d="M6.86 2.57L1.21 12.28a1.33 1.33 0 001.14 2h11.3a1.33 1.33 0 001.14-2L9.14 2.57a1.33 1.33 0 00-2.28 0z" stroke="#d49a2e" strokeWidth="1.2"/>
+              </svg>
+              <span className="text-[11px] font-medium" style={{ color: '#d49a2e' }}>
+                {fpCount} disputed
               </span>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Confidence */}
-        <div className="mt-3 flex items-center gap-3">
-          <span className="text-[11px] font-medium shrink-0" style={{ color: 'var(--text-muted)', minWidth: 72 }}>
-            LLM confidence
-          </span>
-          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${Math.round(event.llm_confidence * 100)}%`,
-                background: confidenceColor(event.llm_confidence),
-              }}
-            />
-          </div>
-          <span
-            className="text-[11px] font-mono font-semibold shrink-0"
-            style={{ color: confidenceColor(event.llm_confidence) }}
-          >
-            {Math.round(event.llm_confidence * 100)}%
-          </span>
+          {hits === 0 && !isDisabled && (
+            <span className="text-[11px] italic" style={{ color: 'var(--text-faint)' }}>
+              No matches yet — waiting for runs
+            </span>
+          )}
+
+          {lastHit && (
+            <span className="ml-auto text-[10.5px]" style={{ color: 'var(--text-faint)' }}>
+              last: {timeAgo(lastHit)}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Expandable details */}
-      {expanded && (
-        <div className="px-5 py-4 flex flex-col gap-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <div>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] block mb-1.5" style={{ color: 'var(--text-muted)' }}>
-              Output Shape (no content shared)
-            </span>
-            <div className="flex gap-4">
-              {[
-                { label: 'Keys', value: event.output_shape.key_count },
-                { label: 'Depth', value: event.output_shape.depth },
-                { label: 'Chars', value: event.output_shape.total_chars },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-md px-3 py-2" style={{ background: 'var(--bg-elevated)' }}>
-                  <span className="text-[10px] block" style={{ color: 'var(--text-muted)' }}>{label}</span>
-                  <span className="text-[13px] font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</span>
+      {/* Expandable detail + actions */}
+      <div
+        className="px-5 pb-4 flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2">
+          {hitNodes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="text-[11px] flex items-center gap-1 transition-all"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <svg
+                width="10" height="10" viewBox="0 0 16 16" fill="none"
+                style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
+              >
+                <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {nodesHit} {nodesHit === 1 ? 'node' : 'nodes'} matched
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Disable / Enable toggle */}
+          {onToggleDisable && (
+            <button
+              type="button"
+              onClick={() => onToggleDisable(sig.id, isDisabled)}
+              disabled={acting}
+              className="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
+              style={{
+                background: isDisabled ? 'rgba(61,158,125,0.08)' : 'rgba(214,92,92,0.06)',
+                border: `1px solid ${isDisabled ? 'rgba(61,158,125,0.2)' : 'rgba(214,92,92,0.15)'}`,
+                color: isDisabled ? '#3d9e7d' : '#d65c5c',
+                opacity: acting ? 0.5 : 1,
+              }}
+            >
+              {isDisabled ? 'Enable' : 'Disable'}
+            </button>
+          )}
+
+          {/* Remove */}
+          {onRemove && (
+            <div className="shrink-0">
+              {confirmRemove ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { onRemove(sig.id); setConfirmRemove(false) }}
+                    disabled={acting}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold"
+                    style={{ background: 'rgba(214,92,92,0.12)', color: '#d65c5c' }}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemove(false)}
+                    className="px-2.5 py-1 rounded-md text-[11px]"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    No
+                  </button>
                 </div>
-              ))}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemove(true)}
+                  className="text-[11px] px-2.5 py-1 rounded-md transition-all"
+                  style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded node list */}
+      {expanded && hitNodes.length > 0 && (
+        <div
+          className="px-5 pb-4"
+        >
+          <div
+            className="rounded-lg px-3.5 py-2.5 flex flex-wrap gap-1.5"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}
+          >
+            {hitNodes.map((node) => (
+              <span
+                key={node}
+                className="text-[10.5px] font-mono px-2 py-0.5 rounded-md"
+                style={{
+                  background: 'rgba(124,127,199,0.08)',
+                  border: '1px solid rgba(124,127,199,0.15)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                {node}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Compact Shared Signature Row ─────────────────────────────
+
+function SharedSignatureRow({
+  sig,
+  stats,
+}: {
+  sig: Signature
+  stats: SignatureStatsData | null
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const hits = stats?.total_hits ?? sig.metadata.total_hits ?? 0
+  const runsHit = stats?.runs_hit ?? 0
+  const fpCount = stats?.false_positive_count ?? 0
+  const lastHit = stats?.last_hit || sig.metadata.last_hit_at || ''
+  const hitNodes = stats?.hit_nodes ?? []
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden transition-all cursor-pointer"
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-subtle)',
+      }}
+      onClick={() => setExpanded(!expanded)}
+    >
+      {/* Compact row */}
+      <div className="px-4 py-3 flex items-center gap-3">
+        {/* ID */}
+        <span className="font-mono text-[10.5px] font-bold shrink-0" style={{ color: '#7c7fc7', minWidth: 72 }}>
+          {sig.id}
+        </span>
+
+        {/* Strategy badge */}
+        <StrategyBadge strategy={sig.match_strategy} />
+
+        {/* Pattern — truncated */}
+        <span
+          className="font-mono text-[11.5px] truncate flex-1 min-w-0"
+          style={{ color: 'var(--text-secondary)' }}
+          title={sig.pattern}
+        >
+          {sig.pattern}
+        </span>
+
+        {/* Catch count */}
+        <div className="flex items-center gap-1 shrink-0">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+            <path d="M8 3v5l3.5 2" stroke={hits > 0 ? '#3d9e7d' : 'var(--text-faint)'} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="8" cy="8" r="6.5" stroke={hits > 0 ? '#3d9e7d' : 'var(--text-faint)'} strokeWidth="1.3"/>
+          </svg>
+          <span className="text-[11.5px] font-semibold tabular-nums" style={{ color: hits > 0 ? '#3d9e7d' : 'var(--text-muted)' }}>
+            {hits}
+          </span>
+        </div>
+
+        {/* FP indicator */}
+        {fpCount > 0 && (
+          <div className="flex items-center gap-0.5 shrink-0">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+              <path d="M8 5v3.5M8 11h.01" stroke="#d49a2e" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M6.86 2.57L1.21 12.28a1.33 1.33 0 001.14 2h11.3a1.33 1.33 0 001.14-2L9.14 2.57a1.33 1.33 0 00-2.28 0z" stroke="#d49a2e" strokeWidth="1.2"/>
+            </svg>
+            <span className="text-[10.5px] font-medium" style={{ color: '#d49a2e' }}>
+              {fpCount}
+            </span>
+          </div>
+        )}
+
+        {/* Chevron */}
+        <svg
+          width="10" height="10" viewBox="0 0 16 16" fill="none"
+          className="shrink-0"
+          style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', color: 'var(--text-faint)' }}
+        >
+          <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="px-4 pb-3 flex flex-col gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="pt-2.5">
+            {/* Full pattern */}
+            <div
+              className="rounded-md px-3 py-2 font-mono text-[12px] break-all"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            >
+              {sig.pattern}
             </div>
           </div>
-          {event.source_run_ids.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                Runs:
-              </span>
-              {event.source_run_ids.map((rid) => (
+
+          {/* Description */}
+          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            {sig.description}
+          </p>
+
+          {/* Meta row */}
+          <div className="flex items-center gap-3 flex-wrap text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
+            <SeverityBadge severity={sig.severity} />
+            {sig.metadata.contributed_by && (
+              <span>by {sig.metadata.contributed_by}</span>
+            )}
+            {runsHit > 0 && (
+              <span>across <strong style={{ color: 'var(--text-secondary)' }}>{runsHit}</strong> {runsHit === 1 ? 'run' : 'runs'}</span>
+            )}
+            {lastHit && (
+              <span>last: {timeAgo(lastHit)}</span>
+            )}
+            {hits === 0 && (
+              <span className="italic" style={{ color: 'var(--text-faint)' }}>No matches yet</span>
+            )}
+          </div>
+
+          {/* Hit nodes */}
+          {hitNodes.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {hitNodes.map((node) => (
                 <span
-                  key={rid}
-                  className="text-[10.5px] font-mono px-2 py-0.5 rounded-md"
-                  style={{ background: 'rgba(124,127,199,0.08)', color: '#7c7fc7' }}
+                  key={node}
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                  style={{
+                    background: 'rgba(124,127,199,0.08)',
+                    border: '1px solid rgba(124,127,199,0.15)',
+                    color: 'var(--text-secondary)',
+                  }}
                 >
-                  {rid.length > 20 ? `${rid.slice(0, 16)}...` : rid}
+                  {node}
                 </span>
               ))}
             </div>
           )}
         </div>
       )}
-
-      {/* Actions footer */}
-      <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="text-[12px] font-medium transition-colors"
-          style={{ color: '#7c7fc7' }}
-        >
-          {expanded ? 'Show less' : 'Show details'}
-        </button>
-
-        <div className="flex items-center gap-2">
-          {confirmAction ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                {confirmAction === 'agree' ? 'LLM was right?' : 'Detector was right?'}
-              </span>
-              <button
-                type="button"
-                onClick={() => { onResolve(event.id, confirmAction, false); setConfirmAction(null) }}
-                disabled={isActing}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-semibold"
-                style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', opacity: isActing ? 0.5 : 1 }}
-              >
-                Local
-              </button>
-              <button
-                type="button"
-                onClick={() => { onResolve(event.id, confirmAction, true); setConfirmAction(null) }}
-                disabled={isActing}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-semibold flex items-center gap-1"
-                style={{ background: '#3d9e7d', color: '#fff', opacity: isActing ? 0.5 : 1 }}
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 2v8M4.5 6.5L8 2l3.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M2.5 11v1.5a1 1 0 001 1h9a1 1 0 001-1V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                </svg>
-                Share
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmAction(null)}
-                className="px-2 py-1.5 rounded-lg text-[12px]"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => onDismiss(event.id)}
-                disabled={isActing}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
-                style={{ color: 'var(--text-muted)', opacity: isActing ? 0.5 : 1 }}
-              >
-                Dismiss
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmAction('disagree')}
-                disabled={isActing}
-                className="px-4 py-2 rounded-lg text-[13px] font-medium transition-all"
-                style={{
-                  color: '#d65c5c',
-                  border: '1px solid rgba(214,92,92,0.25)',
-                  background: 'rgba(214,92,92,0.06)',
-                  opacity: isActing ? 0.5 : 1,
-                }}
-              >
-                Disagree
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmAction('agree')}
-                disabled={isActing}
-                className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all"
-                style={{
-                  color: '#3d9e7d',
-                  border: '1px solid rgba(61,158,125,0.25)',
-                  background: 'rgba(61,158,125,0.06)',
-                  opacity: isActing ? 0.5 : 1,
-                }}
-              >
-                Agree
-              </button>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
@@ -722,7 +764,7 @@ export default function ApprovalsPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [privateSigs, setPrivateSigs] = useState<Signature[]>([])
   const [sharedSigs, setSharedSigs] = useState<Signature[]>([])
-  const [feedbackEvents, setFeedbackEvents] = useState<FeedbackEvent[]>([])
+  const [sigStats, setSigStats] = useState<Record<string, SignatureStatsData>>({})
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
   const [actingBool, setActingBool] = useState(false)
@@ -730,11 +772,11 @@ export default function ApprovalsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [candRes, privRes, sharedRes, fbRes] = await Promise.all([
+      const [candRes, privRes, sharedRes, statsRes] = await Promise.all([
         fetch('/api/candidates'),
         fetch('/api/custom-signatures'),
         fetch('/api/shared-signatures'),
-        fetch('/api/feedback'),
+        fetch('/api/signature-stats'),
       ])
       if (candRes.ok) {
         const data = await candRes.json()
@@ -748,9 +790,13 @@ export default function ApprovalsPage() {
         const data = await sharedRes.json()
         setSharedSigs((data || []).map((s: Signature) => ({ ...s, source: 'shared' })))
       }
-      if (fbRes.ok) {
-        const data = await fbRes.json()
-        setFeedbackEvents(data.pending || [])
+      if (statsRes.ok) {
+        const data: SignatureStatsData[] = await statsRes.json()
+        const map: Record<string, SignatureStatsData> = {}
+        for (const s of data) {
+          map[s.sig_id] = s
+        }
+        setSigStats(map)
       }
     } catch {
       // server not running
@@ -803,26 +849,14 @@ export default function ApprovalsPage() {
     setActingBool(false)
   }
 
-  async function handleResolveFeedback(id: string, verdict: string, share: boolean) {
-    setActing(id)
+  async function handleToggleDisable(id: string, currentlyDisabled: boolean) {
+    setActingBool(true)
     try {
-      const res = await fetch(`/api/feedback/${id}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ verdict, share }),
-      })
+      const action = currentlyDisabled ? 'enable' : 'disable'
+      const res = await fetch(`/api/custom-signatures/${id}/${action}`, { method: 'POST' })
       if (res.ok) await fetchData()
     } catch { /* ignore */ }
-    setActing(null)
-  }
-
-  async function handleDismissFeedback(id: string) {
-    setActing(id)
-    try {
-      const res = await fetch(`/api/feedback/${id}/dismiss`, { method: 'POST' })
-      if (res.ok) await fetchData()
-    } catch { /* ignore */ }
-    setActing(null)
+    setActingBool(false)
   }
 
   async function handleSync() {
@@ -864,7 +898,6 @@ export default function ApprovalsPage() {
         >
           {([
             { key: 'pending' as Tab, label: 'Pending', count: candidates.length },
-            { key: 'feedback' as Tab, label: 'Feedback', count: feedbackEvents.length },
             { key: 'private' as Tab, label: 'Private', count: privateSigs.length },
             { key: 'shared' as Tab, label: 'Shared', count: sharedSigs.length },
           ]).map(({ key, label, count }) => (
@@ -948,32 +981,6 @@ export default function ApprovalsPage() {
             ))}
           </div>
         )
-      ) : tab === 'feedback' ? (
-        feedbackEvents.length === 0 ? (
-          <div
-            className="text-center py-16 rounded-xl"
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-          >
-            <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-              No pending feedback
-            </p>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              When the LLM judge overrides an anomaly detector flag, it appears here for your review.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {feedbackEvents.map((e) => (
-              <FeedbackCard
-                key={e.id}
-                event={e}
-                onResolve={handleResolveFeedback}
-                onDismiss={handleDismissFeedback}
-                acting={acting}
-              />
-            ))}
-          </div>
-        )
       ) : tab === 'private' ? (
         privateSigs.length === 0 ? (
           <div
@@ -990,7 +997,7 @@ export default function ApprovalsPage() {
         ) : (
           <div className="flex flex-col gap-2.5">
             {privateSigs.map((s) => (
-              <SignatureRow key={s.id} sig={s} onRemove={handleRemovePrivate} acting={actingBool} />
+              <SignatureRow key={s.id} sig={s} stats={sigStats[s.id] || null} onRemove={handleRemovePrivate} onToggleDisable={handleToggleDisable} acting={actingBool} />
             ))}
           </div>
         )
@@ -1008,9 +1015,9 @@ export default function ApprovalsPage() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-1">
             {sharedSigs.map((s) => (
-              <SignatureRow key={s.id} sig={s} onRemove={null} acting={false} />
+              <SharedSignatureRow key={s.id} sig={s} stats={sigStats[s.id] || null} />
             ))}
           </div>
         )

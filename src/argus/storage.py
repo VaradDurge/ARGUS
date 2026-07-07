@@ -64,6 +64,15 @@ def save_run(record: RunRecord) -> Path:
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     tmp.rename(path)
 
+    # Update hit metadata for learned/shared signatures, then prune stale ones
+    try:
+        from argus.signature_stats import prune_stale_signatures, update_hit_metadata
+
+        update_hit_metadata(data)
+        prune_stale_signatures()
+    except Exception:
+        pass  # hit tracking and pruning are best-effort
+
     # Cloud sync — push synchronously so the thread isn't killed on process exit
     try:
         from argus.cloud import is_logged_in, push_run

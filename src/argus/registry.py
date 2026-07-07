@@ -47,6 +47,8 @@ def _load_registry() -> list[dict[str, Any]]:
         try:
             custom_data = json.loads(custom_path.read_text(encoding="utf-8"))
             for sig in custom_data.get("signatures", []):
+                if sig.get("metadata", {}).get("disabled"):
+                    continue  # skip disabled signatures
                 if sig.get("match_strategy") == "regex" and sig.get("pattern"):
                     sig["_compiled"] = re.compile(sig["pattern"], re.IGNORECASE)
                 sigs.append(sig)

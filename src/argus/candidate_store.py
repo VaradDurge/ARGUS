@@ -272,3 +272,29 @@ def delete_custom_signature(sig_id: str) -> bool:
             save_custom_signatures(custom)
             return True
     return False
+
+
+def disable_custom_signature(sig_id: str) -> bool:
+    """Disable a custom signature without deleting it.
+
+    The signature stays in custom_signatures.json but is skipped
+    by the registry loader. Returns False if sig_id not found.
+    """
+    custom = load_custom_signatures()
+    for s in custom.get("signatures", []):
+        if s["id"] == sig_id:
+            s.setdefault("metadata", {})["disabled"] = True
+            save_custom_signatures(custom)
+            return True
+    return False
+
+
+def enable_custom_signature(sig_id: str) -> bool:
+    """Re-enable a previously disabled custom signature."""
+    custom = load_custom_signatures()
+    for s in custom.get("signatures", []):
+        if s["id"] == sig_id:
+            s.setdefault("metadata", {}).pop("disabled", None)
+            save_custom_signatures(custom)
+            return True
+    return False
