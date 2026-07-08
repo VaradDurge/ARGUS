@@ -29,8 +29,10 @@ def test_dispatch_returns_false_without_pattern_embedding():
         "description": "test",
         "metadata": {"similarity_threshold": 0.85},
     }
-    # No _pattern_embedding set — should return False gracefully
-    assert _dispatch(sig, "some text") is False
+    # No _pattern_embedding set — should return (False, 0.0) gracefully
+    matched, confidence = _dispatch(sig, "some text")
+    assert matched is False
+    assert confidence == 0.0
 
 
 @pytest.mark.unit
@@ -127,10 +129,13 @@ def test_custom_threshold_per_signature():
         from argus.registry import _match_semantic_similarity
 
         sig["metadata"]["similarity_threshold"] = 0.99
-        assert _match_semantic_similarity(sig, "any text") is False
+        matched, score = _match_semantic_similarity(sig, "any text")
+        assert matched is False
 
         sig["metadata"]["similarity_threshold"] = 0.80
-        assert _match_semantic_similarity(sig, "any text") is True
+        matched, score = _match_semantic_similarity(sig, "any text")
+        assert matched is True
+        assert score > 0.80
 
 
 # ── Integration tests (require OpenAI API key) ──────────────────────────────

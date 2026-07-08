@@ -40,6 +40,7 @@ from argus.llm_tracker import create_tracker, extract_usage, install_handler, re
 from argus.models import (
     AnomalySignal,
     BehaviorConfig,
+    DisambiguationResult,
     LLMInvestigationConfig,
     LLMUsage,
     NodeEvent,
@@ -555,6 +556,76 @@ class ArgusSession:
                         inspection.degraded_fields = degraded_fields
                         inspection.degraded_upstream_node = upstream_node
 
+            # LLM disambiguation for ambiguous heuristic signals
+            disambiguation_results: list[DisambiguationResult] = []
+            if (
+                inspection is not None
+                and inspection.semantic_signals
+                and self._llm_investigation_config
+                and self._llm_investigation_config.enabled
+                and self._llm_investigation_config.heuristic_disambiguation
+                and status not in ("crashed", "interrupted", "degraded_input")
+            ):
+                conf_lo = self._llm_investigation_config.disambiguation_confidence_low
+                conf_hi = self._llm_investigation_config.disambiguation_confidence_high
+                ambiguous = [
+                    s for s in inspection.semantic_signals
+                    if conf_lo <= s.confidence <= conf_hi
+                ]
+                if ambiguous and output_snap is not None:
+                    try:
+                        from argus.heuristic_disambiguator import (
+                            disambiguate_signals,  # noqa: PLC0415
+                        )
+
+                        disambiguation_results = disambiguate_signals(
+                            node_name=node_name,
+                            input_state=input_snap,
+                            output_dict=output_snap,
+                            ambiguous_signals=ambiguous,
+                            model=self._llm_investigation_config.disambiguation_model,
+                        )
+                        # Remove confirmed false positives from inspection
+                        dismissed_ids = {
+                            r.sig_id for r in disambiguation_results
+                            if not r.llm_verdict and r.llm_confidence >= 0.5
+                        }
+                        if dismissed_ids:
+                            inspection.semantic_signals = [
+                                s for s in inspection.semantic_signals
+                                if s.sig_id not in dismissed_ids
+                            ]
+                            inspection.tool_failures = [
+                                tf for tf in inspection.tool_failures
+                                if not any(
+                                    d_id in (tf.evidence or "")
+                                    for d_id in dismissed_ids
+                                )
+                            ]
+                            # Recalculate derived inspection fields
+                            inspection.has_tool_failure = any(
+                                tf.severity == "critical"
+                                for tf in inspection.tool_failures
+                            )
+                            inspection.is_silent_failure = bool(
+                                inspection.missing_fields
+                                or inspection.has_tool_failure
+                            )
+                            # Re-derive status after removing false positives
+                            _has_failure = (
+                                inspection.is_silent_failure
+                                or inspection.has_tool_failure
+                            )
+                            _has_signals = bool(inspection.semantic_signals)
+                            if not _has_failure and not _has_signals:
+                                status = "pass"
+                            elif _has_failure:
+                                status = "fail"
+                            else:
+                                status = "semantic_fail"
+                    except Exception:
+                        pass  # fail-open: keep ambiguous signals as-is
+
             # semantic validation (skip on crash/interrupt)
             validator_results: list[ValidatorResult] = []
             if output_snap is not None and status in ("pass", "fail"):
@@ -681,6 +752,7 @@ class ArgusSession:
                 behavior_type=behavior_type_val,
                 anomaly_signals=anomaly_signals,
                 semantic_check=semantic_check_result,
+                disambiguation_results=disambiguation_results,
             )
 
             self._events.append(event)
@@ -865,6 +937,28 @@ class ArgusSession:
             record.correlation = correlation
         except Exception:
             pass
+
+        # LLM-assisted correlation augmentation (non-critical)
+        if (
+            record.correlation
+            and self._llm_investigation_config
+            and self._llm_investigation_config.enabled
+            and self._llm_investigation_config.llm_correlation
+            and record.overall_status != "clean"
+        ):
+            try:
+                from argus.llm_correlator import augment_correlation  # noqa: PLC0415
+
+                llm_insight = augment_correlation(
+                    record=record,
+                    deterministic_report=record.correlation,
+                    model=self._llm_investigation_config.correlation_model,
+                    max_tokens=self._llm_investigation_config.correlation_max_tokens,
+                )
+                if llm_insight is not None:
+                    record.correlation.llm_insight = llm_insight
+            except Exception:
+                pass  # fail-open: deterministic correlation stands alone
 
         # Replay LLM comparison (non-critical)
         llm_cfg = self._llm_investigation_config

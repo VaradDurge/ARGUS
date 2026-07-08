@@ -17,6 +17,7 @@ class SignatureMatch:
     severity: str
     description: str
     evidence: str  # short snippet showing what matched
+    confidence: float = 1.0  # 0.0–1.0, how confident the match is
 
 
 # ── Singleton registry load ───────────────────────────────────────────────────
@@ -124,25 +125,38 @@ def sync_shared_signatures() -> int:
 # ── Matchers ──────────────────────────────────────────────────────────────────
 
 
-def _match_exact_ci(pattern: str, value: str) -> bool:
+def _match_exact_ci(pattern: str, value: str) -> tuple[bool, float]:
     """True if the stripped, lowercased value equals the lowercased pattern."""
-    return value.strip().lower() == pattern.lower()
+    matched = value.strip().lower() == pattern.lower()
+    return (matched, 1.0) if matched else (False, 0.0)
 
 
-def _match_contains_ci(pattern: str, value: str) -> bool:
+def _match_contains_ci(pattern: str, value: str) -> tuple[bool, float]:
     """True if pattern appears anywhere inside value (case-insensitive)."""
-    return pattern.lower() in value.lower()
+    matched = pattern.lower() in value.lower()
+    if not matched:
+        return (False, 0.0)
+    confidence = min(0.95, 0.4 + 0.5 * (len(pattern) / max(len(value), 1)))
+    return (True, confidence)
 
 
-def _match_regex(sig: dict[str, Any], value: str) -> bool:
+def _match_regex(sig: dict[str, Any], value: str) -> tuple[bool, float]:
     """True if the pre-compiled regex matches anywhere in value."""
     compiled: re.Pattern[str] = sig["_compiled"]
-    return bool(compiled.search(value))
+    matched = bool(compiled.search(value))
+    if not matched:
+        return (False, 0.0)
+    confidence = 0.9 if sig.get("severity") == "critical" else 0.7
+    return (True, confidence)
 
 
-def _match_prefix_ci(pattern: str, value: str) -> bool:
+def _match_prefix_ci(pattern: str, value: str) -> tuple[bool, float]:
     """True if value starts with pattern (case-insensitive)."""
-    return value.lower().startswith(pattern.lower())
+    matched = value.lower().startswith(pattern.lower())
+    if not matched:
+        return (False, 0.0)
+    confidence = 0.85 if len(value) < 50 else 0.6
+    return (True, confidence)
 
 
 _STOP_WORDS = frozenset(
@@ -232,8 +246,11 @@ _STOP_WORDS = frozenset(
 )
 
 
-def _match_repetition(value: str, threshold: int = 3) -> bool:
-    """True if non-trivial ngram repetition indicates filler content.
+def _match_repetition(value: str, threshold: int = 3) -> tuple[bool, float]:
+    """Check for non-trivial ngram repetition indicating filler content.
+
+    Returns (matched, confidence). Confidence is based on how far the
+    repetition count exceeds the threshold.
 
     Only counts bigrams and trigrams — unigrams are too noisy (common
     words like "the", "and", "stocks" always repeat in normal prose).
@@ -254,9 +271,10 @@ def _match_repetition(value: str, threshold: int = 3) -> bool:
         non_stop = [t for t in tokens if t not in _STOP_WORDS]
         if len(non_stop) >= 3:
             top_count = max(non_stop.count(t) for t in set(non_stop))
-            if top_count / len(non_stop) >= 0.75:
-                return True
-        return False
+            ratio = top_count / len(non_stop)
+            if ratio >= 0.75:
+                return (True, min(0.95, 0.5 + 0.5 * ratio))
+        return (False, 0.0)
 
     # Scale threshold with text length
     effective_threshold = max(threshold, len(tokens) // 25)
@@ -270,7 +288,11 @@ def _match_repetition(value: str, threshold: int = 3) -> bool:
                 continue
             gram = " ".join(gram_tokens)
             counts[gram] = counts.get(gram, 0) + 1
-    return max(counts.values(), default=0) >= effective_threshold
+    max_count = max(counts.values(), default=0)
+    if max_count >= effective_threshold:
+        confidence = min(0.95, max_count / (2 * effective_threshold))
+        return (True, confidence)
+    return (False, 0.0)
 
 
 # ── Semantic similarity matching ─────────────────────────────────────────────
@@ -278,10 +300,6 @@ def _match_repetition(value: str, threshold: int = 3) -> bool:
 _PATTERN_EMBEDDINGS_READY = False
 _PATTERN_EMBEDDINGS_LOCK = threading.Lock()
 _DEFAULT_SIMILARITY_THRESHOLD = 0.75
-
-# Stores the last similarity score per sig_id for evidence formatting.
-# Cleared at the start of each scan_value() call.
-_last_similarity_scores: dict[str, float] = {}
 
 
 def _ensure_pattern_embeddings(sigs: list[dict[str, Any]]) -> None:
@@ -309,33 +327,37 @@ def _ensure_pattern_embeddings(sigs: list[dict[str, Any]]) -> None:
         _PATTERN_EMBEDDINGS_READY = True
 
 
-def _match_semantic_similarity(sig: dict[str, Any], value: str) -> bool:
-    """True if value is semantically similar to the signature pattern."""
+def _match_semantic_similarity(sig: dict[str, Any], value: str) -> tuple[bool, float]:
+    """Check if value is semantically similar to the signature pattern.
+
+    Returns (matched, cosine_score). The cosine score is used directly
+    as the confidence value — no module-level state needed.
+    """
     from argus import embedding_store  # noqa: PLC0415
 
     pattern_emb = sig.get("_pattern_embedding")
     if pattern_emb is None:
-        return False
+        return (False, 0.0)
 
     try:
         value_emb = embedding_store.get_cached_embedding(value)
     except Exception:
-        return False  # API unavailable — skip gracefully
+        return (False, 0.0)  # API unavailable — skip gracefully
 
     score = embedding_store.cosine_similarity(value_emb, pattern_emb)
     threshold = (
         sig.get("metadata", {}).get("similarity_threshold", _DEFAULT_SIMILARITY_THRESHOLD)
     )
     if score >= threshold:
-        _last_similarity_scores[sig["id"]] = score
-        return True
-    return False
+        return (True, score)
+    return (False, 0.0)
 
 
 # Strategy dispatch — avoids if/elif chain; each entry is a callable that
 # receives (sig, value) but exact_ci / contains_ci / prefix_ci only need
 # (pattern, value), so we wrap them below.
-def _dispatch(sig: dict[str, Any], value: str) -> bool:
+def _dispatch(sig: dict[str, Any], value: str) -> tuple[bool, float]:
+    """Returns (matched, confidence). Confidence is 0.0 if not matched."""
     strategy = sig["match_strategy"]
     if strategy == "regex":
         return _match_regex(sig, value)
@@ -350,7 +372,7 @@ def _dispatch(sig: dict[str, Any], value: str) -> bool:
         return _match_contains_ci(pattern, value)
     if strategy == "prefix_ci":
         return _match_prefix_ci(pattern, value)
-    return False
+    return (False, 0.0)
 
 
 # ── Scanner ───────────────────────────────────────────────────────────────────
@@ -373,18 +395,15 @@ def scan_value(
     # Lazily initialize pattern embeddings for semantic_similarity sigs
     _ensure_pattern_embeddings(sigs)
 
-    # Clear per-scan similarity scores
-    _last_similarity_scores.clear()
-
     matches: list[SignatureMatch] = []
     for sig in sigs:
-        if not _dispatch(sig, value):
+        matched, confidence = _dispatch(sig, value)
+        if not matched:
             continue
         # Build a compact evidence snippet
-        if sig["match_strategy"] == "semantic_similarity" and sig["id"] in _last_similarity_scores:
-            score = _last_similarity_scores[sig["id"]]
+        if sig["match_strategy"] == "semantic_similarity":
             snippet = value[:60].replace("\n", "\\n")
-            evidence = f"cosine={score:.3f} | {repr(snippet)}"
+            evidence = f"cosine={confidence:.3f} | {repr(snippet)}"
         else:
             snippet = value[:80].replace("\n", "\\n")
             evidence = repr(snippet) if len(snippet) < len(value) else repr(value[:80])
@@ -394,6 +413,7 @@ def scan_value(
             severity=sig["severity"],
             description=sig["description"],
             evidence=evidence,
+            confidence=confidence,
         )
         if sig["severity"] == "critical":
             # Return immediately — critical hit dominates

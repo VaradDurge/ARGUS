@@ -328,11 +328,17 @@ def inspect_tool_outputs(
         else _scan_execution_output(output_dict)
     )
     for signal in signals:
+        # Confidence gating: skip low-confidence matches, downgrade ambiguous ones
+        if signal.confidence < 0.3:
+            continue  # likely false positive — skip ToolFailure creation
+        severity = signal.severity
+        if signal.confidence < 0.7:
+            severity = "warning"  # ambiguous — force warning regardless of sig severity
         _add(
             ToolFailure(
                 failure_type=_CATEGORY_TO_FAILURE.get(signal.category, "semantic_degradation"),
                 field_name=signal.dotted_path,
-                severity=signal.severity,
+                severity=severity,
                 evidence=f"[{signal.sig_id}] {signal.description}: {signal.evidence}",
             )
         )

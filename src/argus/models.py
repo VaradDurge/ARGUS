@@ -51,6 +51,7 @@ class SemanticSignal:
     description: str
     field_path: tuple[str, ...]  # e.g. ("result", "items", "[0]", "summary")
     evidence: str  # ≤80 char snippet of the matched value
+    confidence: float = 1.0  # 0.0–1.0, how confident the heuristic match is
 
     @property
     def dotted_path(self) -> str:
@@ -114,6 +115,22 @@ class LLMUsage:
     total_cost_usd: float | None = None
 
 
+@dataclass(frozen=True)
+class DisambiguationResult:
+    """Result of LLM disambiguation for an ambiguous heuristic match."""
+
+    sig_id: str
+    field_path: str  # dotted path of the signal
+    original_confidence: float
+    llm_verdict: bool  # True = confirmed failure, False = false positive
+    llm_confidence: float  # 0.0–1.0
+    llm_reason: str
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    duration_ms: float
+
+
 @dataclass
 class NodeEvent:
     step_index: int
@@ -133,6 +150,7 @@ class NodeEvent:
     behavior_type: str | None = None
     anomaly_signals: list[AnomalySignal] = field(default_factory=list)
     semantic_check: SemanticCheckResult | None = None
+    disambiguation_results: list[DisambiguationResult] = field(default_factory=list)
 
 
 # ── Replay comparison dataclasses ─────────────────────────────────────────────
@@ -257,6 +275,20 @@ class ReplayImpact:
     summary: str
 
 
+@dataclass(frozen=True)
+class LLMCorrelationInsight:
+    """LLM-generated insight augmenting the deterministic correlator."""
+
+    enhanced_summary: str  # augments the deterministic causal_summary
+    cross_node_connections: tuple[str, ...]  # connections the deterministic correlator missed
+    confidence: float
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    duration_ms: float
+    error: str | None = None
+
+
 @dataclass
 class CorrelationReport:
     """Root-cause correlation analysis for a run."""
@@ -267,6 +299,7 @@ class CorrelationReport:
     causal_summary: str  # 1–3 sentence developer-readable narrative
     timeline: list[TimelineEvent]
     replay_impact: ReplayImpact | None = None
+    llm_insight: LLMCorrelationInsight | None = None
 
 
 # ── LLM Semantic Investigator dataclasses ─────────────────────────────────────
@@ -337,3 +370,12 @@ class LLMInvestigationConfig:
     semantic_check_model: str = "gpt-4o-mini"  # cheap model for per-node checks
     # 0.0 = disabled; e.g. 0.85 auto-resolves overrides above this confidence
     false_positive_auto_approve_threshold: float = 0.0
+    # Heuristic disambiguation — LLM resolves ambiguous signature matches
+    heuristic_disambiguation: bool = True
+    disambiguation_model: str = "gpt-4o-mini"
+    disambiguation_confidence_low: float = 0.3  # below = definite match (no LLM)
+    disambiguation_confidence_high: float = 0.7  # above = definite match (no LLM)
+    # LLM-assisted correlation — augments deterministic correlator
+    llm_correlation: bool = True
+    correlation_model: str = "gpt-4o"
+    correlation_max_tokens: int = 1500

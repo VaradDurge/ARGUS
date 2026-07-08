@@ -72,6 +72,7 @@ class HeuristicEngine:
                             description=match.description,
                             field_path=path,
                             evidence=match.evidence,
+                            confidence=match.confidence,
                         )
                     )
             return  # strings are leaf nodes — no further descent
