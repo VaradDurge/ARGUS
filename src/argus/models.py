@@ -326,7 +326,7 @@ class LLMInvestigationConfig:
 
     enabled: bool = False
     model: str = "gpt-4o"
-    api_key: str | None = None  # if None, reads OPENAI_API_KEY env var
+    api_key: str | None = None  # unused — all calls go through ARGUS proxy
     max_tokens: int = 2048
     temperature: float = 0.2
     confidence_threshold: float = 0.6  # trigger if deterministic confidence < this

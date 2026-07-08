@@ -14,7 +14,6 @@ Requires: pip install openai   (or argus-agents[llm])
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -683,11 +682,10 @@ def investigate(
     except ImportError:
         pass
 
-    # Resolve API key — server env var always takes precedence (SaaS mode)
+    # All LLM calls go through the ARGUS proxy (requires argus login)
     from argus.llm_proxy import create_chat_completion, is_available
 
-    own_key = os.environ.get("OPENAI_API_KEY") or cfg.api_key
-    if not own_key and not is_available():
+    if not is_available():
         return LLMInvestigationResult(
             triggered=True,
             trigger_reasons=reasons,
@@ -702,7 +700,7 @@ def investigate(
             prompt_tokens=0,
             completion_tokens=0,
             investigation_duration_ms=0.0,
-            error="No OpenAI API key and not logged in (set OPENAI_API_KEY or run: argus login)",
+            error="Not logged in — run: argus login",
         )
 
     t0 = time.perf_counter()
@@ -713,7 +711,6 @@ def investigate(
             max_tokens=cfg.max_tokens,
             temperature=cfg.temperature,
             response_format={"type": "json_object"},
-            api_key=own_key,
         )
         duration_ms = (time.perf_counter() - t0) * 1000
 
@@ -816,9 +813,8 @@ def compare_runs(
 
     from argus.llm_proxy import is_available
 
-    own_key = os.environ.get("OPENAI_API_KEY")
-    if not own_key and not is_available():
-        return {"error": "No OPENAI_API_KEY and not logged in (run: argus login)"}
+    if not is_available():
+        return {"error": "Not logged in — run: argus login"}
 
     briefing_a = compress_intelligence(record_a)
     briefing_b = compress_intelligence(record_b)
@@ -872,7 +868,6 @@ def compare_runs(
             max_tokens=max_tokens,
             temperature=0.3,
             response_format={"type": "json_object"},
-            api_key=own_key,
         )
         duration_ms = (time.perf_counter() - t0) * 1000
 
@@ -963,9 +958,8 @@ def compare_replay_runs(
 
     from argus.llm_proxy import is_available
 
-    own_key = os.environ.get("OPENAI_API_KEY")
-    if not own_key and not is_available():
-        return _error_result("No LLM available — set OPENAI_API_KEY or run argus login")
+    if not is_available():
+        return _error_result("Not logged in — run: argus login")
 
     briefing_parent = compress_intelligence(parent)
     briefing_replay = compress_intelligence(replay)
@@ -1030,7 +1024,6 @@ def compare_replay_runs(
             max_tokens=max_tokens,
             temperature=0.2,
             response_format={"type": "json_object"},
-            api_key=own_key,
         )
         duration_ms = (time.perf_counter() - t0) * 1000
 

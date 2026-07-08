@@ -1,8 +1,7 @@
-"""Route LLM calls through the ARGUS proxy when the user has no own OpenAI key.
+"""Route all LLM calls through the ARGUS proxy (Supabase Edge Function).
 
-If the user has OPENAI_API_KEY set, calls go directly to OpenAI (no proxy).
-If not, but the user is logged in via `argus login`, calls route through the
-Supabase Edge Function which uses the ARGUS-provided key.
+All calls go through the proxy using the ARGUS-provided key. Users never
+need their own OpenAI key. The user must be logged in via `argus login`.
 
 This module exposes a single function: `create_chat_completion()` which
 mirrors the OpenAI chat completions API shape.
@@ -11,7 +10,6 @@ mirrors the OpenAI chat completions API shape.
 from __future__ import annotations
 
 import json
-import os
 import urllib.error
 import urllib.request
 from typing import Any
@@ -22,7 +20,8 @@ _PROXY_URL = f"{SUPABASE_URL}/functions/v1/llm-proxy"
 
 
 def _has_own_key() -> bool:
-    return bool(os.environ.get("OPENAI_API_KEY"))
+    """Deprecated — always returns False. All calls go through the proxy."""
+    return False
 
 
 def _call_proxy(
@@ -82,32 +81,15 @@ def create_chat_completion(
     api_key: str | None = None,
     timeout: float = 30.0,
 ) -> dict[str, Any]:
-    """Create a chat completion via direct OpenAI or the ARGUS proxy.
+    """Create a chat completion via the ARGUS proxy.
+
+    All LLM calls are routed through the Supabase Edge Function proxy
+    which uses the ARGUS-provided OpenAI key. Users never need their own key.
+    Requires the user to be logged in via `argus login`.
 
     Returns the raw OpenAI response dict on success, or {"error": "..."} on
     failure.  Callers should check for the "error" key.
     """
-    key = api_key or os.environ.get("OPENAI_API_KEY")
-
-    # Path 1: user has their own key — call OpenAI directly
-    if key:
-        try:
-            import openai  # type: ignore[import-untyped]
-        except ImportError:
-            return {"error": "openai package not installed (pip install openai)"}
-
-        client = openai.OpenAI(api_key=key, timeout=timeout)
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,  # type: ignore[arg-type]
-            max_tokens=max_tokens,
-            temperature=temperature,
-            **({"response_format": response_format} if response_format else {}),
-        )
-        # Convert to dict to match proxy response shape
-        return response.model_dump()
-
-    # Path 2: no own key — try the proxy (requires argus login)
     return _call_proxy(
         model=model,
         messages=messages,
@@ -119,8 +101,6 @@ def create_chat_completion(
 
 
 def is_available() -> bool:
-    """Return True if LLM calls can be made (own key OR logged in)."""
-    if _has_own_key():
-        return True
+    """Return True if LLM calls can be made (user is logged in)."""
     creds = _get_valid_credentials()
     return creds is not None

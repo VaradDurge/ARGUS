@@ -9,7 +9,6 @@ input.  Uses gpt-4o-mini by default — ~500 tokens in, ~50 tokens out,
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -92,9 +91,8 @@ def check_semantic_coherence(
 
     from argus.llm_proxy import create_chat_completion, is_available  # noqa: PLC0415
 
-    own_key = api_key or os.environ.get("OPENAI_API_KEY")
-    if not own_key and not is_available():
-        return _skip_result("check skipped: no API key and not logged in", model, 0.0)
+    if not is_available():
+        return _skip_result("check skipped: not logged in (run: argus login)", model, 0.0)
 
     compact_in = _compact_dict(input_state)
     compact_out = _compact_dict(output_dict)
@@ -119,7 +117,6 @@ def check_semantic_coherence(
             max_tokens=80,
             temperature=0.0,
             response_format={"type": "json_object"},
-            api_key=own_key,
             timeout=5.0,
         )
         elapsed = (time.perf_counter() - t0) * 1000

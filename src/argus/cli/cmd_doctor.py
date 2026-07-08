@@ -149,14 +149,14 @@ def _check_optional_deps() -> tuple[bool, str]:
     parts: list[str] = []
     # OpenAI for LLM investigation
     try:
-        import os  # noqa: E401
-
         import openai  # type: ignore[import]  # noqa: F401
 
-        if os.environ.get("OPENAI_API_KEY"):
-            parts.append("openai (key set)")
+        from argus.llm_proxy import is_available as _llm_ok
+
+        if _llm_ok():
+            parts.append("openai (logged in — proxy active)")
         else:
-            parts.append("openai (no OPENAI_API_KEY)")
+            parts.append("openai (not logged in — run: argus login)")
     except ImportError:
         parts.append("openai (not installed)")
 

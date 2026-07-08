@@ -142,7 +142,7 @@ class ArgusWatcher:
         node_names = list(graph.nodes.keys())
         edge_map = extract_edge_map(graph)
 
-        # Load .env early so OPENAI_API_KEY is available for auto-detection
+        # Load .env early so credentials are available for auto-detection
         try:
             from dotenv import load_dotenv
 

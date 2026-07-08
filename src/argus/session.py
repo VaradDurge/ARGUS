@@ -163,7 +163,7 @@ class ArgusSession:
                 node_behaviors=node_behaviors or {},
             )
 
-        # LLM semantic investigator config — auto-enable if OPENAI_API_KEY is set
+        # LLM semantic investigator config — auto-enable if user is logged in
         if llm_investigation is None:
             try:
                 from dotenv import load_dotenv
@@ -607,7 +607,6 @@ class ArgusSession:
                         input_state=input_snap,
                         output_dict=output_snap,
                         model=self._llm_investigation_config.semantic_check_model,
-                        api_key=self._llm_investigation_config.api_key,
                     )
                     sc_passed = semantic_check_result.passed
                     sc_confident = semantic_check_result.confidence >= 0.7
