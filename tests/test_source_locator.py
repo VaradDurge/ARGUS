@@ -16,7 +16,6 @@ from argus.source_locator import (
     locate_node_sources,
 )
 
-
 # ── Fixtures ───────────────────────────────────────────────────────
 
 
