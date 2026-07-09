@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, AlertTriangle, ArrowDown, RotateCcw, Play, X, ArrowRight, ChevronDown } from 'lucide-react'
+import { Check, AlertTriangle, ArrowDown, RotateCcw, Play, X, ArrowRight, ChevronDown, FileCode, AlertCircle } from 'lucide-react'
 import type { NodeEvent, RunRecord } from '@/lib/types'
 import { getStepDisplay, getDetailLines, formatDur, fmtCost, SENTINEL_NODES } from '@/lib/run-utils'
 import type { NodeDiffData } from './ReplayControls'
@@ -201,6 +201,23 @@ export default function StepRow({
                   {fmtCost(event.llm_usage.total_cost_usd)}
                 </span>
               )}
+              {/* Source file path */}
+              {run.node_fn_paths?.[event.node_name] ? (
+                <span
+                  className="rounded-[4px] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground flex items-center gap-1"
+                  title={run.node_fn_refs?.[event.node_name] ?? undefined}
+                >
+                  <FileCode className="size-3 shrink-0" />
+                  {run.node_fn_paths[event.node_name]}
+                </span>
+              ) : showActions ? (
+                <span
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                  title="Source not resolved — replay may not work for this node"
+                >
+                  <AlertCircle className="size-3" style={{ color: 'var(--warning)' }} />
+                </span>
+              ) : null}
             </div>
 
             {/* Root cause label */}
@@ -241,7 +258,7 @@ export default function StepRow({
 
         {/* Right: actions */}
         <div className="flex flex-col items-end gap-3 shrink-0">
-          {isProblem && showActions && (onReplayNode || onReplay) && !isReplaying && (
+          {(isProblem || run.node_fn_paths?.[event.node_name]) && showActions && (onReplayNode || onReplay) && !isReplaying && (
             <div className="flex items-center gap-2">
               {onReplayNode && (
                 <button

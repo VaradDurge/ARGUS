@@ -8,6 +8,7 @@ from rich.text import Text
 
 from argus.cli.cmd_diff import diff_runs
 from argus.cli.cmd_doctor import doctor
+from argus.cli.cmd_locate import locate_sources
 from argus.cli.cmd_login import login, logout, whoami
 from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
@@ -244,6 +245,18 @@ def cmd_inspect(
 ) -> None:
     """Dump full input/output state snapshot for a specific step."""
     inspect_step(run_id=run_id, step_name=step)
+
+
+@app.command("locate")
+def cmd_locate(
+    run_id: Annotated[str, typer.Argument(help="Run ID or 8-char prefix.")],
+    no_save: Annotated[
+        bool,
+        typer.Option("--no-save", help="Display results without saving to the run record."),
+    ] = False,
+) -> None:
+    """Auto-locate source files for all nodes in a run."""
+    locate_sources(run_id, save=not no_save)
 
 
 @app.command("ui")

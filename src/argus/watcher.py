@@ -335,20 +335,23 @@ def _capture_node_fn_refs(
 def _capture_node_fn_paths(
     fn_registry: dict[str, Any],
 ) -> dict[str, str]:
-    """Build a {node_name: relative_file_path} map from live functions.
+    """Build a {node_name: relative_file_path:line} map from live functions.
 
-    Stores the source file path relative to cwd so replay can fall back to
-    direct file loading when importlib fails (e.g. no __init__.py).
+    Stores the source file path (with line number) relative to cwd so replay
+    can fall back to direct file loading when importlib fails (e.g. no
+    __init__.py).  Format: ``"path/to/file.py:42"``.
     """
     paths: dict[str, str] = {}
     for name, fn in fn_registry.items():
         code = getattr(fn, "__code__", None)
         if code and code.co_filename:
             try:
-                paths[name] = os.path.relpath(code.co_filename, os.getcwd())
+                rel = os.path.relpath(code.co_filename, os.getcwd())
             except ValueError:
                 # On Windows, relpath fails across drives
-                paths[name] = code.co_filename
+                rel = code.co_filename
+            line = code.co_firstlineno
+            paths[name] = f"{rel}:{line}"
     return paths
 
 

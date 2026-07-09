@@ -87,10 +87,13 @@ class ReplayEngine:
             )
 
         if not record.node_fn_refs or node_name not in record.node_fn_refs:
-            raise ValueError(
-                f"No stored function reference for node '{node_name}'. "
-                "Re-record the run with the latest argus to enable single-node replay."
-            )
+            # Auto-locate source files before giving up
+            record = self._auto_locate(record)
+            if not record.node_fn_refs or node_name not in record.node_fn_refs:
+                raise ValueError(
+                    f"No stored function reference for node '{node_name}'. "
+                    "Re-record the run with the latest argus to enable single-node replay."
+                )
 
         state = safe_deserialize(step.input_state, state_type)
         fp = (record.node_fn_paths or {}).get(node_name)
@@ -154,7 +157,13 @@ class ReplayEngine:
         # Try factory-free replay first, fall back to factory mode
         if record.node_fn_refs:
             return self._replay_direct(record, from_node, state, frozen_map)
-        elif app_factory is not None:
+
+        # Auto-locate source files before requiring a factory
+        record = self._auto_locate(record)
+        if record.node_fn_refs:
+            return self._replay_direct(record, from_node, state, frozen_map)
+
+        if app_factory is not None:
             return self._replay_with_factory(
                 record,
                 from_node,
@@ -162,12 +171,32 @@ class ReplayEngine:
                 frozen_map,
                 app_factory,
             )
-        else:
-            raise ValueError(
-                "Cannot replay: this run has no stored node function references "
-                "and no app_factory was provided. Re-record the run with the "
-                "latest argus version to enable factory-free replay."
-            )
+
+        raise ValueError(
+            "Cannot replay: this run has no stored node function references "
+            "and no app_factory was provided. Re-record the run with the "
+            "latest argus version to enable factory-free replay."
+        )
+
+    @staticmethod
+    def _auto_locate(record: RunRecord) -> RunRecord:
+        """Attempt post-hoc source resolution and update the record."""
+        try:
+            from argus.source_locator import derive_node_fn_refs, locate_node_sources
+            from argus.storage import save_run
+        except ImportError:
+            return record
+
+        resolved = locate_node_sources(record, use_llm=True)
+        if not resolved:
+            return record
+
+        record.node_fn_paths = resolved
+        refs = derive_node_fn_refs(resolved)
+        if refs:
+            record.node_fn_refs = refs
+            save_run(record)
+        return record
 
     def _replay_direct(
         self,
@@ -325,6 +354,17 @@ class ReplayEngine:
         return new_run_id
 
 
+def _strip_line_number(path: str) -> str:
+    """Remove trailing ``:line_number`` from a ``file:line`` path.
+
+    Handles both old format (``src/foo.py``) and new format
+    (``src/foo.py:42``).
+    """
+    if ":" in path and path.rsplit(":", 1)[1].isdigit():
+        return path.rsplit(":", 1)[0]
+    return path
+
+
 def _import_fn(ref: str, file_path: str | None = None) -> Callable:
     """Import a function from a 'module:qualname' reference.
 
@@ -333,6 +373,10 @@ def _import_fn(ref: str, file_path: str | None = None) -> Callable:
     last-resort fallback via ``spec_from_file_location`` — no ``__init__.py``
     required in parent directories.
     """
+    # Strip line number suffix from file_path (e.g. "src/foo.py:42" → "src/foo.py")
+    if file_path:
+        file_path = _strip_line_number(file_path)
+
     if ":" not in ref:
         raise ValueError(f"Invalid function ref '{ref}' — expected 'module:qualname'")
 

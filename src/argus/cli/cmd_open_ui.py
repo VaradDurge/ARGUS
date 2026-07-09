@@ -460,6 +460,27 @@ def _make_handler(
             self.end_headers()
             self.wfile.write(body)
 
+        @staticmethod
+        def _try_auto_locate(record: object) -> object:
+            """Attempt post-hoc source resolution for a run record."""
+            try:
+                from argus.source_locator import (  # noqa: PLC0415
+                    derive_node_fn_refs,
+                    locate_node_sources,
+                )
+                from argus.storage import save_run as _save  # noqa: PLC0415
+
+                resolved = locate_node_sources(record, use_llm=True)
+                if resolved:
+                    record.node_fn_paths = resolved
+                    refs = derive_node_fn_refs(resolved)
+                    if refs:
+                        record.node_fn_refs = refs
+                        _save(record)
+            except Exception:
+                pass  # best-effort — fall through to original error handling
+            return record
+
         def _list_runs(self) -> None:
             all_files = _all_run_files(_project_dir)
             if not all_files:
@@ -803,6 +824,29 @@ def _make_handler(
                     self._send_json(result)
                 except Exception as exc:
                     self._send_json({"error": str(exc)}, 500)
+            elif path.startswith("/api/runs/") and path.endswith("/locate"):
+                rid = path[len("/api/runs/"):-len("/locate")]
+                try:
+                    from argus.source_locator import (  # noqa: PLC0415
+                        derive_node_fn_refs,
+                        locate_node_sources,
+                    )
+                    from argus.storage import load_run as _lr  # noqa: PLC0415
+                    from argus.storage import save_run as _sr  # noqa: PLC0415
+
+                    rec = _lr(rid)
+                    resolved = locate_node_sources(rec, use_llm=True)
+                    if resolved:
+                        rec.node_fn_paths = resolved
+                        refs = derive_node_fn_refs(resolved)
+                        if refs:
+                            rec.node_fn_refs = refs
+                        _sr(rec)
+                    self._send_json({"node_fn_paths": resolved or {}})
+                except FileNotFoundError:
+                    self._send_json({"error": "run not found"}, 404)
+                except Exception as exc:
+                    self._send_json({"error": str(exc)}, 500)
             elif path == "/api/replay":
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length)
@@ -831,6 +875,11 @@ def _make_handler(
 
                 # Single-node replay only needs node_fn_refs
                 effective_app: str | None = None
+
+                # Auto-locate source files if refs are missing
+                if not run_record.node_fn_refs:
+                    run_record = self._try_auto_locate(run_record)
+
                 if replay_mode == "node":
                     if not run_record.node_fn_refs or from_step not in run_record.node_fn_refs:
                         self._send_json(

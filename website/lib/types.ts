@@ -253,6 +253,8 @@ export interface RunRecord {
   correlation?: CorrelationReport | null
   llm_investigation?: LLMInvestigationResult | null
   replay_comparison?: ReplayComparisonResult | null
+  node_fn_refs?: Record<string, string> | null
+  node_fn_paths?: Record<string, string> | null
 }
 
 export interface RunSummary {

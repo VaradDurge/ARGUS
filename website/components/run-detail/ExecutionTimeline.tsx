@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useCallback } from 'react'
+import { Search } from 'lucide-react'
 import type { RunRecord } from '@/lib/types'
 import { SENTINEL_NODES } from '@/lib/run-utils'
 import { topologyLines, segmentEvents } from '@/lib/topology'
@@ -15,6 +17,7 @@ export default function ExecutionTimeline({
   replayingNode,
   nodeDiff,
   onDismissDiff,
+  onRunUpdated,
 }: {
   run: RunRecord
   onReplay: (node: string) => void
@@ -22,6 +25,7 @@ export default function ExecutionTimeline({
   replayingNode?: string | null
   nodeDiff?: NodeDiffData | null
   onDismissDiff?: () => void
+  onRunUpdated?: (updated: RunRecord) => void
 }) {
   const steps = run.steps ?? []
   const nameCol = steps.length > 0 ? Math.max(...steps.map((e) => e.node_name.length)) + 2 : 10
@@ -29,10 +33,58 @@ export default function ExecutionTimeline({
   const topo = displayNodes.length > 1 ? topologyLines(run.graph_edge_map ?? {}, run.graph_node_names ?? []) : []
   const segments = segmentEvents(steps, run.graph_edge_map)
 
+  const [locating, setLocating] = useState(false)
+  const hasIncompleteSourcePaths = displayNodes.some((n) => !run.node_fn_paths?.[n])
+
+  const handleLocateSources = useCallback(async () => {
+    setLocating(true)
+    try {
+      const resp = await fetch(`/api/runs/${run.run_id}/locate`, { method: 'POST' })
+      if (resp.ok) {
+        if (onRunUpdated) {
+          const runResp = await fetch(`/api/runs/${run.run_id}`)
+          if (runResp.ok) {
+            const updated = await runResp.json() as RunRecord
+            onRunUpdated(updated)
+          }
+        } else {
+          window.location.reload()
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLocating(false)
+    }
+  }, [run.run_id, onRunUpdated])
+
   let globalIdx = 0
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Locate sources button */}
+      {hasIncompleteSourcePaths && (
+        <div className="flex justify-end">
+          <button
+            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            onClick={handleLocateSources}
+            disabled={locating}
+          >
+            {locating ? (
+              <>
+                <span className="inline-block w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                Locating...
+              </>
+            ) : (
+              <>
+                <Search className="size-3" />
+                Locate Sources
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* ASCII execution tree */}
       {topo.length > 0 && (
         <section className="overflow-hidden rounded-[10px] border border-border bg-card">

@@ -73,3 +73,9 @@ __MACOSX/
 .claude/
 CLAUDE.md
 
+# Supabase local temp
+supabase/.temp/
+
+# Misc reference files
+argus_architecture.html
+
