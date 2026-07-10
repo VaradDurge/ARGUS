@@ -66,7 +66,12 @@ def _content_type(suffix: str) -> str:
     return ct or "application/octet-stream"
 
 
-_DISCORD_WEBHOOK = os.environ.get("ARGUS_DISCORD_WEBHOOK", "")
+def _get_discord_webhook() -> str:
+    """Resolve Discord webhook: env var > config.json."""
+    env = os.environ.get("ARGUS_DISCORD_WEBHOOK", "")
+    if env:
+        return env
+    return _load_config().get("discord_webhook", "")
 
 
 def _collect_doctor_info() -> dict:
@@ -703,11 +708,15 @@ def _make_handler(
                 cfg = _load_config()
                 linear_key = cfg.get("linear_api_key", "")
                 masked = ("•" * 8 + linear_key[-4:]) if len(linear_key) > 4 else ""
+                discord_wh = cfg.get("discord_webhook", "")
+                wh_masked = ("•" * 40 + discord_wh[-8:]) if len(discord_wh) > 8 else ""
                 self._send_json({
                     "linear_api_key_set": bool(linear_key),
                     "linear_api_key_masked": masked,
                     "linear_team_id": cfg.get("linear_team_id", ""),
                     "linear_team_name": cfg.get("linear_team_name", ""),
+                    "discord_webhook_set": bool(discord_wh),
+                    "discord_webhook_masked": wh_masked,
                 })
             elif path == "/api/linear/teams":
                 cfg = _load_config()
@@ -784,6 +793,8 @@ def _make_handler(
                     updates["linear_team_id"] = (data["linear_team_id"] or "").strip()
                 if "linear_team_name" in data:
                     updates["linear_team_name"] = (data["linear_team_name"] or "").strip()
+                if "discord_webhook" in data:
+                    updates["discord_webhook"] = (data["discord_webhook"] or "").strip()
                 if not updates:
                     self._send_json({"error": "no settings provided"}, 400)
                     return
@@ -1038,7 +1049,8 @@ def _make_handler(
 
                 # Discord webhook notification — primary delivery channel
                 try:
-                    if not _DISCORD_WEBHOOK:
+                    _webhook_url = _get_discord_webhook()
+                    if not _webhook_url:
                         raise _SkipWebhook  # noqa: TRY301
                     import urllib.request  # noqa: PLC0415
 
@@ -1170,7 +1182,7 @@ def _make_handler(
                             )
                     webhook_body = json.dumps({"embeds": [embed]}).encode()
                     req = urllib.request.Request(
-                        _DISCORD_WEBHOOK,
+                        _webhook_url,
                         data=webhook_body,
                         headers={
                             "Content-Type": "application/json",
