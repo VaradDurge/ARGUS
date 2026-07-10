@@ -264,6 +264,23 @@ def test_selective_attention():
     assert _has_failure(loaded.steps[0], "selective_attention_reduction")
 
 
+def test_selective_attention_suppressed_for_reducer():
+    """Rule 13 should NOT fire when the field has a reducer (e.g. operator.add)."""
+    import operator
+
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    session.set_node_names(["reducer"])
+    session.reducer_fields = {"items": operator.add}
+    wrapped = session.wrap("reducer", lambda s: {"items": [1, 2]})
+    wrapped({"items": [1, 2, 3, 4, 5]})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert not _has_failure(loaded.steps[0], "selective_attention_reduction")
+
+
 def test_input_echo():
     """Rule 14: output string ≥ 90% similar to input → flag."""
     from argus.storage import load_run

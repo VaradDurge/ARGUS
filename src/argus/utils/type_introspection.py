@@ -134,3 +134,50 @@ def _is_optional(type_hint: Any) -> bool:
         args = type_hint.__args__
         return type(None) in args
     return False
+
+
+def extract_reducer_fields(graph: Any) -> dict[str, Any]:
+    """Return ``{field_name: reducer_fn}`` for state fields that have reducers.
+
+    Checks two sources so all LangGraph reducer patterns are covered:
+
+    1. ``Annotated[type, reducer_fn]`` on the StateGraph's TypedDict schema
+       (covers ``operator.add``, ``add_messages``, custom callables).
+    2. Channel-based reducers (``BinaryOperatorAggregate``) on the graph object
+       (covers the lower-level dict-schema API).
+
+    Returns an empty dict when no reducers are detected.
+    """
+    reducers: dict[str, Any] = {}
+
+    # --- Source 1: Annotated type hints on the state schema ---
+    state_type = getattr(graph, "schema", None) or getattr(graph, "_schema", None)
+    if state_type is not None and isinstance(state_type, type):
+        try:
+            hints = get_type_hints(state_type, include_extras=True)
+        except Exception:
+            hints = {}
+        for name, hint in hints.items():
+            origin = getattr(hint, "__origin__", None)
+            if origin is typing.Annotated:
+                args = typing.get_args(hint)
+                # args[0] is the base type, args[1:] are metadata — first
+                # callable after the base type is the reducer function.
+                for arg in args[1:]:
+                    if callable(arg):
+                        reducers[name] = arg
+                        break
+
+    # --- Source 2: Channel objects (BinaryOperatorAggregate) ---
+    channels = getattr(graph, "channels", None) or getattr(graph, "_channels", None)
+    if channels and isinstance(channels, dict):
+        for name, ch in channels.items():
+            if name in reducers:
+                continue  # Annotated source already found it
+            # langgraph.channels.BinaryOperatorAggregate stores the reducer
+            # as .operator; other channel types may expose it differently.
+            op = getattr(ch, "operator", None)
+            if op is not None and callable(op):
+                reducers[name] = op
+
+    return reducers

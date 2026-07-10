@@ -210,6 +210,10 @@ class ArgusSession:
         self.node_fn_refs: dict[str, str] | None = None
         self.node_fn_paths: dict[str, str] | None = None
 
+        # Reducer functions extracted from StateGraph schema (set by ArgusWatcher).
+        # Maps field_name → reducer callable (e.g. operator.add).
+        self.reducer_fields: dict[str, Any] = {}
+
     # ── Internal helpers ─────────────────────────────────────────────────────
 
     @staticmethod
@@ -506,9 +510,18 @@ class ArgusSession:
                 exc_str = None
 
             # build merged state (input + output, as successor would see it)
+            # Use actual reducer functions when available so the merged state
+            # matches what LangGraph produces at runtime.
             merged = dict(input_snap)
             if output_snap:
-                merged.update(output_snap)
+                for k, v in output_snap.items():
+                    if k in self.reducer_fields and k in merged:
+                        try:
+                            merged[k] = self.reducer_fields[k](merged[k], v)
+                        except Exception:
+                            merged[k] = v
+                    else:
+                        merged[k] = v
 
             # structural inspection (skip on crash or interrupt)
             inspection = None
@@ -523,6 +536,7 @@ class ArgusSession:
                     strict=self._strict,
                     input_state=input_snap,
                     current_node_fn=current_fn,
+                    reducer_fields=self.reducer_fields or None,
                 )
                 # Determine raw status from inspection
                 _has_failure = (

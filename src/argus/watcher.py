@@ -175,6 +175,11 @@ class ArgusWatcher:
         self._session.set_node_names(node_names)
         self._session.set_edges(edge_map)
 
+        # Extract reducer functions from graph schema (Annotated hints + channels)
+        from argus.utils.type_introspection import extract_reducer_fields
+
+        self._session.reducer_fields = extract_reducer_fields(graph)
+
         # store references to original node functions for inspector
         self._session.node_fn_registry = {
             name: extract_fn(graph.nodes[name]) for name in node_names

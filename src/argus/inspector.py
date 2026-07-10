@@ -143,6 +143,7 @@ def inspect_tool_outputs(
     strict: bool = False,
     _precomputed_signals: list[SemanticSignal] | None = None,
     input_state: dict[str, Any] | None = None,
+    reducer_fields: dict[str, Any] | None = None,
 ) -> InspectionResult:
     """Scan a node's output dict for tool call failure patterns.
 
@@ -518,10 +519,14 @@ def inspect_tool_outputs(
     # Rules 13–16 — input-output coherence (all no-ops when input_state is None)
     if input_state is not None:
         # Rule 13 — selective attention reduction
-        # Input has N list items, output has the same-named field with < 50% of them
+        # Input has N list items, output has the same-named field with < 50% of them.
+        # Skip fields that have a LangGraph reducer (e.g. operator.add) — the node
+        # returns only new items; the framework merges them.
         for key, in_val in input_state.items():
             if not isinstance(in_val, list) or len(in_val) < 4:
                 continue
+            if reducer_fields and key in reducer_fields:
+                continue  # ponytail: reducer handles merge, raw comparison invalid
             out_val = output_dict.get(key)
             if isinstance(out_val, list) and len(out_val) < len(in_val) * 0.5:
                 _add(
@@ -651,6 +656,7 @@ def inspect_transition(
     strict: bool = False,
     input_state: dict[str, Any] | None = None,
     current_node_fn: Any = None,
+    reducer_fields: dict[str, Any] | None = None,
 ) -> InspectionResult:
     """Check if the output of current_node will cause a silent failure in any successor.
 
@@ -676,6 +682,7 @@ def inspect_transition(
             strict=strict,
             _precomputed_signals=semantic_signals,
             input_state=input_state,
+            reducer_fields=reducer_fields,
         )
         if output_dict
         else None
