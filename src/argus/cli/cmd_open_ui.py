@@ -108,23 +108,73 @@ def _collect_doctor_info() -> dict:
 
 
 def _sanitize_run_for_report(run_data: dict) -> dict:
-    """Extract only diagnostic fields from a run — no user data."""
+    """Extract all diagnostic fields from a run — no user data.
+
+    Includes everything needed to debug remotely: inspection details,
+    tool failures with evidence, anomaly signals, semantic checks,
+    correlation analysis, LLM investigation, and validator results.
+    Excludes: input_state, output_dict, initial_state (user data).
+    """
     steps = []
     for s in run_data.get("steps", []):
         step_info: dict = {
+            "step_index": s.get("step_index"),
             "node_name": s.get("node_name"),
             "status": s.get("status"),
             "duration_ms": s.get("duration_ms"),
+            "timestamp_utc": s.get("timestamp_utc"),
             "behavior_type": s.get("behavior_type"),
+            "attempt_index": s.get("attempt_index", 0),
+            "is_subgraph_entry": s.get("is_subgraph_entry"),
+            # Shape info without actual data
+            "input_keys": list(
+                (s.get("input_state") or {}).keys()
+            ),
+            "output_keys": list(
+                (s.get("output_dict") or {}).keys()
+            ),
         }
         insp = s.get("inspection")
         if insp:
-            step_info["inspection_message"] = insp.get("message")
-            step_info["tool_failures"] = [
-                {"failure_type": tf.get("failure_type"), "severity": tf.get("severity")}
-                for tf in (insp.get("tool_failures") or [])
-            ]
-            step_info["missing_fields"] = insp.get("missing_fields", [])
+            step_info["inspection"] = {
+                "is_silent_failure": insp.get("is_silent_failure"),
+                "has_tool_failure": insp.get("has_tool_failure"),
+                "severity": insp.get("severity"),
+                "message": insp.get("message"),
+                "missing_fields": insp.get("missing_fields", []),
+                "empty_fields": insp.get("empty_fields", []),
+                "type_mismatches": insp.get("type_mismatches", []),
+                "suspicious_empty_keys": insp.get(
+                    "suspicious_empty_keys", []
+                ),
+                "unannotated_successors": insp.get(
+                    "unannotated_successors", []
+                ),
+                "degraded_fields": insp.get("degraded_fields", []),
+                "degraded_upstream_node": insp.get(
+                    "degraded_upstream_node"
+                ),
+                "tool_failures": [
+                    {
+                        "failure_type": tf.get("failure_type"),
+                        "field_name": tf.get("field_name"),
+                        "severity": tf.get("severity"),
+                        "evidence": tf.get("evidence"),
+                    }
+                    for tf in (insp.get("tool_failures") or [])
+                ],
+                "semantic_signals": [
+                    {
+                        "sig_id": ss.get("sig_id"),
+                        "category": ss.get("category"),
+                        "severity": ss.get("severity"),
+                        "description": ss.get("description"),
+                        "field_path": ss.get("field_path"),
+                        "evidence": ss.get("evidence"),
+                    }
+                    for ss in (insp.get("semantic_signals") or [])
+                ],
+            }
         exc = s.get("exception")
         if exc:
             step_info["exception"] = exc
@@ -134,6 +184,8 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
                 "passed": sc.get("passed"),
                 "confidence": sc.get("confidence"),
                 "reason": sc.get("reason"),
+                "model": sc.get("model"),
+                "duration_ms": sc.get("duration_ms"),
             }
         anomalies = s.get("anomaly_signals")
         if anomalies:
@@ -141,33 +193,95 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
                 {
                     "anomaly_id": a.get("anomaly_id"),
                     "severity": a.get("severity"),
+                    "suspicion_score": a.get("suspicion_score"),
                     "reason": a.get("reason"),
+                    "expected_behavior": a.get("expected_behavior"),
+                    "observed_behavior": a.get("observed_behavior"),
+                    "field_path": a.get("field_path"),
                 }
                 for a in anomalies
             ]
+        vr = s.get("validator_results")
+        if vr:
+            step_info["validator_results"] = [
+                {
+                    "validator_name": v.get("validator_name"),
+                    "is_valid": v.get("is_valid"),
+                    "message": v.get("message"),
+                }
+                for v in vr
+            ]
+        dr = s.get("disambiguation_results")
+        if dr:
+            step_info["disambiguation_results"] = dr
+        lu = s.get("llm_usage")
+        if lu:
+            step_info["llm_usage"] = {
+                "total_tokens": lu.get("total_tokens"),
+                "total_cost_usd": lu.get("total_cost_usd"),
+            }
         steps.append(step_info)
 
     report: dict = {
         "run_id": run_data.get("run_id"),
         "argus_version": run_data.get("argus_version"),
         "overall_status": run_data.get("overall_status"),
+        "started_at": run_data.get("started_at"),
+        "completed_at": run_data.get("completed_at"),
+        "duration_ms": run_data.get("duration_ms"),
         "first_failure_step": run_data.get("first_failure_step"),
         "root_cause_chain": run_data.get("root_cause_chain", []),
         "graph_node_names": run_data.get("graph_node_names", []),
         "graph_edge_map": run_data.get("graph_edge_map", {}),
-        "duration_ms": run_data.get("duration_ms"),
         "is_cyclic": run_data.get("is_cyclic", False),
+        "interrupted": run_data.get("interrupted", False),
+        "interrupt_node": run_data.get("interrupt_node"),
+        "total_llm_calls": run_data.get("total_llm_calls", 0),
+        "total_tokens": run_data.get("total_tokens", 0),
+        "total_cost_usd": run_data.get("total_cost_usd"),
         "steps": steps,
     }
 
+    # Correlation analysis
+    corr = run_data.get("correlation")
+    if corr:
+        report["correlation"] = {
+            "causal_summary": corr.get("causal_summary"),
+            "degradation_origins": corr.get(
+                "degradation_origins", []
+            ),
+            "propagation_chains": corr.get(
+                "propagation_chains", []
+            ),
+            "timeline": corr.get("timeline", []),
+        }
+        li = corr.get("llm_insight")
+        if li:
+            report["correlation"]["llm_insight"] = li
+
+    # LLM investigation
     inv = run_data.get("llm_investigation")
     if inv:
         report["llm_investigation"] = {
             "triggered": inv.get("triggered"),
-            "root_cause_node": inv.get("root_cause_node"),
-            "root_cause_explanation": inv.get("root_cause_explanation"),
-            "confidence": inv.get("confidence"),
             "trigger_reasons": inv.get("trigger_reasons", []),
+            "root_cause_explanation": inv.get(
+                "root_cause_explanation"
+            ),
+            "causal_hypotheses": inv.get("causal_hypotheses", []),
+            "degradation_narrative": inv.get(
+                "degradation_narrative"
+            ),
+            "observations": inv.get("observations", []),
+            "debugging_suggestions": inv.get(
+                "debugging_suggestions", []
+            ),
+            "confidence": inv.get("confidence"),
+            "model_used": inv.get("model_used"),
+            "investigation_duration_ms": inv.get(
+                "investigation_duration_ms"
+            ),
+            "error": inv.get("error"),
         }
 
     return report
@@ -1175,43 +1289,142 @@ def _make_handler(
                             ss = s.get("status", "?")
                             sd = s.get("duration_ms", 0)
                             se2 = status_emoji.get(ss, "\u25cf")
-                            line = f"{se2} **{sn}** ({ss}, {sd}ms)"
+                            ik = s.get("input_keys", [])
+                            ok_ = s.get("output_keys", [])
+                            line = (
+                                f"{se2} **{sn}** ({ss},"
+                                f" {sd}ms)"
+                            )
+                            if ik or ok_:
+                                line += (
+                                    f"\n  in:`{ik}` "
+                                    f"out:`{ok_}`"
+                                )
+                            insp = s.get("inspection", {})
                             # Tool failures
-                            tfs = s.get("tool_failures", [])
-                            for tf in tfs:
-                                ft = tf.get("failure_type", "?")
+                            for tf in insp.get(
+                                "tool_failures", []
+                            ):
+                                ft = tf.get(
+                                    "failure_type", "?"
+                                )
                                 sv = tf.get("severity", "?")
-                                ico = "\U0001f534" if sv == "critical" else "\U0001f7e0"
-                                line += f"\n  {ico} `{ft}` ({sv})"
-                            # Missing fields
-                            mf = s.get("missing_fields", [])
+                                ev = tf.get("evidence", "")
+                                ico = (
+                                    "\U0001f534"
+                                    if sv == "critical"
+                                    else "\U0001f7e0"
+                                )
+                                line += (
+                                    f"\n  {ico} `{ft}`"
+                                    f" ({sv})"
+                                )
+                                if ev:
+                                    line += f" {ev[:80]}"
+                            # Semantic signals
+                            for ss2 in insp.get(
+                                "semantic_signals", []
+                            ):
+                                sid = ss2.get("sig_id", "?")
+                                scat = ss2.get(
+                                    "category", "?"
+                                )
+                                line += (
+                                    f"\n  \U0001f7e3"
+                                    f" `{sid}` [{scat}]"
+                                )
+                            # Missing / empty fields
+                            mf = insp.get(
+                                "missing_fields", []
+                            )
                             if mf:
-                                line += "\n  \u26a0\ufe0f missing: "
+                                line += (
+                                    "\n  \u26a0\ufe0f"
+                                    " missing: "
+                                )
                                 line += ", ".join(
                                     f"`{f}`" for f in mf[:5]
                                 )
+                            ef = insp.get(
+                                "empty_fields", []
+                            )
+                            if ef:
+                                line += (
+                                    "\n  \u26a0\ufe0f"
+                                    " empty: "
+                                )
+                                line += ", ".join(
+                                    f"`{f}`" for f in ef[:5]
+                                )
                             # Anomaly signals
-                            for a in s.get("anomaly_signals", []):
-                                aid = a.get("anomaly_id", "?")
+                            for a in s.get(
+                                "anomaly_signals", []
+                            ):
+                                aid = a.get(
+                                    "anomaly_id", "?"
+                                )
                                 ar = a.get("reason", "")
-                                asv = a.get("severity", "?")
-                                ico = "\U0001f534" if asv == "critical" else "\U0001f7e0"
-                                line += f"\n  {ico} [{aid}] {ar}"
-                            # Semantic check
+                                asc = a.get(
+                                    "suspicion_score"
+                                )
+                                asv = a.get(
+                                    "severity", "?"
+                                )
+                                ico = (
+                                    "\U0001f534"
+                                    if asv == "critical"
+                                    else "\U0001f7e0"
+                                )
+                                sc_txt = (
+                                    f" ({asc})"
+                                    if asc is not None
+                                    else ""
+                                )
+                                line += (
+                                    f"\n  {ico}"
+                                    f" [{aid}]{sc_txt}"
+                                    f" {ar[:60]}"
+                                )
+                            # Semantic check (LLM judge)
                             sc = s.get("semantic_check")
                             if sc:
-                                sp = "\u2705" if sc.get("passed") else "\u274c"
-                                scf = sc.get("confidence", "?")
+                                sp = (
+                                    "\u2705"
+                                    if sc.get("passed")
+                                    else "\u274c"
+                                )
+                                scf = sc.get(
+                                    "confidence", "?"
+                                )
                                 scr = sc.get("reason", "")
                                 line += (
                                     f"\n  {sp} LLM judge:"
                                     f" {scf} — {scr[:80]}"
                                 )
+                            # Validator results
+                            for v in s.get(
+                                "validator_results", []
+                            ):
+                                vp = (
+                                    "\u2705"
+                                    if v.get("is_valid")
+                                    else "\u274c"
+                                )
+                                vn = v.get(
+                                    "validator_name", "?"
+                                )
+                                vm = v.get("message", "")
+                                line += (
+                                    f"\n  {vp}"
+                                    f" validator `{vn}`"
+                                    f" {vm[:60]}"
+                                )
                             # Exception
                             exc = s.get("exception")
                             if exc:
                                 line += (
-                                    f"\n  \U0001f4a5 ```{exc[:120]}```"
+                                    f"\n  \U0001f4a5"
+                                    f" ```{exc[:120]}```"
                                 )
                             step_blocks.append(line)
 
@@ -1248,11 +1461,67 @@ def _make_handler(
                                 inv_lines.append(
                                     f"**Confidence:** {conf}"
                                 )
+                            dbg = llm_inv.get(
+                                "debugging_suggestions", []
+                            )
+                            if dbg:
+                                inv_lines.append(
+                                    "**Debug:**\n"
+                                    + "\n".join(
+                                        f"• {d[:80]}"
+                                        for d in dbg[:4]
+                                    )
+                                )
                             if inv_lines:
                                 embed["fields"].append({
                                     "name": "\U0001f9e0 LLM Investigation",
                                     "value": "\n".join(
                                         inv_lines
+                                    )[:1024],
+                                    "inline": False,
+                                })
+
+                        # ── Correlation analysis ──
+                        corr = run_diagnostics.get(
+                            "correlation", {}
+                        )
+                        if corr:
+                            cl = []
+                            cs = corr.get("causal_summary")
+                            if cs:
+                                cl.append(cs[:300])
+                            do = corr.get(
+                                "degradation_origins", []
+                            )
+                            if do:
+                                cl.append(
+                                    "**Origins:** "
+                                    + ", ".join(
+                                        str(o) for o in do[:5]
+                                    )
+                                )
+                            pc = corr.get(
+                                "propagation_chains", []
+                            )
+                            if pc:
+                                for ch in pc[:3]:
+                                    cl.append(
+                                        "\u26d3 "
+                                        + str(ch)[:100]
+                                    )
+                            cli2 = corr.get("llm_insight")
+                            if cli2:
+                                cl.append(
+                                    f"**LLM:** {cli2[:200]}"
+                                )
+                            if cl:
+                                embed["fields"].append({
+                                    "name": (
+                                        "\U0001f517"
+                                        " Correlation"
+                                    ),
+                                    "value": "\n".join(
+                                        cl
                                     )[:1024],
                                     "inline": False,
                                 })
