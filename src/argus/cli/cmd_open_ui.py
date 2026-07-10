@@ -66,12 +66,22 @@ def _content_type(suffix: str) -> str:
     return ct or "application/octet-stream"
 
 
+_GLOBAL_CONFIG = Path.home() / ".argus" / "config.json"
+
+
 def _get_discord_webhook() -> str:
-    """Resolve Discord webhook: env var > config.json."""
+    """Resolve Discord webhook: env var > project config > global ~/.argus/config.json."""
     env = os.environ.get("ARGUS_DISCORD_WEBHOOK", "")
     if env:
         return env
-    return _load_config().get("discord_webhook", "")
+    local = _load_config().get("discord_webhook", "")
+    if local:
+        return local
+    # Fall back to global user config
+    try:
+        return json.loads(_GLOBAL_CONFIG.read_text()).get("discord_webhook", "")
+    except Exception:
+        return ""
 
 
 def _collect_doctor_info() -> dict:
@@ -794,7 +804,19 @@ def _make_handler(
                 if "linear_team_name" in data:
                     updates["linear_team_name"] = (data["linear_team_name"] or "").strip()
                 if "discord_webhook" in data:
-                    updates["discord_webhook"] = (data["discord_webhook"] or "").strip()
+                    wh_val = (data["discord_webhook"] or "").strip()
+                    updates["discord_webhook"] = wh_val
+                    # Also save to global ~/.argus/config.json
+                    try:
+                        gc = {}
+                        if _GLOBAL_CONFIG.exists():
+                            gc = json.loads(_GLOBAL_CONFIG.read_text())
+                        gc["discord_webhook"] = wh_val
+                        _GLOBAL_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+                        _GLOBAL_CONFIG.write_text(json.dumps(gc, indent=2))
+                        _GLOBAL_CONFIG.chmod(0o600)
+                    except Exception:
+                        pass
                 if not updates:
                     self._send_json({"error": "no settings provided"}, 400)
                     return
