@@ -268,7 +268,10 @@ def test_input_echo():
     """Rule 14: output string ≥ 90% similar to input → flag."""
     from argus.storage import load_run
 
-    long_text = "The market outlook is very bullish with strong momentum and positive indicators. " * 2
+    long_text = (
+        "The market outlook is very bullish with strong"
+        " momentum and positive indicators. "
+    ) * 2
     session = ArgusSession()
     session.set_node_names(["echo_node"])
     wrapped = session.wrap("echo_node", lambda s: {"result": s["text"]})
