@@ -1309,7 +1309,9 @@ def _make_handler(
                                     "failure_type", "?"
                                 )
                                 sv = tf.get("severity", "?")
-                                ev = tf.get("evidence", "")
+                                ev = str(
+                                    tf.get("evidence", "")
+                                )
                                 ico = (
                                     "\U0001f534"
                                     if sv == "critical"
@@ -1363,7 +1365,7 @@ def _make_handler(
                                 aid = a.get(
                                     "anomaly_id", "?"
                                 )
-                                ar = a.get("reason", "")
+                                ar = str(a.get("reason", ""))
                                 asc = a.get(
                                     "suspicion_score"
                                 )
@@ -1396,7 +1398,7 @@ def _make_handler(
                                 scf = sc.get(
                                     "confidence", "?"
                                 )
-                                scr = sc.get("reason", "")
+                                scr = str(sc.get("reason", ""))
                                 line += (
                                     f"\n  {sp} LLM judge:"
                                     f" {scf} — {scr[:80]}"
@@ -1413,7 +1415,7 @@ def _make_handler(
                                 vn = v.get(
                                     "validator_name", "?"
                                 )
-                                vm = v.get("message", "")
+                                vm = str(v.get("message", ""))
                                 line += (
                                     f"\n  {vp}"
                                     f" validator `{vn}`"
@@ -1422,6 +1424,7 @@ def _make_handler(
                             # Exception
                             exc = s.get("exception")
                             if exc:
+                                exc = str(exc)
                                 line += (
                                     f"\n  \U0001f4a5"
                                     f" ```{exc[:120]}```"
