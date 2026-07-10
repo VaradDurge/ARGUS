@@ -181,6 +181,16 @@ export function diffInspection(before: NodeEvent | undefined, after: NodeEvent |
     })
   }
 
+  // Tool failure diffs
+  const bFailures = new Set((bInsp?.tool_failures ?? []).map((f) => f.failure_type))
+  const aFailures = new Set((aInsp?.tool_failures ?? []).map((f) => f.failure_type))
+  bFailures.forEach((ft) => {
+    if (!aFailures.has(ft)) diffs.push({ text: `${ft} resolved`, icon: '\u2713', iconColor: '#22c55e' })
+  })
+  aFailures.forEach((ft) => {
+    if (!bFailures.has(ft)) diffs.push({ text: `${ft} detected`, icon: '\u2717', iconColor: '#ef4444' })
+  })
+
   return diffs
 }
 

@@ -432,9 +432,15 @@ def _check_shallow_empty(
     output_dict: dict[str, Any],
     profile: dict[str, Any],
     behavior_type: str,
+    input_state: dict[str, Any] | None = None,
 ) -> AnomalySignal | None:
     """BA-006: Unusually empty or shallow outputs."""
     if not output_dict:
+        # ponytail: LangGraph terminal/formatting nodes often emit no new
+        # state keys — they read from accumulated messages in input_state.
+        # Empty output with non-empty input is a pass-through, not a failure.
+        if input_state:
+            return None
         return AnomalySignal(
             anomaly_id="BA-006",
             severity="critical",
@@ -574,6 +580,7 @@ def detect_anomalies(
     node_name: str,
     output_dict: dict[str, Any],
     config: BehaviorConfig | None = None,
+    input_state: dict[str, Any] | None = None,
 ) -> tuple[str, list[AnomalySignal]]:
     """Run all behavioral anomaly checks.
 
@@ -588,7 +595,7 @@ def detect_anomalies(
         _check_info_density(output_dict, profile, behavior_type),
         _check_generic_response(output_dict),
         _check_structural_malformation(output_dict, profile, behavior_type),
-        _check_shallow_empty(output_dict, profile, behavior_type),
+        _check_shallow_empty(output_dict, profile, behavior_type, input_state),
         _check_incomplete_reasoning(output_dict, behavior_type),
         _check_abnormal_tool_response(output_dict, behavior_type),
     ]

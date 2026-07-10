@@ -644,6 +644,7 @@ class ArgusSession:
                     node_name,
                     output_snap,
                     self._behavior_config,
+                    input_state=input_snap,
                 )
                 if any(a.severity == "critical" for a in anomaly_signals) and status == "pass":
                     status = "semantic_fail"

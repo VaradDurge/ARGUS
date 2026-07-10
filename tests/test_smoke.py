@@ -238,3 +238,73 @@ def test_parallel_asymmetric_d_before_c():
     assert set(node_names) == {"A", "B", "C", "D"}
     assert len(loaded.steps) == 4
     assert loaded.overall_status in ("clean", "silent_failure")
+
+
+# ── VAR-7: Input-output coherence checks ─────────────────────────────────────
+
+
+def _has_failure(step: object, failure_type: str) -> bool:
+    insp = getattr(step, "inspection", None)
+    if insp is None:
+        return False
+    return any(f.failure_type == failure_type for f in insp.tool_failures)
+
+
+def test_selective_attention():
+    """Rule 13: output list < 50% of input list items (≥4 items) → flag."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    session.set_node_names(["reducer"])
+    wrapped = session.wrap("reducer", lambda s: {"items": [1, 2]})
+    wrapped({"items": [1, 2, 3, 4, 5]})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert _has_failure(loaded.steps[0], "selective_attention_reduction")
+
+
+def test_input_echo():
+    """Rule 14: output string ≥ 90% similar to input → flag."""
+    from argus.storage import load_run
+
+    long_text = "The market outlook is very bullish with strong momentum and positive indicators. " * 2
+    session = ArgusSession()
+    session.set_node_names(["echo_node"])
+    wrapped = session.wrap("echo_node", lambda s: {"result": s["text"]})
+    wrapped({"text": long_text})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert _has_failure(loaded.steps[0], "input_echo")
+
+
+def test_contradictory_transformation():
+    """Rule 15: input is bullish, output is bearish → flag semantic_contradiction."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    session.set_node_names(["transformer"])
+    wrapped = session.wrap(
+        "transformer",
+        lambda s: {"recommendation": "bearish sell downtrend"},
+    )
+    wrapped({"signal": "bullish uptrend buy"})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert _has_failure(loaded.steps[0], "semantic_contradiction")
+
+
+def test_context_overflow_proxy():
+    """Rule 16: input state > 100K chars → flag context_size_anomaly."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    session.set_node_names(["big_node"])
+    wrapped = session.wrap("big_node", lambda s: {"result": "ok"})
+    wrapped({"body": "x" * 110_000})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert _has_failure(loaded.steps[0], "context_size_anomaly")

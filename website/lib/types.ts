@@ -34,7 +34,25 @@ export interface BehaviorConfig {
 }
 
 export interface ToolFailure {
-  failure_type: 'error_response' | 'rate_limit' | 'empty_result' | 'error_in_data' | 'partial_failure'
+  failure_type:
+    | 'error_response'
+    | 'rate_limit'
+    | 'empty_result'
+    | 'error_in_data'
+    | 'partial_failure'
+    | 'truncated_output'
+    | 'confidence_mismatch'
+    | 'retrieval_quality_low'
+    | 'shallow_context'
+    | 'shallow_output'
+    | 'information_compression_anomaly'
+    | 'placeholder_detected'
+    | 'semantic_degradation'
+    | 'structural_anomaly'
+    | 'selective_attention_reduction'
+    | 'input_echo'
+    | 'semantic_contradiction'
+    | 'context_size_anomaly'
   field_name: string
   severity: 'critical' | 'warning'
   evidence: string

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from difflib import SequenceMatcher
 from statistics import median
 from typing import Any
 
@@ -64,6 +65,22 @@ _SUMMARY_FIELD_RE = re.compile(
     r"(summary|synthesis|report|analysis|conclusion|findings)",
     re.IGNORECASE,
 )
+
+# ── Input-output coherence helpers ────────────────────────────────────────────
+
+_CONTEXT_OVERFLOW_THRESHOLD = 100_000  # chars — ~25K tokens, proxy for overflow
+
+# Antonym pairs for lightweight contradiction detection (Rule 15)
+_ANTONYM_PAIRS: list[tuple[frozenset[str], frozenset[str]]] = [
+    (frozenset({"bullish", "buy", "long", "upside", "uptrend", "optimistic"}),
+     frozenset({"bearish", "sell", "short", "downside", "downtrend", "pessimistic"})),
+    (frozenset({"increase", "higher", "grow", "rise", "gain", "up"}),
+     frozenset({"decrease", "lower", "shrink", "fall", "loss", "down"})),
+    (frozenset({"approve", "accept", "valid", "pass", "allowed"}),
+     frozenset({"reject", "deny", "invalid", "fail", "blocked"})),
+    (frozenset({"safe", "secure", "trusted", "compliant"}),
+     frozenset({"unsafe", "insecure", "untrusted", "vulnerable"})),
+]
 
 # SP-series hedging phrases (must stay in sync with signatures.json SP-009..SP-013)
 _HEDGING_PHRASES = [
@@ -497,6 +514,107 @@ def inspect_tool_outputs(
                         ),
                     )
                 )
+
+    # Rules 13–16 — input-output coherence (all no-ops when input_state is None)
+    if input_state is not None:
+        # Rule 13 — selective attention reduction
+        # Input has N list items, output has the same-named field with < 50% of them
+        for key, in_val in input_state.items():
+            if not isinstance(in_val, list) or len(in_val) < 4:
+                continue
+            out_val = output_dict.get(key)
+            if isinstance(out_val, list) and len(out_val) < len(in_val) * 0.5:
+                _add(
+                    ToolFailure(
+                        failure_type="selective_attention_reduction",
+                        field_name=key,
+                        severity="warning",
+                        evidence=(
+                            f"input had {len(in_val)} items, output has {len(out_val)}"
+                        ),
+                    )
+                )
+
+        # Rule 14 — input echo detection
+        # Output string is ≥ 90% similar to any individual input string field.
+        # Compare field-to-field (not output vs concatenated blob) so the ratio
+        # isn't diluted when input_state has multiple fields.
+        input_str_fields = [
+            (k, v) for k, v in input_state.items()
+            if isinstance(v, str) and len(v) >= 80
+        ]
+        if input_str_fields:
+            for key, value in output_dict.items():
+                if not isinstance(value, str) or len(value) < 80:
+                    continue
+                for in_key, in_val in input_str_fields:
+                    ratio = SequenceMatcher(None, value, in_val, autojunk=False).ratio()
+                    if ratio >= 0.90:
+                        _add(
+                            ToolFailure(
+                                failure_type="input_echo",
+                                field_name=key,
+                                severity="warning",
+                                evidence=(
+                                    f"output is {ratio:.0%} similar to input '{in_key}'"
+                                ),
+                            )
+                        )
+                        break  # one flag per output field is enough
+
+        # Rule 15 — contradictory transformation (lightweight keyword NLI)
+        input_text = " ".join(v for v in input_state.values() if isinstance(v, str)).lower()
+        output_text = " ".join(v for v in output_dict.values() if isinstance(v, str)).lower()
+        if input_text and output_text:
+            input_words = set(re.findall(r"\w+", input_text))
+            output_words = set(re.findall(r"\w+", output_text))
+            for pos_set, neg_set in _ANTONYM_PAIRS:
+                in_pos = input_words & pos_set
+                in_neg = input_words & neg_set
+                out_pos = output_words & pos_set
+                out_neg = output_words & neg_set
+                matched_in = matched_out = None
+                if in_pos and out_neg:
+                    matched_in, matched_out = next(iter(in_pos)), next(iter(out_neg))
+                elif in_neg and out_pos:
+                    matched_in, matched_out = next(iter(in_neg)), next(iter(out_pos))
+                if matched_in and matched_out:
+                    _add(
+                        ToolFailure(
+                            failure_type="semantic_contradiction",
+                            field_name="_coherence",
+                            severity="warning",
+                            evidence=(
+                                f"input has '{matched_in}', output has '{matched_out}'"
+                            ),
+                        )
+                    )
+                    break  # one contradiction flag per run is enough
+
+        # Rule 16 — context window overflow proxy
+        # Strings truncated by ARGUS's capture_state appear as sentinel dicts:
+        # {"__argus_truncated__": True, "type": "str", "preview": "..."}.
+        # Each such field was at least 50K chars — count it as such.
+        input_char_total = 0
+        for v in input_state.values():
+            if isinstance(v, str):
+                input_char_total += len(v)
+            elif isinstance(v, dict) and v.get("__argus_truncated__") and v.get("type") == "str":
+                # Field was truncated by ARGUS capture — actual string was ≥50K chars.
+                # Count it as exceeding the threshold on its own so one large field flags.
+                input_char_total += _CONTEXT_OVERFLOW_THRESHOLD + 1
+        if input_char_total > _CONTEXT_OVERFLOW_THRESHOLD:
+            _add(
+                ToolFailure(
+                    failure_type="context_size_anomaly",
+                    field_name="_input_context_size",
+                    severity="warning",
+                    evidence=(
+                        f"input state contains ≥{input_char_total:,} chars"
+                        f" (~{input_char_total // 4:,} tokens)"
+                    ),
+                )
+            )
 
     # Strict mode: promote all warnings to critical
     if strict:
