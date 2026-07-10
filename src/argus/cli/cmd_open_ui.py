@@ -1137,73 +1137,145 @@ def _make_handler(
                             "root_cause_chain", []
                         )
                         steps = run_diagnostics.get("steps", [])
-
-                        run_summary = f"**Status:** {st}\n"
-                        run_summary += f"**Duration:** {dur}ms\n"
-                        run_summary += (
-                            f"**Nodes:** {', '.join(nodes)}\n"
+                        edges = run_diagnostics.get(
+                            "graph_edge_map", {}
                         )
+
+                        # ── Run overview ──
+                        status_emoji = {
+                            "clean": "\u2705",
+                            "silent_failure": "\U0001f7e1",
+                            "crashed": "\u274c",
+                            "semantic_fail": "\U0001f7e3",
+                            "interrupted": "\u23f8\ufe0f",
+                        }
+                        se = status_emoji.get(st, "\u2753")
+                        run_hdr = f"{se} **{st}**"
+                        run_hdr += f" | {dur}ms"
+                        run_hdr += (
+                            f" | {len(steps)} steps\n"
+                        )
+                        topo = " \u2192 ".join(nodes)
+                        run_hdr += f"```{topo}```\n"
                         if rcc:
-                            run_summary += (
-                                f"**Root cause:** {' -> '.join(rcc)}\n"
+                            run_hdr += (
+                                "\U0001f50d **Root cause:** "
+                                + " \u2192 ".join(rcc) + "\n"
                             )
-                        # Check for unannotated pattern
-                        unann_count = sum(
-                            1 for s in steps
-                            if "Unannotated" in s.get("inspection_message", "")
-                        )
-                        if unann_count > 0:
-                            run_summary += (
-                                f"**Note:** {unann_count}/{len(steps)} steps lack"
-                                " type annotations (structural inspection skipped)\n"
-                            )
+                        embed["fields"].append({
+                            "name": f"Run: {rid}",
+                            "value": run_hdr[:1024],
+                            "inline": False,
+                        })
 
-                        # Per-step summary
-                        step_lines = []
+                        # ── Per-step detail ──
+                        step_blocks = []
                         for s in steps[:10]:
                             sn = s.get("node_name", "?")
                             ss = s.get("status", "?")
-                            sm = s.get("inspection_message", "")
-                            # Filter out unannotated noise
-                            if sm and "Unannotated successors" in sm:
-                                sm = ""
-                            line = f"{sn}: {ss}"
-                            if sm:
-                                line += f" — {sm[:80]}"
-                            step_lines.append(line)
+                            sd = s.get("duration_ms", 0)
+                            se2 = status_emoji.get(ss, "\u25cf")
+                            line = f"{se2} **{sn}** ({ss}, {sd}ms)"
+                            # Tool failures
+                            tfs = s.get("tool_failures", [])
+                            for tf in tfs:
+                                ft = tf.get("failure_type", "?")
+                                sv = tf.get("severity", "?")
+                                ico = "\U0001f534" if sv == "critical" else "\U0001f7e0"
+                                line += f"\n  {ico} `{ft}` ({sv})"
+                            # Missing fields
+                            mf = s.get("missing_fields", [])
+                            if mf:
+                                line += "\n  \u26a0\ufe0f missing: "
+                                line += ", ".join(
+                                    f"`{f}`" for f in mf[:5]
+                                )
+                            # Anomaly signals
+                            for a in s.get("anomaly_signals", []):
+                                aid = a.get("anomaly_id", "?")
+                                ar = a.get("reason", "")
+                                asv = a.get("severity", "?")
+                                ico = "\U0001f534" if asv == "critical" else "\U0001f7e0"
+                                line += f"\n  {ico} [{aid}] {ar}"
+                            # Semantic check
+                            sc = s.get("semantic_check")
+                            if sc:
+                                sp = "\u2705" if sc.get("passed") else "\u274c"
+                                scf = sc.get("confidence", "?")
+                                scr = sc.get("reason", "")
+                                line += (
+                                    f"\n  {sp} LLM judge:"
+                                    f" {scf} — {scr[:80]}"
+                                )
+                            # Exception
+                            exc = s.get("exception")
+                            if exc:
+                                line += (
+                                    f"\n  \U0001f4a5 ```{exc[:120]}```"
+                                )
+                            step_blocks.append(line)
 
-                        embed["fields"].append(
-                            {
-                                "name": f"Run: {rid}",
-                                "value": run_summary[:1024],
+                        if step_blocks:
+                            # Discord field value max 1024
+                            val = "\n".join(step_blocks)
+                            embed["fields"].append({
+                                "name": "Steps",
+                                "value": val[:1024],
                                 "inline": False,
-                            }
-                        )
-                        if step_lines:
-                            embed["fields"].append(
-                                {
-                                    "name": "Steps",
-                                    "value": "```\n"
-                                    + "\n".join(step_lines)
-                                    + "\n```",
-                                    "inline": False,
-                                }
-                            )
+                            })
 
-                        # LLM investigation if present
+                        # ── LLM investigation ──
                         llm_inv = run_diagnostics.get(
                             "llm_investigation", {}
                         )
-                        if llm_inv and llm_inv.get("root_cause"):
-                            embed["fields"].append(
-                                {
-                                    "name": "LLM Investigation",
-                                    "value": llm_inv[
-                                        "root_cause"
-                                    ][:1024],
-                                    "inline": False,
-                                }
+                        if llm_inv and llm_inv.get("triggered"):
+                            inv_lines = []
+                            rc_expl = llm_inv.get(
+                                "root_cause_explanation", ""
                             )
+                            if rc_expl:
+                                inv_lines.append(rc_expl[:400])
+                            triggers = llm_inv.get(
+                                "trigger_reasons", []
+                            )
+                            if triggers:
+                                inv_lines.append(
+                                    "**Triggers:** "
+                                    + ", ".join(triggers)
+                                )
+                            conf = llm_inv.get("confidence")
+                            if conf is not None:
+                                inv_lines.append(
+                                    f"**Confidence:** {conf}"
+                                )
+                            if inv_lines:
+                                embed["fields"].append({
+                                    "name": "\U0001f9e0 LLM Investigation",
+                                    "value": "\n".join(
+                                        inv_lines
+                                    )[:1024],
+                                    "inline": False,
+                                })
+
+                        # ── Edge map ──
+                        if edges:
+                            edge_lines = []
+                            for src, tgts in edges.items():
+                                for t in tgts:
+                                    edge_lines.append(
+                                        f"{src} \u2192 {t}"
+                                    )
+                            if edge_lines:
+                                embed["fields"].append({
+                                    "name": "Graph Edges",
+                                    "value": "```\n"
+                                    + "\n".join(
+                                        edge_lines[:15]
+                                    )
+                                    + "\n```",
+                                    "inline": False,
+                                })
+
                     webhook_body = json.dumps({"embeds": [embed]}).encode()
                     req = urllib.request.Request(
                         _webhook_url,
