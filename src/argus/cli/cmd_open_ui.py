@@ -1048,6 +1048,8 @@ def _make_handler(
                     pass  # Supabase upload is best-effort
 
                 # Discord webhook notification — primary delivery channel
+                discord_ok = False
+                discord_err = None
                 try:
                     _webhook_url = _get_discord_webhook()
                     if not _webhook_url:
@@ -1191,8 +1193,12 @@ def _make_handler(
                         method="POST",
                     )
                     urllib.request.urlopen(req, timeout=5)
-                except (_SkipWebhook, Exception):
-                    pass  # Discord is best-effort / no webhook configured
+                    discord_ok = True
+                except _SkipWebhook:
+                    discord_err = "no webhook configured"
+                except Exception as exc:
+                    discord_err = str(exc)
+                    print(f"[ARGUS] Discord webhook error: {exc}")  # noqa: T201
 
                 # Linear issue creation (if configured and requested)
                 linear_result = None
@@ -1345,7 +1351,10 @@ def _make_handler(
                     "ok": True,
                     "report_id": report_id,
                     "cloud_synced": supabase_ok,
+                    "discord": discord_ok,
                 }
+                if discord_err:
+                    resp["discord_error"] = discord_err
                 if linear_result:
                     resp["linear"] = linear_result
                 self._send_json(resp)
