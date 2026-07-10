@@ -55,9 +55,6 @@ export default function SendReportDialog({
   const [settings, setSettings] = useState<Settings | null>(null)
   const [linearIssue, setLinearIssue] = useState<LinearIssue | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showWebhookInput, setShowWebhookInput] = useState(false)
-  const [webhookInput, setWebhookInput] = useState('')
-  const [savingWebhook, setSavingWebhook] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -68,8 +65,6 @@ export default function SendReportDialog({
       setSubmitted(false)
       setLinearIssue(null)
       setError(null)
-      setShowWebhookInput(false)
-      setWebhookInput('')
       fetch('/api/doctor')
         .then(r => r.json())
         .then(setDoctorInfo)
@@ -89,23 +84,6 @@ export default function SendReportDialog({
   if (!open) return null
 
   const linearConfigured = settings?.linear_api_key_set && settings?.linear_team_id
-  const discordConfigured = settings?.discord_webhook_set
-
-  async function saveWebhook() {
-    if (!webhookInput.trim()) return
-    setSavingWebhook(true)
-    try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ discord_webhook: webhookInput.trim() }),
-      })
-      setSettings(prev => prev ? { ...prev, discord_webhook_set: true, discord_webhook_masked: '••••' + webhookInput.trim().slice(-8) } : prev)
-      setShowWebhookInput(false)
-      setWebhookInput('')
-    } catch { /* best effort */ }
-    setSavingWebhook(false)
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -173,11 +151,6 @@ export default function SendReportDialog({
             <p className="text-[14px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               Report sent
             </p>
-            {discordConfigured && (
-              <p className="text-[12px] mb-1" style={{ color: '#5865F2' }}>
-                Sent to Discord
-              </p>
-            )}
             {linearIssue && (
               <div className="mb-3 mt-2 rounded-lg px-4 py-3 text-left" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
@@ -297,53 +270,6 @@ export default function SendReportDialog({
               </label>
             )}
 
-            {/* Discord webhook status */}
-            <div className="flex items-center gap-2.5">
-              <span
-                className="size-2 rounded-full"
-                style={{ background: discordConfigured ? '#5865F2' : 'var(--border-default)' }}
-              />
-              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                {discordConfigured ? 'Discord notifications enabled' : 'Discord not configured'}
-              </span>
-              {!discordConfigured && !showWebhookInput && (
-                <button
-                  type="button"
-                  onClick={() => setShowWebhookInput(true)}
-                  className="text-[11px] font-medium px-2 py-0.5 rounded"
-                  style={{ color: '#5865F2', background: 'rgba(88,101,242,0.1)' }}
-                >
-                  Add webhook
-                </button>
-              )}
-            </div>
-
-            {showWebhookInput && (
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={webhookInput}
-                  onChange={e => setWebhookInput(e.target.value)}
-                  placeholder="https://discord.com/api/webhooks/..."
-                  className="flex-1 rounded-lg px-3 py-1.5 text-[12px] font-mono outline-none"
-                  style={{
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-default)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={saveWebhook}
-                  disabled={!webhookInput.trim() || savingWebhook}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium"
-                  style={{ background: '#5865F2', color: '#fff', opacity: !webhookInput.trim() || savingWebhook ? 0.5 : 1 }}
-                >
-                  {savingWebhook ? '...' : 'Save'}
-                </button>
-              </div>
-            )}
-
             {/* Preview — what will be sent */}
             <div className="rounded-lg px-3.5 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
               <p className="text-[10.5px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -359,11 +285,6 @@ export default function SendReportDialog({
                 {runId && includeRun && (
                   <div className="flex items-center gap-1.5">
                     <span style={{ color: '#22c55e' }}>&#x2713;</span> Run topology, node statuses, errors (no input/output data)
-                  </div>
-                )}
-                {discordConfigured && (
-                  <div className="flex items-center gap-1.5">
-                    <span style={{ color: '#5865F2' }}>&#x2713;</span> Discord notification
                   </div>
                 )}
                 {sendToLinear && linearConfigured && (
