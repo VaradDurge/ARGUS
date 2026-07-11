@@ -373,7 +373,7 @@ def test_loop_analysis_with_mocked_llm(monkeypatch):
     import json
 
     from argus.loop_analyzer import analyze_loops
-    from argus.models import RunRecord, NodeEvent
+    from argus.models import NodeEvent, RunRecord
 
     # Build a minimal RunRecord with a 3-iteration loop
     events = []
