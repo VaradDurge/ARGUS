@@ -1,5 +1,5 @@
 export type RunStatus = 'clean' | 'silent_failure' | 'crashed' | 'semantic_fail' | 'interrupted'
-export type StepStatus = 'pass' | 'fail' | 'crashed' | 'semantic_fail' | 'interrupted' | 'degraded_input'
+export type StepStatus = 'pass' | 'fail' | 'crashed' | 'semantic_fail' | 'interrupted' | 'degraded_input' | 'retried'
 export type Severity = 'critical' | 'warning' | 'info' | 'ok'
 export type BehaviorType =
   | 'structured_json'
@@ -124,6 +124,7 @@ export interface NodeEvent {
   exception: string | null
   inspection: InspectionResult | null
   attempt_index: number
+  total_iterations?: number | null
   validator_results: ValidatorResult[]
   is_subgraph_entry: boolean
   subgraph_run_id: string | null
@@ -245,6 +246,29 @@ export interface ReplayComparisonResult {
   error?: string | null
 }
 
+export interface LoopIterationDiff {
+  from_attempt: number
+  to_attempt: number
+  summary: string
+  fields_changed: string[]
+}
+
+export interface LoopAnalysisResult {
+  node_name: string
+  total_iterations: number
+  summary: string
+  is_stalled: boolean
+  stall_details: string | null
+  unnecessary_retries: number
+  unnecessary_details: string | null
+  iteration_diffs: LoopIterationDiff[]
+  model_used: string
+  prompt_tokens: number
+  completion_tokens: number
+  duration_ms: number
+  error: string | null
+}
+
 export interface RunRecord {
   run_id: string
   argus_version: string
@@ -271,6 +295,7 @@ export interface RunRecord {
   correlation?: CorrelationReport | null
   llm_investigation?: LLMInvestigationResult | null
   replay_comparison?: ReplayComparisonResult | null
+  loop_analyses?: LoopAnalysisResult[] | null
   node_fn_refs?: Record<string, string> | null
   node_fn_paths?: Record<string, string> | null
 }

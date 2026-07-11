@@ -1196,7 +1196,7 @@ def build_root_cause_chain(
     # a bad value unchanged from their input.
     for event in reversed(steps_so_far):
         # Skip nodes operating on degraded input — they are victims, not causes
-        if event.status == "degraded_input":
+        if event.status in ("degraded_input", "retried"):
             continue
 
         insp = event.inspection

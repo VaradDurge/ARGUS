@@ -840,6 +840,26 @@ class ArgusSession:
     def _last_expected_node(self) -> str | None:
         return self.graph_node_names[-1] if self.graph_node_names else None
 
+    # ── Loop-aware retries ──────────────────────────────────────────────────
+
+    def _apply_loop_retries(self) -> None:
+        """Mark non-final iterations as 'retried' when the loop self-corrected."""
+        # ponytail: groups by node_name; O(n) scan, fine for realistic event counts
+        from collections import defaultdict
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, e in enumerate(self._events):
+            groups[e.node_name].append(i)
+        for indices in groups.values():
+            if len(indices) < 2:
+                continue
+            total = len(indices)
+            for idx in indices:
+                self._events[idx].total_iterations = total
+            final = self._events[indices[-1]]
+            if final.status == "pass":
+                for idx in indices[:-1]:
+                    self._events[idx].status = "retried"
+
     # ── Finalization ──────────────────────────────────────────────────────────
 
     def _finalize(self) -> None:
@@ -847,6 +867,7 @@ class ArgusSession:
             if self._completed:
                 return
             self._completed = True
+            self._apply_loop_retries()
             events_snapshot = list(self._events)
 
         completed_at = datetime.now(timezone.utc).isoformat()
@@ -858,14 +879,16 @@ class ArgusSession:
         except Exception:
             duration_ms = None
 
-        has_crash = any(e.status == "crashed" for e in events_snapshot)
-        has_interrupt = any(e.status == "interrupted" for e in events_snapshot)
+        # Exclude retried events — loop self-corrected, not a real failure
+        active_events = [e for e in events_snapshot if e.status != "retried"]
+        has_crash = any(e.status == "crashed" for e in active_events)
+        has_interrupt = any(e.status == "interrupted" for e in active_events)
         has_silent_failure = any(
             e.inspection and (e.inspection.is_silent_failure or e.inspection.has_tool_failure)
-            for e in events_snapshot
+            for e in active_events
         )
-        has_semantic_fail = any(e.status == "semantic_fail" for e in events_snapshot)
-        has_degraded = any(e.status == "degraded_input" for e in events_snapshot)
+        has_semantic_fail = any(e.status == "semantic_fail" for e in active_events)
+        has_degraded = any(e.status == "degraded_input" for e in active_events)
 
         if has_crash:
             overall_status = "crashed"
@@ -1024,6 +1047,19 @@ class ArgusSession:
                             save_candidates(existing)
                         else:
                             add_candidate(gen_sig, record.run_id)
+            except Exception:
+                pass
+
+        # Loop analysis — mandatory LLM analysis for cyclic runs
+        has_loops = any(
+            e.total_iterations and e.total_iterations > 1
+            for e in record.steps
+        )
+        if record.is_cyclic and has_loops:
+            try:
+                from argus.loop_analyzer import analyze_loops
+
+                record.loop_analyses = analyze_loops(record)
             except Exception:
                 pass
 

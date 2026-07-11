@@ -60,6 +60,7 @@ const STEP_STATUS_CONFIG: Record<StepStatus, { label: string; color: string }> =
   crashed:        { label: 'crashed',        color: '#ef4444' },
   semantic_fail:  { label: 'semantic fail',  color: '#a855f7' },
   interrupted:    { label: 'interrupted',    color: '#8b8fa0' },
+  retried:        { label: 'retried',        color: '#6b7280' },
 }
 
 export function StepStatusBadge({ status, className }: { status: StepStatus; className?: string }) {

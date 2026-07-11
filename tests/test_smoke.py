@@ -328,3 +328,153 @@ def test_context_overflow_proxy():
 
     loaded = load_run(session.run_id)
     assert _has_failure(loaded.steps[0], "context_size_anomaly")
+
+
+# ── Loop-aware retry tests ───────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_loop_retried_on_self_correct():
+    """Loop that self-corrects: earlier iterations become 'retried'."""
+    from argus.storage import load_run
+
+    call_count = 0
+
+    def code_writer(s):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            return {"error": True, "code": ""}  # fail
+        return {"code": "print('hello')"}  # pass
+
+    session = ArgusSession()
+    session.set_node_names(["code_writer"])
+    session.set_edges({"code_writer": ["code_writer"]})
+    wrapped = session.wrap("code_writer", code_writer)
+
+    wrapped({})
+    wrapped({"error": True, "code": ""})
+    wrapped({"error": True, "code": ""})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    cw_events = [e for e in loaded.steps if e.node_name == "code_writer"]
+    assert len(cw_events) == 3
+    assert cw_events[0].status == "retried"
+    assert cw_events[1].status == "retried"
+    assert cw_events[2].status == "pass"
+    assert all(e.total_iterations == 3 for e in cw_events)
+    assert loaded.overall_status == "clean"
+
+
+@pytest.mark.unit
+def test_loop_analysis_with_mocked_llm(monkeypatch):
+    """Loop analysis produces LoopAnalysisResult via mocked LLM proxy."""
+    import json
+
+    from argus.loop_analyzer import analyze_loops
+    from argus.models import RunRecord, NodeEvent
+
+    # Build a minimal RunRecord with a 3-iteration loop
+    events = []
+    for i in range(3):
+        events.append(
+            NodeEvent(
+                step_index=i,
+                node_name="code_writer",
+                status="retried" if i < 2 else "pass",
+                input_state={},
+                output_dict={"code": f"v{i}"},
+                duration_ms=100.0,
+                timestamp_utc="2026-01-01T00:00:00Z",
+                attempt_index=i,
+                total_iterations=3,
+            )
+        )
+
+    record = RunRecord(
+        run_id="test-loop",
+        argus_version="0.7.5",
+        started_at="2026-01-01T00:00:00Z",
+        completed_at="2026-01-01T00:00:01Z",
+        duration_ms=300.0,
+        overall_status="clean",
+        first_failure_step=None,
+        root_cause_chain=[],
+        graph_node_names=["code_writer"],
+        graph_edge_map={"code_writer": ["code_writer"]},
+        initial_state={},
+        steps=events,
+        is_cyclic=True,
+    )
+
+    mock_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "summary": "Took 3 attempts. Attempt 1 had syntax error.",
+                            "is_stalled": False,
+                            "stall_details": None,
+                            "unnecessary_retries": 0,
+                            "unnecessary_details": None,
+                            "iteration_diffs": [
+                                {
+                                    "from_attempt": 0,
+                                    "to_attempt": 1,
+                                    "summary": "Fixed syntax error",
+                                    "fields_changed": ["code"],
+                                },
+                            ],
+                        }
+                    )
+                }
+            }
+        ],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+    }
+
+    monkeypatch.setattr(
+        "argus.llm_proxy.is_available", lambda: True
+    )
+    monkeypatch.setattr(
+        "argus.llm_proxy.create_chat_completion",
+        lambda **kw: mock_response,
+    )
+
+    results = analyze_loops(record)
+    assert len(results) == 1
+    la = results[0]
+    assert la.node_name == "code_writer"
+    assert la.total_iterations == 3
+    assert "3 attempts" in la.summary
+    assert la.is_stalled is False
+    assert la.unnecessary_retries == 0
+    assert len(la.iteration_diffs) == 1
+    assert la.iteration_diffs[0].summary == "Fixed syntax error"
+    assert la.error is None
+
+
+@pytest.mark.unit
+def test_loop_no_retry_when_final_fails():
+    """Loop where final iteration also fails: no retried status applied."""
+    from argus.storage import load_run
+
+    session = ArgusSession()
+    session.set_node_names(["validator"])
+    session.set_edges({"validator": ["validator"]})
+    wrapped = session.wrap(
+        "validator", lambda s: {"error": True, "result": ""}
+    )
+
+    wrapped({})
+    wrapped({"error": True})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    v_events = [e for e in loaded.steps if e.node_name == "validator"]
+    assert len(v_events) == 2
+    # No retried — final iteration didn't pass
+    assert all(e.status != "retried" for e in v_events)
+    assert all(e.total_iterations == 2 for e in v_events)

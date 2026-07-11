@@ -88,6 +88,9 @@ export function getStepDisplay(event: NodeEvent): StepDisplay {
   if (event.status === 'interrupted') {
     return { icon: '\u23F8', iconColor: C_AMBER, label: 'interrupted', labelColor: C_AMBER }
   }
+  if (event.status === 'retried') {
+    return { icon: '\u21BB', iconColor: '#6b7280', label: 'retried', labelColor: '#6b7280' }
+  }
   return { icon: '\u2717', iconColor: C_RED, label: 'crashed', labelColor: C_RED }
 }
 

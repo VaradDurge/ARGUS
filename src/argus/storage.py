@@ -251,6 +251,7 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
     llm_investigation = _deserialize_llm_investigation(llm_inv_data) if llm_inv_data else None
     rc_data = data.get("replay_comparison")
     replay_comparison = _deserialize_replay_comparison(rc_data) if rc_data else None
+    loop_analyses = _deserialize_loop_analyses(data.get("loop_analyses", []))
     return RunRecord(
         run_id=data["run_id"],
         argus_version=data.get("argus_version", "unknown"),
@@ -277,6 +278,7 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         correlation=correlation,
         llm_investigation=llm_investigation,
         replay_comparison=replay_comparison,
+        loop_analyses=loop_analyses,
     )
 
 
@@ -407,6 +409,42 @@ def _deserialize_replay_comparison(data: dict[str, Any]) -> ReplayComparisonResu
     )
 
 
+def _deserialize_loop_analyses(
+    items: list[dict[str, Any]],
+) -> list:
+    from argus.models import LoopAnalysisResult, LoopIterationDiff
+
+    results = []
+    for la in items:
+        diffs = [
+            LoopIterationDiff(
+                from_attempt=d.get("from_attempt", 0),
+                to_attempt=d.get("to_attempt", 0),
+                summary=d.get("summary", ""),
+                fields_changed=d.get("fields_changed", []),
+            )
+            for d in la.get("iteration_diffs", [])
+        ]
+        results.append(
+            LoopAnalysisResult(
+                node_name=la.get("node_name", ""),
+                total_iterations=la.get("total_iterations", 0),
+                summary=la.get("summary", ""),
+                is_stalled=la.get("is_stalled", False),
+                stall_details=la.get("stall_details"),
+                unnecessary_retries=la.get("unnecessary_retries", 0),
+                unnecessary_details=la.get("unnecessary_details"),
+                iteration_diffs=diffs,
+                model_used=la.get("model_used", ""),
+                prompt_tokens=la.get("prompt_tokens", 0),
+                completion_tokens=la.get("completion_tokens", 0),
+                duration_ms=la.get("duration_ms", 0.0),
+                error=la.get("error"),
+            )
+        )
+    return results
+
+
 def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
     insp_data = data.get("inspection")
     inspection = None
@@ -460,4 +498,5 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
         behavior_type=data.get("behavior_type"),
         anomaly_signals=anomaly_signals,
         semantic_check=semantic_check,
+        total_iterations=data.get("total_iterations"),
     )

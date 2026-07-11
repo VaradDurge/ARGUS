@@ -135,7 +135,9 @@ class DisambiguationResult:
 class NodeEvent:
     step_index: int
     node_name: str
-    status: str  # "pass" | "fail" | "crashed" | "degraded_input" | "semantic_fail" | "interrupted"
+    # "pass" | "fail" | "crashed" | "degraded_input" | "semantic_fail"
+    # | "interrupted" | "retried"
+    status: str
     input_state: dict[str, Any]
     output_dict: dict[str, Any] | None
     duration_ms: float
@@ -151,6 +153,7 @@ class NodeEvent:
     anomaly_signals: list[AnomalySignal] = field(default_factory=list)
     semantic_check: SemanticCheckResult | None = None
     disambiguation_results: list[DisambiguationResult] = field(default_factory=list)
+    total_iterations: int | None = None  # set on finalize for looped nodes
 
 
 # ── Replay comparison dataclasses ─────────────────────────────────────────────
@@ -178,6 +181,37 @@ class ReplayComparisonResult:
     recommendation: str
     confidence: float
     node_summaries: list[NodeDiffSummary] = field(default_factory=list)
+    model_used: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    duration_ms: float = 0.0
+    error: str | None = None
+
+
+@dataclass
+class LoopIterationDiff:
+    """What changed between two consecutive loop iterations."""
+
+    from_attempt: int
+    to_attempt: int
+    summary: str  # "Added error handling to parse function"
+    fields_changed: list[str] = field(default_factory=list)
+
+
+@dataclass
+class LoopAnalysisResult:
+    """LLM-generated analysis of a single looped node."""
+
+    node_name: str
+    total_iterations: int
+    summary: str  # "Took 3 attempts. Attempt 1: syntax error..."
+    is_stalled: bool
+    stall_details: str | None
+    unnecessary_retries: int  # 0 if no wasted iterations
+    unnecessary_details: str | None
+    iteration_diffs: list[LoopIterationDiff] = field(
+        default_factory=list
+    )
     model_used: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -215,6 +249,9 @@ class RunRecord:
     correlation: CorrelationReport | None = None
     llm_investigation: LLMInvestigationResult | None = None
     replay_comparison: ReplayComparisonResult | None = None
+    loop_analyses: list[LoopAnalysisResult] = field(
+        default_factory=list
+    )
 
 
 # ── Correlation layer dataclasses ──────────────────────────────────────────────
