@@ -517,3 +517,27 @@ def test_session_backward_compat_without_config():
     assert session._strict is True
     assert session._on_judge_failure == "warn"  # default
     assert session._judge_max_retries == 1
+
+
+# ── Cyclic graph finalize warning (VAR-70) ──────────────────────────────
+
+
+@pytest.mark.unit
+def test_cyclic_graph_warns_without_finalize():
+    """Watcher warns when a cyclic graph is GC'd without finalize()."""
+    import warnings
+
+    from argus.watcher import ArgusWatcher
+
+    session = ArgusSession()
+    session.set_edges({"a": ["b"], "b": ["a"]})  # cycle: a→b→a
+
+    watcher = ArgusWatcher()
+    watcher._session = session
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        watcher.__del__()
+        assert len(w) == 1
+        assert "cyclic graph" in str(w[0].message).lower()
+        assert "finalize()" in str(w[0].message)

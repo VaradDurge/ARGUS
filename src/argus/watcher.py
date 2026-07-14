@@ -84,6 +84,21 @@ class ArgusWatcher:
         if graph is not None:
             self.watch(graph)
 
+    def __del__(self) -> None:
+        if (
+            self._session is not None
+            and self._session._is_cyclic
+            and not self._session._completed
+        ):
+            import warnings
+
+            warnings.warn(
+                f"ArgusWatcher for cyclic graph was garbage-collected without finalize(). "
+                f"Call watcher.finalize() after app.invoke() to persist run data. "
+                f"Run ID: {self._session.run_id}",
+                stacklevel=1,
+            )
+
     @property
     def run_id(self) -> str | None:
         """The run ID for the current session, or None if watch() hasn't been called."""
@@ -184,6 +199,14 @@ class ArgusWatcher:
         )
         self._session.set_node_names(node_names)
         self._session.set_edges(edge_map)
+
+        if self._session._is_cyclic:
+            import logging
+
+            logging.getLogger("argus").info(
+                "Cyclic graph detected — call watcher.finalize() after app.invoke() "
+                "to persist your run. (Auto-finalize is only available for DAG graphs.)"
+            )
 
         # Extract reducer functions from graph schema (Annotated hints + channels)
         from argus.utils.type_introspection import extract_reducer_fields
