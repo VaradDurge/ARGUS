@@ -519,6 +519,88 @@ def test_session_backward_compat_without_config():
     assert session._judge_max_retries == 1
 
 
+# ── ArgusConfig cross-validation (VAR-73) ─────────────────────────────────
+
+
+@pytest.mark.unit
+def test_config_rejects_invalid_investigate():
+    with pytest.raises(ValueError, match="investigate must be"):
+        ArgusConfig(investigate="sometimes")
+
+
+@pytest.mark.unit
+def test_config_rejects_invalid_on_judge_failure():
+    with pytest.raises(ValueError, match="on_judge_failure must be"):
+        ArgusConfig(on_judge_failure="crash")
+
+
+@pytest.mark.unit
+def test_config_rejects_negative_max_retries():
+    with pytest.raises(ValueError, match="judge_max_retries must be >= 0"):
+        ArgusConfig(judge_max_retries=-1)
+
+
+@pytest.mark.unit
+def test_config_rejects_zero_backoff():
+    with pytest.raises(ValueError, match="judge_retry_backoff must be positive"):
+        ArgusConfig(judge_retry_backoff=0)
+
+
+@pytest.mark.unit
+def test_config_rejects_negative_max_field_size():
+    with pytest.raises(ValueError, match="max_field_size must be positive"):
+        ArgusConfig(max_field_size=0)
+
+
+@pytest.mark.unit
+def test_config_rejects_bad_sample_rate():
+    with pytest.raises(ValueError, match="sample_rate must be between"):
+        ArgusConfig(sample_rate=1.5)
+    with pytest.raises(ValueError, match="sample_rate must be between"):
+        ArgusConfig(sample_rate=-0.1)
+
+
+@pytest.mark.unit
+def test_config_rejects_investigate_always_without_persist():
+    with pytest.raises(ValueError, match="investigate='always' with persist_state=False"):
+        ArgusConfig(investigate="always", persist_state=False)
+
+
+@pytest.mark.unit
+def test_config_rejects_judge_without_investigate():
+    with pytest.raises(ValueError, match="semantic_judge=True requires investigate"):
+        ArgusConfig(semantic_judge=True, investigate=False)
+
+
+@pytest.mark.unit
+def test_config_rejects_zero_sample_no_persist_failures():
+    with pytest.raises(ValueError, match="no runs will ever be persisted"):
+        ArgusConfig(sample_rate=0.0, persist_failures=False)
+
+
+@pytest.mark.unit
+def test_config_collects_multiple_errors():
+    """Multiple misconfigs are reported in a single ValueError."""
+    with pytest.raises(ValueError) as exc_info:
+        ArgusConfig(max_field_size=-1, on_judge_failure="explode", judge_max_retries=-5)
+    msg = str(exc_info.value)
+    assert "max_field_size" in msg
+    assert "on_judge_failure" in msg
+    assert "judge_max_retries" in msg
+
+
+@pytest.mark.unit
+def test_config_valid_combinations_pass():
+    """Valid configs should not raise."""
+    ArgusConfig()  # all defaults
+    ArgusConfig(investigate=True, semantic_judge=True)
+    ArgusConfig(investigate="always", persist_state=True)
+    ArgusConfig(investigate=False, semantic_judge=False)
+    ArgusConfig(on_judge_failure="abort", judge_max_retries=3)
+    ArgusConfig(sample_rate=0.0, persist_failures=True)  # OK: failures still persisted
+    ArgusConfig(sample_rate=0.5, persist_failures=False)  # OK: some runs persisted
+
+
 # ── Cyclic graph finalize warning (VAR-70) ──────────────────────────────
 
 
@@ -541,6 +623,80 @@ def test_cyclic_graph_warns_without_finalize():
         assert len(w) == 1
         assert "cyclic graph" in str(w[0].message).lower()
         assert "finalize()" in str(w[0].message)
+
+
+# ── VAR-71: Schema versioning + sampling ────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_schema_version_written_on_save():
+    """RunRecord gets schema_version persisted and round-trips correctly."""
+    from argus.storage import SCHEMA_VERSION, load_run
+
+    session = ArgusSession()
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert loaded.schema_version == SCHEMA_VERSION
+
+
+@pytest.mark.unit
+def test_schema_version_defaults_for_old_runs():
+    """Runs saved before VAR-71 (no schema_version) deserialize as version '0'."""
+    import json
+
+    from argus.storage import _runs_path, load_run
+
+    runs_dir = _runs_path()
+    fake_id = "old-run-no-schema"
+    (runs_dir / f"{fake_id}.json").write_text(
+        json.dumps({"run_id": fake_id, "steps": [], "overall_status": "clean"}),
+        encoding="utf-8",
+    )
+    loaded = load_run(fake_id)
+    assert loaded.schema_version == "0"
+
+
+@pytest.mark.unit
+def test_sample_rate_zero_skips_clean_runs():
+    """With sample_rate=0.0, clean runs are NOT persisted."""
+    from argus.storage import _runs_path
+
+    cfg = ArgusConfig(sample_rate=0.0, persist_failures=True)
+    session = ArgusSession(config=cfg)
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()
+
+    run_file = _runs_path() / f"{session.run_id}.json"
+    assert not run_file.exists(), "Clean run should be skipped at sample_rate=0.0"
+
+
+@pytest.mark.unit
+def test_sample_rate_zero_still_persists_failures():
+    """With sample_rate=0.0 + persist_failures=True, failed runs are saved."""
+    from argus.storage import _runs_path
+
+    cfg = ArgusConfig(sample_rate=0.0, persist_failures=True)
+    session = ArgusSession(config=cfg)
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+
+    def crashing_fn(state):
+        raise RuntimeError("boom")
+
+    fn = session.wrap("a", crashing_fn)
+    with pytest.raises(RuntimeError):
+        fn({})
+
+    run_file = _runs_path() / f"{session.run_id}.json"
+    assert run_file.exists(), "Failed run must be persisted even at sample_rate=0.0"
 
 
 # -- VAR-72: pattern-based & custom-function redaction -----------------------
