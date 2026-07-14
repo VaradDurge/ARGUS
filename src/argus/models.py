@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 
 @dataclass
@@ -432,6 +432,8 @@ class ArgusConfig:
     strict: bool = False
     investigate: bool | str = True  # True | False | "always"
     redact_keys: set[str] | list[str] | None = None
+    redact_functions: dict[str, Callable[[Any], Any]] | None = None
+    redact_patterns: bool = False  # auto-detect secret-shaped values
     persist_state: bool = True
     record_http: bool = True
     semantic_judge: bool = True
