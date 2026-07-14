@@ -39,6 +39,7 @@ from argus.inspector import build_root_cause_chain, inspect_transition
 from argus.llm_tracker import create_tracker, extract_usage, install_handler, remove_handler
 from argus.models import (
     AnomalySignal,
+    ArgusConfig,
     BehaviorConfig,
     DisambiguationResult,
     LLMInvestigationConfig,
@@ -145,9 +146,15 @@ class ArgusSession:
         llm_investigation: LLMInvestigationConfig | None = None,
         redact_keys: set[str] | list[str] | None = None,
         persist_state: bool = True,
+        config: ArgusConfig | None = None,
     ) -> None:
         self.run_id: str = run_id or generate_run_id()
         self.max_field_size = max_field_size
+
+        # Judge failure policy from typed config (defaults for backward compat)
+        self._on_judge_failure = config.on_judge_failure if config else "warn"
+        self._judge_max_retries = config.judge_max_retries if config else 1
+        self._judge_retry_backoff = config.judge_retry_backoff if config else 0.5
         self.graph_node_names: list[str] = []
         self.graph_edge_map: dict[str, list[str]] = {}
         self.node_fn_registry: dict[str, Any] = {}
@@ -685,15 +692,38 @@ class ArgusSession:
                 and status not in ("crashed", "interrupted")
             )
             if _should_run_judge:
-                try:
-                    from argus.semantic_checker import check_semantic_coherence  # noqa: PLC0415
+                _judge_exc: Exception | None = None
+                for _retry_i in range(1 + self._judge_max_retries):
+                    try:
+                        from argus.semantic_checker import (
+                            check_semantic_coherence,  # noqa: PLC0415
+                        )
 
-                    semantic_check_result = check_semantic_coherence(
-                        node_name=node_name,
-                        input_state=input_snap,
-                        output_dict=output_snap,
-                        model=self._llm_investigation_config.semantic_check_model,
-                    )
+                        semantic_check_result = check_semantic_coherence(
+                            node_name=node_name,
+                            input_state=input_snap,
+                            output_dict=output_snap,
+                            model=self._llm_investigation_config.semantic_check_model,
+                        )
+                        _judge_exc = None
+                        break  # success — exit retry loop
+                    except Exception as _e:
+                        _judge_exc = _e
+                        if _retry_i < self._judge_max_retries:
+                            time.sleep(self._judge_retry_backoff * (2 ** _retry_i))
+
+                if _judge_exc is not None:
+                    # All retries exhausted — apply failure policy
+                    if self._on_judge_failure == "abort":
+                        raise _judge_exc
+                    if self._on_judge_failure == "warn":
+                        import logging  # noqa: PLC0415
+
+                        logging.getLogger("argus").warning(
+                            "Semantic judge failed for node %r: %s", node_name, _judge_exc,
+                        )
+                    # "skip" and "warn" both continue with heuristic results
+                elif semantic_check_result is not None:
                     sc_passed = semantic_check_result.passed
                     sc_confident = semantic_check_result.confidence >= 0.7
                     if sc_passed and sc_confident:
@@ -748,8 +778,6 @@ class ArgusSession:
                         # LLM says output is incoherent → downgrade to semantic_fail
                         if status == "pass":
                             status = "semantic_fail"
-                except Exception:
-                    pass
 
             event = NodeEvent(
                 step_index=step_idx,

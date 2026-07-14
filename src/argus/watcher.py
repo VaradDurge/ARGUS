@@ -5,6 +5,7 @@ import os
 from typing import Any, Callable
 
 from argus.checkpoints import mark_checkpoint_resumed
+from argus.models import ArgusConfig
 from argus.patcher import extract_edge_map, extract_fn, patch_graph
 from argus.session import ArgusSession
 
@@ -49,6 +50,7 @@ class ArgusWatcher:
         self,
         graph: Any = None,
         *,
+        config: ArgusConfig | None = None,
         max_field_size: int = 50_000,
         validators: dict[str, Callable[[dict], tuple[bool, str]]] | None = None,
         strict: bool = False,
@@ -59,15 +61,21 @@ class ArgusWatcher:
         semantic_judge: bool = True,
         judge_model: str = "gpt-4o",
     ) -> None:
-        self._max_field_size = max_field_size
+        # Build config from typed object or loose kwargs (backward compat)
+        if config is not None:
+            self._config = config
+        else:
+            self._config = ArgusConfig(
+                max_field_size=max_field_size,
+                strict=strict,
+                investigate=investigate,
+                redact_keys=redact_keys,
+                persist_state=persist_state,
+                record_http=record_http,
+                semantic_judge=semantic_judge,
+                judge_model=judge_model,
+            )
         self._validators = validators or {}
-        self._strict = strict
-        self._investigate = investigate  # True | False | "always"
-        self._redact_keys = redact_keys
-        self._persist_state = persist_state
-        self._record_http = record_http
-        self._semantic_judge = semantic_judge
-        self._judge_model = judge_model
         self._http_recorder_ctx = None
         self._http_recorder = None
         self._session: ArgusSession | None = None
@@ -153,24 +161,26 @@ class ArgusWatcher:
         # Auto-enable LLM investigation if key is available or user is logged in
         from argus.llm_proxy import is_available as _llm_available
 
+        cfg = self._config
         llm_inv_config = None
-        if (self._investigate or self._semantic_judge) and _llm_available():
+        if (cfg.investigate or cfg.semantic_judge) and _llm_available():
             from argus.models import LLMInvestigationConfig
 
-            always = (self._investigate == "always") or self._semantic_judge
+            always = (cfg.investigate == "always") or cfg.semantic_judge
             llm_inv_config = LLMInvestigationConfig(
                 enabled=True,
                 always_investigate=always,
-                model=self._judge_model,
+                model=cfg.judge_model,
             )
 
         self._session = ArgusSession(
-            max_field_size=self._max_field_size,
+            config=cfg,
+            max_field_size=cfg.max_field_size,
             validators=self._validators,
-            strict=self._strict,
+            strict=cfg.strict,
             llm_investigation=llm_inv_config,
-            redact_keys=self._redact_keys,
-            persist_state=self._persist_state,
+            redact_keys=cfg.redact_keys,
+            persist_state=cfg.persist_state,
         )
         self._session.set_node_names(node_names)
         self._session.set_edges(edge_map)
@@ -195,7 +205,7 @@ class ArgusWatcher:
         patch_graph(graph, self._session)
 
         # Start HTTP recording if requested
-        if self._record_http:
+        if cfg.record_http:
             try:
                 from argus.http_recorder import record_http
 

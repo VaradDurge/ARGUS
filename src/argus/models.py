@@ -416,3 +416,29 @@ class LLMInvestigationConfig:
     llm_correlation: bool = True
     correlation_model: str = "gpt-4o"
     correlation_max_tokens: int = 1500
+
+
+@dataclass
+class ArgusConfig:
+    """Typed configuration for ArgusWatcher / ArgusSession.
+
+    Consolidates all monitoring parameters into a single validated object.
+    Pass to ArgusWatcher(config=...) or ArgusSession(config=...).
+    Individual kwargs are still accepted for backward compatibility.
+    """
+
+    max_field_size: int = 50_000
+    strict: bool = False
+    investigate: bool | str = True  # True | False | "always"
+    redact_keys: set[str] | list[str] | None = None
+    persist_state: bool = True
+    record_http: bool = True
+    semantic_judge: bool = True
+    judge_model: str = "gpt-4o"
+    # Failure policy for the per-node semantic judge LLM call.
+    # "warn"  — log warning, continue with heuristic results (default)
+    # "skip"  — silently continue, no log
+    # "abort" — re-raise the exception, failing the node
+    on_judge_failure: str = "warn"
+    judge_max_retries: int = 1  # ponytail: bump to 2-3 if transient failures are common
+    judge_retry_backoff: float = 0.5  # seconds, doubled each retry

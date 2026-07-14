@@ -2,7 +2,7 @@
 import pytest
 
 from argus.llm_tracker import extract_usage, scan_output_for_tokens  # noqa: I001
-from argus.models import LLMCallInfo, LLMUsage, NodeEvent, RunRecord
+from argus.models import ArgusConfig, LLMCallInfo, LLMUsage, NodeEvent, RunRecord
 from argus.pricing import calculate_cost
 from argus.session import ArgusSession
 
@@ -478,3 +478,42 @@ def test_loop_no_retry_when_final_fails():
     # No retried — final iteration didn't pass
     assert all(e.status != "retried" for e in v_events)
     assert all(e.total_iterations == 2 for e in v_events)
+
+
+# ── ArgusConfig (VAR-68) ────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_argus_config_defaults():
+    cfg = ArgusConfig()
+    assert cfg.max_field_size == 50_000
+    assert cfg.strict is False
+    assert cfg.semantic_judge is True
+    assert cfg.on_judge_failure == "warn"
+    assert cfg.judge_max_retries == 1
+    assert cfg.judge_retry_backoff == 0.5
+
+
+@pytest.mark.unit
+def test_argus_config_import_from_top_level():
+    from argus import ArgusConfig as AC
+
+    assert AC is ArgusConfig
+
+
+@pytest.mark.unit
+def test_session_accepts_config():
+    cfg = ArgusConfig(strict=True, persist_state=False, on_judge_failure="skip")
+    session = ArgusSession(config=cfg, strict=cfg.strict, persist_state=cfg.persist_state)
+    assert session._strict is True
+    assert session._persist_state is False
+    assert session._on_judge_failure == "skip"
+
+
+@pytest.mark.unit
+def test_session_backward_compat_without_config():
+    """Legacy kwargs still work when config is not provided."""
+    session = ArgusSession(strict=True)
+    assert session._strict is True
+    assert session._on_judge_failure == "warn"  # default
+    assert session._judge_max_retries == 1
