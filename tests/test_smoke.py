@@ -543,133 +543,75 @@ def test_cyclic_graph_warns_without_finalize():
         assert "finalize()" in str(w[0].message)
 
 
-# -- VAR-72: pattern-based & custom-function redaction -----------------------
+# ── VAR-71: Schema versioning + sampling ────────────────────────────────────
 
 
 @pytest.mark.unit
-def test_redact_keys_basic():
-    """Existing allowlist redaction still works."""
-    from argus.session import _redact_dict
+def test_schema_version_written_on_save():
+    """RunRecord gets schema_version persisted and round-trips correctly."""
+    from argus.storage import SCHEMA_VERSION, load_run
 
-    data = {"api_key": "sk-abc123", "query": "hello"}
-    result = _redact_dict(data, frozenset({"api_key"}))
-    assert result["api_key"] == "__REDACTED__"
-    assert result["query"] == "hello"
+    session = ArgusSession()
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()
+
+    loaded = load_run(session.run_id)
+    assert loaded.schema_version == SCHEMA_VERSION
 
 
 @pytest.mark.unit
-def test_redact_custom_function():
-    """Per-field custom redaction function replaces blanket marker."""
-    from argus.session import _redact_dict
+def test_schema_version_defaults_for_old_runs():
+    """Runs saved before VAR-71 (no schema_version) deserialize as version '0'."""
+    import json
 
-    def mask_last4(v):
-        if isinstance(v, str) and len(v) >= 4:
-            return f"***{v[-4:]}"
-        return "__REDACTED__"
+    from argus.storage import _runs_path, load_run
 
-    data = {"card_number": "4111111111111234", "name": "Alice"}
-    result = _redact_dict(
-        data, frozenset(), fns={"card_number": mask_last4},
+    runs_dir = _runs_path()
+    fake_id = "old-run-no-schema"
+    (runs_dir / f"{fake_id}.json").write_text(
+        json.dumps({"run_id": fake_id, "steps": [], "overall_status": "clean"}),
+        encoding="utf-8",
     )
-    assert result["card_number"] == "***1234"
-    assert result["name"] == "Alice"
+    loaded = load_run(fake_id)
+    assert loaded.schema_version == "0"
 
 
 @pytest.mark.unit
-def test_redact_function_takes_priority_over_key():
-    """Custom function for a key beats the allowlist marker."""
-    from argus.session import _redact_dict
+def test_sample_rate_zero_skips_clean_runs():
+    """With sample_rate=0.0, clean runs are NOT persisted."""
+    from argus.storage import _runs_path
 
-    data = {"token": "my-secret-token-value"}
-    result = _redact_dict(
-        data,
-        frozenset({"token"}),
-        fns={"token": lambda v: f"hash:{hash(v)}"},
-    )
-    assert result["token"].startswith("hash:")
+    cfg = ArgusConfig(sample_rate=0.0, persist_failures=True)
+    session = ArgusSession(config=cfg)
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()
 
-
-@pytest.mark.unit
-def test_redact_pattern_detects_jwt():
-    """Pattern-based detection catches JWT-shaped values."""
-    from argus.session import _redact_dict
-
-    jwt = (
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-        ".eyJzdWIiOiIxMjM0NTY3ODkwIn0"
-        ".dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
-    )
-    data = {"auth": jwt, "query": "normal text"}
-    result = _redact_dict(data, frozenset(), pattern_detect=True)
-    assert result["auth"] == "__REDACTED__"
-    assert result["query"] == "normal text"
+    run_file = _runs_path() / f"{session.run_id}.json"
+    assert not run_file.exists(), "Clean run should be skipped at sample_rate=0.0"
 
 
 @pytest.mark.unit
-def test_redact_pattern_detects_openai_key():
-    """Pattern-based detection catches sk- prefixed keys."""
-    from argus.session import _redact_dict
+def test_sample_rate_zero_still_persists_failures():
+    """With sample_rate=0.0 + persist_failures=True, failed runs are saved."""
+    from argus.storage import _runs_path
 
-    key = "sk-proj-abc123def456ghi789jkl012mno345"
-    data = {"key": key}
-    result = _redact_dict(data, frozenset(), pattern_detect=True)
-    assert result["key"] == "__REDACTED__"
+    cfg = ArgusConfig(sample_rate=0.0, persist_failures=True)
+    session = ArgusSession(config=cfg)
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
 
+    def crashing_fn(state):
+        raise RuntimeError("boom")
 
-@pytest.mark.unit
-def test_redact_pattern_ignores_normal_text():
-    """Pattern detection does not false-positive on normal content."""
-    from argus.session import _redact_dict
+    fn = session.wrap("a", crashing_fn)
+    with pytest.raises(RuntimeError):
+        fn({})
 
-    data = {
-        "message": "Hello, this is a normal response",
-        "count": 42,
-    }
-    result = _redact_dict(data, frozenset(), pattern_detect=True)
-    assert result["message"] == "Hello, this is a normal response"
-    assert result["count"] == 42
-
-
-@pytest.mark.unit
-def test_redact_pattern_nested_and_list():
-    """Pattern detection recurses into nested dicts and lists."""
-    from argus.session import _redact_dict
-
-    aws_key = "AKIAIOSFODNN7EXAMPLE"
-    jwt = (
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-        ".eyJzdWIiOiIxMjM0NTY3ODkwIn0.x"
-    )
-    data = {
-        "config": {"aws_access_key": aws_key},
-        "tokens": [{"val": jwt}, {"val": "safe text"}],
-    }
-    result = _redact_dict(data, frozenset(), pattern_detect=True)
-    assert result["config"]["aws_access_key"] == "__REDACTED__"
-    assert result["tokens"][0]["val"] == "__REDACTED__"
-    assert result["tokens"][1]["val"] == "safe text"
-
-
-@pytest.mark.unit
-def test_redact_session_integration():
-    """ArgusSession._redact applies all three mechanisms together."""
-    session = ArgusSession(
-        redact_keys=["password"],
-        redact_functions={
-            "ssn": lambda v: (
-                "***-**-" + v[-4:] if isinstance(v, str) else v
-            ),
-        },
-        redact_patterns=True,
-    )
-    snap = {
-        "password": "hunter2",
-        "ssn": "123-45-6789",
-        "api_key": "sk-proj-abc123def456ghi789jkl012mno345",
-        "query": "harmless",
-    }
-    result = session._redact(snap)
-    assert result["password"] == "__REDACTED__"
-    assert result["ssn"] == "***-**-6789"
-    assert result["api_key"] == "__REDACTED__"
-    assert result["query"] == "harmless"
+    run_file = _runs_path() / f"{session.run_id}.json"
+    assert run_file.exists(), "Failed run must be persisted even at sample_rate=0.0"

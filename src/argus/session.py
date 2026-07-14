@@ -155,6 +155,8 @@ class ArgusSession:
         self._on_judge_failure = config.on_judge_failure if config else "warn"
         self._judge_max_retries = config.judge_max_retries if config else 1
         self._judge_retry_backoff = config.judge_retry_backoff if config else 0.5
+        self._sample_rate = config.sample_rate if config else 1.0
+        self._persist_failures = config.persist_failures if config else True
         self.graph_node_names: list[str] = []
         self.graph_edge_map: dict[str, list[str]] = {}
         self.node_fn_registry: dict[str, Any] = {}
@@ -953,6 +955,8 @@ class ArgusSession:
         ]
         total_cost_usd = round(sum(costs), 6) if costs else None
 
+        from argus.storage import SCHEMA_VERSION  # noqa: PLC0415
+
         record = RunRecord(
             run_id=self.run_id,
             argus_version=__version__,
@@ -966,6 +970,7 @@ class ArgusSession:
             graph_edge_map=self.graph_edge_map,
             initial_state=self._initial_state,
             steps=events_snapshot,
+            schema_version=SCHEMA_VERSION,
             is_cyclic=self._is_cyclic,
             app_factory_ref=self.app_factory_ref,
             node_fn_refs=self.node_fn_refs,
@@ -1103,6 +1108,18 @@ class ArgusSession:
                 step.input_state = self._redact(step.input_state)
                 if step.output_dict is not None:
                     step.output_dict = self._redact(step.output_dict)
+
+        # Sampling gate — skip persistence for sampled-out clean runs (VAR-71)
+        import random  # noqa: PLC0415
+
+        is_failure = overall_status != "clean"
+        should_persist = (
+            self._sample_rate >= 1.0
+            or (is_failure and self._persist_failures)
+            or random.random() < self._sample_rate
+        )
+        if not should_persist:
+            return
 
         try:
             save_run(record)
