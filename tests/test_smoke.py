@@ -541,3 +541,135 @@ def test_cyclic_graph_warns_without_finalize():
         assert len(w) == 1
         assert "cyclic graph" in str(w[0].message).lower()
         assert "finalize()" in str(w[0].message)
+
+
+# -- VAR-72: pattern-based & custom-function redaction -----------------------
+
+
+@pytest.mark.unit
+def test_redact_keys_basic():
+    """Existing allowlist redaction still works."""
+    from argus.session import _redact_dict
+
+    data = {"api_key": "sk-abc123", "query": "hello"}
+    result = _redact_dict(data, frozenset({"api_key"}))
+    assert result["api_key"] == "__REDACTED__"
+    assert result["query"] == "hello"
+
+
+@pytest.mark.unit
+def test_redact_custom_function():
+    """Per-field custom redaction function replaces blanket marker."""
+    from argus.session import _redact_dict
+
+    def mask_last4(v):
+        if isinstance(v, str) and len(v) >= 4:
+            return f"***{v[-4:]}"
+        return "__REDACTED__"
+
+    data = {"card_number": "4111111111111234", "name": "Alice"}
+    result = _redact_dict(
+        data, frozenset(), fns={"card_number": mask_last4},
+    )
+    assert result["card_number"] == "***1234"
+    assert result["name"] == "Alice"
+
+
+@pytest.mark.unit
+def test_redact_function_takes_priority_over_key():
+    """Custom function for a key beats the allowlist marker."""
+    from argus.session import _redact_dict
+
+    data = {"token": "my-secret-token-value"}
+    result = _redact_dict(
+        data,
+        frozenset({"token"}),
+        fns={"token": lambda v: f"hash:{hash(v)}"},
+    )
+    assert result["token"].startswith("hash:")
+
+
+@pytest.mark.unit
+def test_redact_pattern_detects_jwt():
+    """Pattern-based detection catches JWT-shaped values."""
+    from argus.session import _redact_dict
+
+    jwt = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+        ".eyJzdWIiOiIxMjM0NTY3ODkwIn0"
+        ".dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+    )
+    data = {"auth": jwt, "query": "normal text"}
+    result = _redact_dict(data, frozenset(), pattern_detect=True)
+    assert result["auth"] == "__REDACTED__"
+    assert result["query"] == "normal text"
+
+
+@pytest.mark.unit
+def test_redact_pattern_detects_openai_key():
+    """Pattern-based detection catches sk- prefixed keys."""
+    from argus.session import _redact_dict
+
+    key = "sk-proj-abc123def456ghi789jkl012mno345"
+    data = {"key": key}
+    result = _redact_dict(data, frozenset(), pattern_detect=True)
+    assert result["key"] == "__REDACTED__"
+
+
+@pytest.mark.unit
+def test_redact_pattern_ignores_normal_text():
+    """Pattern detection does not false-positive on normal content."""
+    from argus.session import _redact_dict
+
+    data = {
+        "message": "Hello, this is a normal response",
+        "count": 42,
+    }
+    result = _redact_dict(data, frozenset(), pattern_detect=True)
+    assert result["message"] == "Hello, this is a normal response"
+    assert result["count"] == 42
+
+
+@pytest.mark.unit
+def test_redact_pattern_nested_and_list():
+    """Pattern detection recurses into nested dicts and lists."""
+    from argus.session import _redact_dict
+
+    aws_key = "AKIAIOSFODNN7EXAMPLE"
+    jwt = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+        ".eyJzdWIiOiIxMjM0NTY3ODkwIn0.x"
+    )
+    data = {
+        "config": {"aws_access_key": aws_key},
+        "tokens": [{"val": jwt}, {"val": "safe text"}],
+    }
+    result = _redact_dict(data, frozenset(), pattern_detect=True)
+    assert result["config"]["aws_access_key"] == "__REDACTED__"
+    assert result["tokens"][0]["val"] == "__REDACTED__"
+    assert result["tokens"][1]["val"] == "safe text"
+
+
+@pytest.mark.unit
+def test_redact_session_integration():
+    """ArgusSession._redact applies all three mechanisms together."""
+    session = ArgusSession(
+        redact_keys=["password"],
+        redact_functions={
+            "ssn": lambda v: (
+                "***-**-" + v[-4:] if isinstance(v, str) else v
+            ),
+        },
+        redact_patterns=True,
+    )
+    snap = {
+        "password": "hunter2",
+        "ssn": "123-45-6789",
+        "api_key": "sk-proj-abc123def456ghi789jkl012mno345",
+        "query": "harmless",
+    }
+    result = session._redact(snap)
+    assert result["password"] == "__REDACTED__"
+    assert result["ssn"] == "***-**-6789"
+    assert result["api_key"] == "__REDACTED__"
+    assert result["query"] == "harmless"

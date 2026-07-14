@@ -33,6 +33,10 @@ from argus.models import (
 _ARGUS_DIR = ".argus"
 _RUNS_DIR = "runs"
 
+# Bump when the RunRecord schema changes in a backward-incompatible way.
+# Old runs without this field are treated as schema version "0".
+SCHEMA_VERSION = "1"
+
 
 def _runs_path() -> Path:
     base = Path(os.getcwd()) / _ARGUS_DIR / _RUNS_DIR
@@ -265,6 +269,7 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         graph_edge_map=data.get("graph_edge_map", {}),
         initial_state=data.get("initial_state", {}),
         steps=steps,
+        schema_version=data.get("schema_version", "0"),
         parent_run_id=data.get("parent_run_id"),
         replay_from_step=data.get("replay_from_step"),
         is_cyclic=data.get("is_cyclic", False),

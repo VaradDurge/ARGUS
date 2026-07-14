@@ -233,6 +233,7 @@ class RunRecord:
     graph_edge_map: dict[str, list[str]]
     initial_state: dict[str, Any]
     steps: list[NodeEvent] = field(default_factory=list)
+    schema_version: str = "0"  # ponytail: "0"=pre-VAR-71, "1"=current; migrate on load
     parent_run_id: str | None = None
     replay_from_step: str | None = None
     is_cyclic: bool = False  # True if the graph contains back-edges
@@ -442,3 +443,6 @@ class ArgusConfig:
     on_judge_failure: str = "warn"
     judge_max_retries: int = 1  # ponytail: bump to 2-3 if transient failures are common
     judge_retry_backoff: float = 0.5  # seconds, doubled each retry
+    # Run persistence sampling — persist only a fraction of runs to save disk (VAR-71)
+    sample_rate: float = 1.0  # 0.0–1.0, fraction of clean runs to persist
+    persist_failures: bool = True  # always persist runs with non-clean status
