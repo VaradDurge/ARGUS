@@ -56,6 +56,8 @@ class ArgusWatcher:
         strict: bool = False,
         investigate: bool | str = True,
         redact_keys: set[str] | list[str] | None = None,
+        redact_functions: dict[str, Callable[[Any], Any]] | None = None,
+        redact_patterns: bool = False,
         persist_state: bool = True,
         record_http: bool = True,
         semantic_judge: bool = True,
@@ -70,11 +72,16 @@ class ArgusWatcher:
                 strict=strict,
                 investigate=investigate,
                 redact_keys=redact_keys,
+                redact_functions=redact_functions,
+                redact_patterns=redact_patterns,
                 persist_state=persist_state,
                 record_http=record_http,
                 semantic_judge=semantic_judge,
                 judge_model=judge_model,
             )
+        self._redact_functions = (
+            config.redact_functions if config else redact_functions
+        ) or {}
         self._validators = validators or {}
         self._http_recorder_ctx = None
         self._http_recorder = None
@@ -195,6 +202,8 @@ class ArgusWatcher:
             strict=cfg.strict,
             llm_investigation=llm_inv_config,
             redact_keys=cfg.redact_keys,
+            redact_functions=self._redact_functions,
+            redact_patterns=cfg.redact_patterns,
             persist_state=cfg.persist_state,
         )
         self._session.set_node_names(node_names)

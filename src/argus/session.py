@@ -65,17 +65,56 @@ _MISSING = object()
 
 _REDACTED = "__REDACTED__"
 
+# Built-in patterns that match common secret shapes (compiled once at import)
+import re as _re  # noqa: E402
 
-def _redact_dict(d: dict[str, Any], keys: frozenset[str]) -> dict[str, Any]:
-    """Recursively replace values of sensitive keys with a redaction marker."""
+_SECRET_PATTERNS: list[_re.Pattern[str]] = [
+    _re.compile(r"^eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}"),  # JWT
+    _re.compile(r"^sk-[A-Za-z0-9\-_]{20,}"),  # OpenAI / Stripe secret keys
+    _re.compile(r"^AKIA[0-9A-Z]{16}$"),  # AWS access key ID
+    _re.compile(r"^ghp_[A-Za-z0-9]{36,}$"),  # GitHub PAT
+    _re.compile(r"^glpat-[A-Za-z0-9\-_]{20,}$"),  # GitLab PAT
+    _re.compile(r"^xox[bpras]-[A-Za-z0-9\-]{10,}"),  # Slack tokens
+    _re.compile(r"^Bearer\s+[A-Za-z0-9\-._~+/]+=*$"),  # Bearer tokens
+    _re.compile(r"^[A-Za-z0-9+/]{40,}={0,2}$"),  # long base64 blobs (>=40 chars)
+]
+
+
+def _looks_like_secret(value: Any) -> bool:
+    """Return True if a string value matches common secret token shapes."""
+    if not isinstance(value, str) or len(value) < 20:
+        return False
+    return any(p.search(value) for p in _SECRET_PATTERNS)
+
+
+def _redact_dict(
+    d: dict[str, Any],
+    keys: frozenset[str],
+    fns: dict[str, Callable[[Any], Any]] | None = None,
+    pattern_detect: bool = False,
+) -> dict[str, Any]:
+    """Recursively replace values of sensitive keys with a redaction marker.
+
+    *fns* maps field names to custom redaction callables (e.g. hash, mask-last-4).
+    *pattern_detect* enables heuristic detection of secret-shaped string values.
+    """
     out: dict[str, Any] = {}
     for k, v in d.items():
-        if k in keys:
+        if fns and k in fns:
+            out[k] = fns[k](v)
+        elif k in keys:
+            out[k] = _REDACTED
+        elif pattern_detect and _looks_like_secret(v):
             out[k] = _REDACTED
         elif isinstance(v, dict):
-            out[k] = _redact_dict(v, keys)
+            out[k] = _redact_dict(v, keys, fns, pattern_detect)
         elif isinstance(v, list):
-            out[k] = [_redact_dict(item, keys) if isinstance(item, dict) else item for item in v]
+            out[k] = [
+                _redact_dict(item, keys, fns, pattern_detect)
+                if isinstance(item, dict)
+                else (_REDACTED if pattern_detect and _looks_like_secret(item) else item)
+                for item in v
+            ]
         else:
             out[k] = v
     return out
@@ -145,6 +184,8 @@ class ArgusSession:
         node_behaviors: dict[str, str] | None = None,
         llm_investigation: LLMInvestigationConfig | None = None,
         redact_keys: set[str] | list[str] | None = None,
+        redact_functions: dict[str, Callable[[Any], Any]] | None = None,
+        redact_patterns: bool = False,
         persist_state: bool = True,
         config: ArgusConfig | None = None,
     ) -> None:
@@ -161,6 +202,10 @@ class ArgusSession:
 
         self._strict = strict
         self._redact_keys: frozenset[str] = frozenset(redact_keys or ())
+        self._redact_functions: dict[str, Callable[[Any], Any]] = redact_functions or {}
+        self._redact_patterns: bool = (
+            config.redact_patterns if config else redact_patterns
+        )
         self._persist_state = persist_state
 
         # Behavior anomaly detection config
@@ -468,9 +513,12 @@ class ArgusSession:
         serialized snapshot — the original state passed to the node is
         never touched.
         """
-        if not self._redact_keys:
+        has_work = self._redact_keys or self._redact_functions or self._redact_patterns
+        if not has_work:
             return snap
-        return _redact_dict(snap, self._redact_keys)
+        return _redact_dict(
+            snap, self._redact_keys, self._redact_functions or None, self._redact_patterns
+        )
 
     def capture_state(self, state: Any) -> dict[str, Any]:
         snap = safe_serialize(state, self.max_field_size)
