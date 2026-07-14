@@ -448,3 +448,63 @@ class ArgusConfig:
     # Run persistence sampling — persist only a fraction of runs to save disk (VAR-71)
     sample_rate: float = 1.0  # 0.0–1.0, fraction of clean runs to persist
     persist_failures: bool = True  # always persist runs with non-clean status
+
+    def __post_init__(self) -> None:
+        """Cross-validate parameter combinations — fail fast with clear messages (VAR-73)."""
+        errors: list[str] = []
+
+        # ── Type/range checks ────────────────────────────────────────────
+        if self.max_field_size <= 0:
+            errors.append(f"max_field_size must be positive, got {self.max_field_size}")
+
+        if self.investigate not in (True, False, "always"):
+            errors.append(
+                f"investigate must be True, False, or 'always', got {self.investigate!r}"
+            )
+
+        _valid_policies = ("warn", "skip", "abort")
+        if self.on_judge_failure not in _valid_policies:
+            errors.append(
+                f"on_judge_failure must be one of {_valid_policies}, "
+                f"got {self.on_judge_failure!r}"
+            )
+
+        if self.judge_max_retries < 0:
+            errors.append(
+                f"judge_max_retries must be >= 0, got {self.judge_max_retries}"
+            )
+
+        if self.judge_retry_backoff <= 0:
+            errors.append(
+                f"judge_retry_backoff must be positive, got {self.judge_retry_backoff}"
+            )
+
+        if not (0.0 <= self.sample_rate <= 1.0):
+            errors.append(
+                f"sample_rate must be between 0.0 and 1.0, got {self.sample_rate}"
+            )
+
+        # ── Cross-parameter checks ───────────────────────────────────────
+        if not self.persist_state and self.investigate == "always":
+            errors.append(
+                "investigate='always' with persist_state=False: LLM investigation "
+                "requires state data to analyze. Either set persist_state=True or "
+                "set investigate=True (auto) / False."
+            )
+
+        if self.semantic_judge and not self.investigate:
+            errors.append(
+                "semantic_judge=True requires investigate to be truthy. "
+                "Set investigate=True or 'always', or disable semantic_judge."
+            )
+
+        if self.sample_rate == 0.0 and not self.persist_failures:
+            errors.append(
+                "sample_rate=0.0 with persist_failures=False: no runs will ever "
+                "be persisted. Set persist_failures=True or increase sample_rate."
+            )
+
+        if errors:
+            raise ValueError(
+                "ArgusConfig validation failed:\n  - " + "\n  - ".join(errors)
+            )

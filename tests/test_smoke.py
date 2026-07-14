@@ -519,6 +519,88 @@ def test_session_backward_compat_without_config():
     assert session._judge_max_retries == 1
 
 
+# ── ArgusConfig cross-validation (VAR-73) ─────────────────────────────────
+
+
+@pytest.mark.unit
+def test_config_rejects_invalid_investigate():
+    with pytest.raises(ValueError, match="investigate must be"):
+        ArgusConfig(investigate="sometimes")
+
+
+@pytest.mark.unit
+def test_config_rejects_invalid_on_judge_failure():
+    with pytest.raises(ValueError, match="on_judge_failure must be"):
+        ArgusConfig(on_judge_failure="crash")
+
+
+@pytest.mark.unit
+def test_config_rejects_negative_max_retries():
+    with pytest.raises(ValueError, match="judge_max_retries must be >= 0"):
+        ArgusConfig(judge_max_retries=-1)
+
+
+@pytest.mark.unit
+def test_config_rejects_zero_backoff():
+    with pytest.raises(ValueError, match="judge_retry_backoff must be positive"):
+        ArgusConfig(judge_retry_backoff=0)
+
+
+@pytest.mark.unit
+def test_config_rejects_negative_max_field_size():
+    with pytest.raises(ValueError, match="max_field_size must be positive"):
+        ArgusConfig(max_field_size=0)
+
+
+@pytest.mark.unit
+def test_config_rejects_bad_sample_rate():
+    with pytest.raises(ValueError, match="sample_rate must be between"):
+        ArgusConfig(sample_rate=1.5)
+    with pytest.raises(ValueError, match="sample_rate must be between"):
+        ArgusConfig(sample_rate=-0.1)
+
+
+@pytest.mark.unit
+def test_config_rejects_investigate_always_without_persist():
+    with pytest.raises(ValueError, match="investigate='always' with persist_state=False"):
+        ArgusConfig(investigate="always", persist_state=False)
+
+
+@pytest.mark.unit
+def test_config_rejects_judge_without_investigate():
+    with pytest.raises(ValueError, match="semantic_judge=True requires investigate"):
+        ArgusConfig(semantic_judge=True, investigate=False)
+
+
+@pytest.mark.unit
+def test_config_rejects_zero_sample_no_persist_failures():
+    with pytest.raises(ValueError, match="no runs will ever be persisted"):
+        ArgusConfig(sample_rate=0.0, persist_failures=False)
+
+
+@pytest.mark.unit
+def test_config_collects_multiple_errors():
+    """Multiple misconfigs are reported in a single ValueError."""
+    with pytest.raises(ValueError) as exc_info:
+        ArgusConfig(max_field_size=-1, on_judge_failure="explode", judge_max_retries=-5)
+    msg = str(exc_info.value)
+    assert "max_field_size" in msg
+    assert "on_judge_failure" in msg
+    assert "judge_max_retries" in msg
+
+
+@pytest.mark.unit
+def test_config_valid_combinations_pass():
+    """Valid configs should not raise."""
+    ArgusConfig()  # all defaults
+    ArgusConfig(investigate=True, semantic_judge=True)
+    ArgusConfig(investigate="always", persist_state=True)
+    ArgusConfig(investigate=False, semantic_judge=False)
+    ArgusConfig(on_judge_failure="abort", judge_max_retries=3)
+    ArgusConfig(sample_rate=0.0, persist_failures=True)  # OK: failures still persisted
+    ArgusConfig(sample_rate=0.5, persist_failures=False)  # OK: some runs persisted
+
+
 # ── Cyclic graph finalize warning (VAR-70) ──────────────────────────────
 
 
