@@ -59,5 +59,5 @@ if __name__ == "__main__":
         else:
             print("    ✓  clean")
 
-    print(f"\nTo view in UI:  argus ui")
+    print("\nTo view in UI:  argus ui")
     print(f"To inspect:     argus show {run_id}")
