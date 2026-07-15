@@ -57,7 +57,7 @@ If you found issues in Step 1, fix them now:
 
 ## STEP 3 — INTEGRATE ARGUS
 
-Install: pip install argus-agents
+Install: pip install argus-agents[all]
 
 Add ArgusWatcher to the file where the graph is built:
 
@@ -75,25 +75,20 @@ app = watcher.watch_compiled(app)
 
 ## STEP 4 — PICK THE RIGHT CONFIG
 
-Choose parameters based on what you found in the audit:
+Defaults already enabled: persist_state, record_http, semantic_judge, investigate.
+You only need to configure what you want to change.
 
+# Minimal — works out of the box with sensible defaults:
+watcher = ArgusWatcher(graph)
+
+# With custom options:
 watcher = ArgusWatcher(graph,
-    # ALWAYS RECOMMENDED
-    strict=True,              # catches empty lists, nested errors, type mismatches
-    persist_state=True,       # saves runs to .argus/runs/
-
-    # IF nodes make paid API calls (OpenAI, etc.) — enables free deterministic reruns
-    record_http=True,
-
-    # IF you want LLM-powered quality checks on outputs (needs OPENAI_API_KEY)
-    semantic_judge=True,      # reviews every node's output for subtle issues
-    judge_model="gpt-4o",     # or "gpt-4o-mini" for cheaper runs
-
-    # IF you want automatic root cause analysis on failures
-    investigate=True,         # or "always" to investigate every run
+    # RECOMMENDED for CI/staging — catches empty lists, nested errors, type mismatches
+    strict=True,
 
     # IF any fields contain secrets or tokens
     redact_keys={"token", "api_key", "password"},
+    redact_patterns=True,     # auto-detect secret-shaped values
 
     # ADD validators for nodes that produce critical output:
     validators={
@@ -104,8 +99,21 @@ watcher = ArgusWatcher(graph,
     },
 )
 
+# PRODUCTION — persist only a fraction of clean runs to save disk:
+from argus.models import ArgusConfig
+watcher = ArgusWatcher(graph, config=ArgusConfig(
+    sample_rate=0.1,          # persist 10% of clean runs
+    persist_failures=True,    # always persist failures (default)
+))
+
+# CI/CD — capture events, write nothing to disk:
+watcher = ArgusWatcher(graph, config=ArgusConfig(dry_run=True))
+
 # IF the graph has cycles (loops / back-edges):
-# watcher.finalize()    ← call after invoke
+# watcher.finalize()    ← call after invoke (safe to call twice)
+
+# LLM features (semantic judge, investigation) require: argus login
+# All LLM calls go through the ARGUS proxy — no OpenAI key needed.
 
 After running the pipeline, use "argus show last" to see what ARGUS caught.`
 
@@ -248,7 +256,7 @@ export default function GuideContent() {
 
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">AI Analysis</h3>
         <p className="text-[15px] text-muted-foreground leading-[1.7] mb-5">
-          When <Code>OPENAI_API_KEY</Code> is set, ARGUS investigates non-clean runs automatically.
+          When logged in via <Code>argus login</Code>, ARGUS investigates non-clean runs automatically.
           The analysis panel has three sections:
         </p>
         <div className="space-y-3 mb-8 pl-1">
@@ -353,6 +361,7 @@ export default function GuideContent() {
     # --- Output control ---
     max_field_size=50_000,  # max chars per field before truncation (default: 50k)
     redact_keys={"token", "api_key"},  # field names to scrub from stored outputs
+    redact_patterns=True,   # auto-detect secret-shaped values (default: False)
     persist_state=True,     # save run records to .argus/runs/ (default: True)
 
     # --- Detection strictness ---
@@ -370,13 +379,20 @@ export default function GuideContent() {
                             # set to "always" for every node, False to disable
 
     # --- Deterministic rerun ---
-    record_http=True,       # saves every outbound API call to disk.
+    record_http=True,       # saves every outbound API call to disk (default: True).
                             # reruns replay from disk — zero extra cost.
 
     # --- LLM semantic judge ---
-    semantic_judge=True,    # LLM reviews every node's output for subtle quality issues.
-                            # runs AFTER deterministic checks. needs OPENAI_API_KEY.
+    semantic_judge=True,    # LLM reviews every node's output for subtle quality issues
+                            # (default: True). runs AFTER deterministic checks.
     judge_model="gpt-4o",  # or "gpt-4o-mini" for cheaper runs.
+
+    # --- Production persistence (via ArgusConfig) ---
+    # config=ArgusConfig(
+    #     sample_rate=0.1,      # persist only 10% of clean runs
+    #     persist_failures=True, # always persist failures (default)
+    #     dry_run=False,         # True to skip all persistence (CI/CD)
+    # ),
 )`}
         </CodeBlock>
 
@@ -407,7 +423,7 @@ export default function GuideContent() {
           <Row label="Per-node" text="Each output evaluated in context of its input and the pipeline's purpose." />
         </div>
         <p className="text-[15px] text-muted-foreground leading-[1.7]">
-          Requires <Code>OPENAI_API_KEY</Code>.
+          Requires <Code>argus login</Code> — all LLM calls go through the ARGUS proxy, no OpenAI key needed.
           {' '}<strong className="text-foreground font-medium">Enable</strong> for complex multi-agent pipelines.
           {' '}<strong className="text-foreground font-medium">Skip</strong> for simple pipelines or zero-cost monitoring.
         </p>
