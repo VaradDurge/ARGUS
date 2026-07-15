@@ -25,11 +25,13 @@ Usage without LangGraph:
 from __future__ import annotations
 
 import asyncio
+import atexit
 import functools
 import json
 import threading
 import time
 import traceback
+import warnings
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -266,6 +268,24 @@ class ArgusSession:
         # Reducer functions extracted from StateGraph schema (set by ArgusWatcher).
         # Maps field_name → reducer callable (e.g. operator.add).
         self.reducer_fields: dict[str, Any] = {}
+
+        # Safety net: finalize on interpreter exit if the user forgot to call it.
+        atexit.register(self._atexit_finalize)
+
+    def _atexit_finalize(self) -> None:
+        """Auto-finalize at exit if the user never called finalize()."""
+        if self._completed:
+            return
+        warnings.warn(
+            f"[argus] Run {self.run_id} was never finalized. "
+            "Call watcher.finalize() after app.invoke() to persist runs. "
+            "Auto-saving now.",
+            stacklevel=1,
+        )
+        try:
+            self._finalize()
+        except Exception:
+            pass
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
@@ -1175,16 +1195,16 @@ class ArgusSession:
         try:
             save_run(record)
         except Exception as exc:
-            import sys
-
-            print(
-                f"[argus] WARNING: failed to save run {record.run_id}: {exc}",
-                file=sys.stderr,
+            warnings.warn(
+                f"[argus] Failed to save run {record.run_id}: {exc}. "
+                "Check that the working directory is writable.",
+                stacklevel=2,
             )
 
     def finalize(self) -> None:
         """Persist the run record. Required for cyclic graphs after app.invoke() returns."""
         self._finalize()
+        atexit.unregister(self._atexit_finalize)
 
     def force_finalize(self) -> None:
         """Alias for finalize() — used by legacy code and replay engine."""

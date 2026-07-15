@@ -1744,8 +1744,11 @@ def open_ui(app_module_str: str | None = None) -> None:
     _console.print("  [dim]replay[/dim] [bold]auto-detect[/bold] [dim](zero-config)[/dim]")
     webbrowser.open(_UI_URL)
 
-    # Keep the process alive while the server runs
+    # Keep the process alive — join with timeout so Ctrl+C is not swallowed
+    _console.print("  [dim]press Ctrl+C to stop[/dim]")
     try:
-        thread.join()
+        while thread.is_alive():
+            thread.join(timeout=0.5)
     except KeyboardInterrupt:
+        _console.print("\n[dim]Shutting down…[/dim]")
         server.shutdown()

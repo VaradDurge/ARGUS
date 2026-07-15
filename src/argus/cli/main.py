@@ -32,9 +32,6 @@ app = typer.Typer(
     context_settings={"help_option_names": ["--help", "-h"]},
 )
 
-show_app = typer.Typer(help="Show run details.", no_args_is_help=True)
-app.add_typer(show_app, name="show")
-
 open_app = typer.Typer(help="Open Argus tools.", no_args_is_help=True)
 app.add_typer(open_app, name="open")
 
@@ -58,8 +55,9 @@ _SETUP_LINES = [
 _COMMANDS = [
     ("ui", "start the web dashboard and open it in browser"),
     ("list", "list all recorded runs, newest first"),
-    ("show last", "inspect the most recent run"),
-    ("show run <id>", "inspect a specific run  (full id or 8-char prefix)"),
+    ("show", "inspect the most recent run"),
+    ("show <id>", "inspect a specific run  (full id or 8-char prefix)"),
+    ("show last", "same as show — inspect the most recent run"),
     ("replay <id> <node>", "re-run from a saved node checkpoint"),
     ("replay <id> <node> --only", "re-run just that node in isolation"),
     ("replay <id> <node> --app mod:fn", "replay with a live graph factory"),
@@ -88,7 +86,7 @@ _OPTIONS = [
         "zero-arg callable returning StateGraph or CompiledGraph",
     ),
     ("inspect --step / -s  <node>", "str", "node name to inspect  (required)"),
-    ("show run <id>", "str", "full run id or 8-char prefix"),
+    ("show <id>", "str", "full run id or 8-char prefix"),
     (
         "diff <id-a> <id-b>",
         "str",
@@ -205,18 +203,26 @@ def _banner(ctx: typer.Context) -> None:
     _console.print()
 
 
-@show_app.command("last")
-def cmd_show_last() -> None:
-    """Show the most recent run."""
-    show_last()
-
-
-@show_app.command("run")
-def cmd_show_run(
-    run_id: Annotated[str, typer.Argument(help="Run ID or 8-char prefix.")],
+@app.command("show", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+def cmd_show(
+    ctx: typer.Context,
+    run_id: Annotated[
+        Optional[str],
+        typer.Argument(help="Run ID, 8-char prefix, or 'last' for the most recent run."),
+    ] = None,
 ) -> None:
-    """Show details for a specific run."""
-    show_run(run_id)
+    """Show run details. Use 'argus show last' or 'argus show <run-id>'."""
+    if run_id is None or run_id == "last":
+        show_last()
+    elif run_id == "run":
+        # Backward compat: 'argus show run <id>' still works
+        actual_id = ctx.args[0] if ctx.args else None
+        if actual_id:
+            show_run(actual_id)
+        else:
+            show_last()
+    else:
+        show_run(run_id)
 
 
 @app.command("list")

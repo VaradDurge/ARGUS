@@ -39,11 +39,11 @@ Find the file where my StateGraph is defined and check these things:
 3. GRAPH STRUCTURE: Check if the graph is:
    - Linear (A → B → C) — auto-finalize works, no extra code needed
    - Fan-out/fan-in (DAG) — auto-finalize works
-   - Cyclic (has loops / back-edges) — will need watcher.finalize() after invoke
+   - Cyclic (has loops / back-edges) — MUST call watcher.finalize() after invoke
 
 4. ASYNC CHECK: If node functions are async (async def), ARGUS handles both — just make sure you're using await app.ainvoke() not app.invoke().
 
-5. EXTERNAL CALLS: List which nodes make external API calls (OpenAI, search APIs, databases). This determines whether to enable record_http.
+5. EXTERNAL CALLS: List which nodes make external API calls (OpenAI, search APIs, databases).
 
 Print a summary of what you found and any fixes needed before proceeding.
 
@@ -57,7 +57,7 @@ If you found issues in Step 1, fix them now:
 
 ## STEP 3 — INTEGRATE ARGUS
 
-Install: pip install argus-agents[all]
+Install: pip install argus-agents
 
 Add ArgusWatcher to the file where the graph is built:
 
@@ -66,29 +66,30 @@ from argus import ArgusWatcher
 watcher = ArgusWatcher(graph)          # pass StateGraph before compile()
 app = graph.compile()
 result = app.invoke(initial_state)
+watcher.finalize()                     # ALWAYS call this — required for cyclic graphs, safe for all
 print(watcher.run_id)
 
 If the graph is already compiled elsewhere, use watch_compiled():
 
 watcher = ArgusWatcher()
 app = watcher.watch_compiled(app)
+result = app.invoke(initial_state)
+watcher.finalize()
 
 ## STEP 4 — PICK THE RIGHT CONFIG
 
-Defaults already enabled: persist_state, record_http, semantic_judge, investigate.
-You only need to configure what you want to change.
+Choose parameters based on what you found in the audit.
+Note: record_http, semantic_judge, investigate, and persist_state are all enabled by default.
 
-# Minimal — works out of the box with sensible defaults:
-watcher = ArgusWatcher(graph)
-
-# With custom options:
 watcher = ArgusWatcher(graph,
-    # RECOMMENDED for CI/staging — catches empty lists, nested errors, type mismatches
+    # DETECTION STRICTNESS — catches empty lists, nested errors, type mismatches
     strict=True,
+
+    # IF you want automatic root cause analysis on failures (default: True)
+    investigate=True,         # or "always" to investigate every run
 
     # IF any fields contain secrets or tokens
     redact_keys={"token", "api_key", "password"},
-    redact_patterns=True,     # auto-detect secret-shaped values
 
     # ADD validators for nodes that produce critical output:
     validators={
@@ -99,23 +100,15 @@ watcher = ArgusWatcher(graph,
     },
 )
 
-# PRODUCTION — persist only a fraction of clean runs to save disk:
-from argus.models import ArgusConfig
-watcher = ArgusWatcher(graph, config=ArgusConfig(
-    sample_rate=0.1,          # persist 10% of clean runs
-    persist_failures=True,    # always persist failures (default)
-))
+app = graph.compile()
+result = app.invoke(initial_state)
+watcher.finalize()                     # persists the run to .argus/runs/
 
-# CI/CD — capture events, write nothing to disk:
-watcher = ArgusWatcher(graph, config=ArgusConfig(dry_run=True))
-
-# IF the graph has cycles (loops / back-edges):
-# watcher.finalize()    ← call after invoke (safe to call twice)
-
-# LLM features (semantic judge, investigation) require: argus login
-# All LLM calls go through the ARGUS proxy — no OpenAI key needed.
-
-After running the pipeline, use "argus show last" to see what ARGUS caught.`
+After running the pipeline:
+  argus list              # see all recorded runs
+  argus show last         # inspect the most recent run
+  argus show <id>         # inspect a specific run by ID
+  argus ui                # open the web dashboard`
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -150,14 +143,83 @@ export default function GuideContent() {
         </p>
       </div>
 
+      {/* ── Quick Start ──────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">Quick Start</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Get ARGUS monitoring on your pipeline in 5 steps.
+        </p>
+
+        <div className="space-y-5 mb-8">
+          <Step n={1} title="Install ARGUS" text="Run pip install argus-agents in your project." />
+          <Step n={2} title="Copy the AI Setup Prompt" text="On the ARGUS landing page, click the AI Setup Prompt button (shown below). This copies a prompt that handles the full integration for you." />
+        </div>
+
+        <div className="rounded-lg overflow-hidden mb-8 max-w-[520px]" style={{ border: '1px solid var(--border)' }}>
+          <Image src="/guide/ai-setup-prompt.png" alt="Click the AI Setup Prompt button on the landing page" width={520} height={160} className="w-full h-auto block" />
+        </div>
+
+        <div className="space-y-5 mb-8">
+          <Step n={3} title="Paste into your AI coding tool" text="Paste the prompt into Claude Code, Cursor, or Copilot. The AI will audit your codebase and integrate ARGUS with the right config." />
+          <Step n={4} title="Run your pipeline" text="Execute your LangGraph / LangChain pipeline as usual. ARGUS captures the run automatically." />
+          <Step n={5} title="Open the dashboard" text="Run argus ui in your terminal. The web dashboard opens in your browser showing your runs." />
+        </div>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">After setup</h3>
+        <div className="space-y-3 mb-6">
+          <Row label="RUN PIPELINE" text="Run your LangGraph pipeline normally in the terminal." />
+          <Row label="CHECK DASHBOARD" text="Takes 1-2 seconds — refresh the page if a new run doesn't appear immediately." />
+          <Row label="LOGIN (OPTIONAL)" text='Run argus login in terminal and sign in with Google to sync runs to the cloud.' />
+        </div>
+      </section>
+
+      <hr className="border-border mb-16" />
+
+      {/* ── CLI Commands ──────────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <h2 className="text-xl font-semibold text-foreground mb-3">CLI Commands</h2>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          All commands available from your terminal after installing ARGUS.
+        </p>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Viewing runs</h3>
+        <CodeBlock title="List all runs">{`argus list`}</CodeBlock>
+        <CodeBlock title="Show the most recent run">{`argus show last`}</CodeBlock>
+        <CodeBlock title="Show a specific run (full ID or 8-char prefix)">{`argus show <run-id>`}</CodeBlock>
+        <CodeBlock title="Inspect raw input/output for a specific node">{`argus inspect <run-id> --step <node-name>`}</CodeBlock>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4 mt-8">Dashboard</h3>
+        <CodeBlock title="Open the web dashboard">{`argus ui`}</CodeBlock>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-6">
+          Starts a local server on port 7842 and opens the dashboard in your browser.
+          Press <Code>Ctrl+C</Code> in the terminal to stop it.
+        </p>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Replay &amp; compare</h3>
+        <CodeBlock title="Replay from a specific node">{`argus replay <run-id> <node-name>`}</CodeBlock>
+        <CodeBlock title="Replay with a graph factory">{`argus replay <run-id> <node-name> --app my_pipeline:build_graph`}</CodeBlock>
+        <CodeBlock title="Replay just one node in isolation">{`argus replay <run-id> <node-name> --only`}</CodeBlock>
+        <CodeBlock title="Diff two runs">{`argus diff <run-id-a> <run-id-b>`}</CodeBlock>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4 mt-8">Account &amp; diagnostics</h3>
+        <CodeBlock title="Sign in to sync runs to the cloud">{`argus login`}</CodeBlock>
+        <CodeBlock title="Sign out and clear stored credentials">{`argus logout`}</CodeBlock>
+        <CodeBlock title="Check current login status">{`argus whoami`}</CodeBlock>
+        <CodeBlock title="Diagnose integration issues">{`argus doctor`}</CodeBlock>
+        <CodeBlock title="Check for updates">{`argus update`}</CodeBlock>
+      </section>
+
+      <hr className="border-border mb-16" />
+
       {/* ── AI Integration Prompt ───────────────────────────────────────── */}
       <section className="mb-16">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+        <h2 className="text-xl font-semibold text-foreground mb-3">
           AI Integration Prompt
         </h2>
         <p className="text-[15px] text-muted-foreground mb-5 leading-relaxed max-w-[620px]">
-          Paste this into Claude Code, Cursor, or Copilot. It audits your pipeline
-          for compatibility, fixes issues, and adds ARGUS with the right config.
+          This is the full prompt copied by the AI Setup Prompt button. Paste it into
+          Claude Code, Cursor, or Copilot. It audits your pipeline for compatibility,
+          fixes issues, and adds ARGUS with the right config.
         </p>
         <div
           className="rounded-lg overflow-hidden"
@@ -256,7 +318,7 @@ export default function GuideContent() {
 
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">AI Analysis</h3>
         <p className="text-[15px] text-muted-foreground leading-[1.7] mb-5">
-          When logged in via <Code>argus login</Code>, ARGUS investigates non-clean runs automatically.
+          When <Code>OPENAI_API_KEY</Code> is set, ARGUS investigates non-clean runs automatically.
           The analysis panel has three sections:
         </p>
         <div className="space-y-3 mb-8 pl-1">
@@ -361,7 +423,6 @@ export default function GuideContent() {
     # --- Output control ---
     max_field_size=50_000,  # max chars per field before truncation (default: 50k)
     redact_keys={"token", "api_key"},  # field names to scrub from stored outputs
-    redact_patterns=True,   # auto-detect secret-shaped values (default: False)
     persist_state=True,     # save run records to .argus/runs/ (default: True)
 
     # --- Detection strictness ---
@@ -379,27 +440,38 @@ export default function GuideContent() {
                             # set to "always" for every node, False to disable
 
     # --- Deterministic rerun ---
-    record_http=True,       # saves every outbound API call to disk (default: True).
+    record_http=True,       # saves every outbound API call to disk. (default: True)
                             # reruns replay from disk — zero extra cost.
 
     # --- LLM semantic judge ---
-    semantic_judge=True,    # LLM reviews every node's output for subtle quality issues
-                            # (default: True). runs AFTER deterministic checks.
+    semantic_judge=True,    # LLM reviews every node's output for subtle quality issues.
+                            # (default: True) needs OPENAI_API_KEY.
     judge_model="gpt-4o",  # or "gpt-4o-mini" for cheaper runs.
+)
 
-    # --- Production persistence (via ArgusConfig) ---
-    # config=ArgusConfig(
-    #     sample_rate=0.1,      # persist only 10% of clean runs
-    #     persist_failures=True, # always persist failures (default)
-    #     dry_run=False,         # True to skip all persistence (CI/CD)
-    # ),
-)`}
+app = graph.compile()
+result = app.invoke(initial_state)
+watcher.finalize()          # ALWAYS call — persists the run to .argus/runs/`}
         </CodeBlock>
 
-        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-8">
-          Access <Code>watcher.run_id</Code> after the run. Auto-saves for linear and DAG
-          graphs. Call <Code>watcher.finalize()</Code> only for cyclic graphs.
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-4">
+          Access <Code>watcher.run_id</Code> after the run. Most parameters are
+          enabled by default — <Code>record_http</Code>, <Code>semantic_judge</Code>,
+          <Code>investigate</Code>, and <Code>persist_state</Code> are all <Code>True</Code> out of the box.
         </p>
+        <div
+          className="rounded-lg px-5 py-4 mb-8"
+          style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}
+        >
+          <p className="text-[14px] leading-[1.7]">
+            <strong className="text-foreground">Always call <Code>watcher.finalize()</Code> after <Code>app.invoke()</Code>.</strong>
+            <span className="text-muted-foreground">
+              {' '}It is required for cyclic graphs (loops / research agents) and safe to call on all graphs.
+              Without it, the run stays in memory and is never written to disk — so <Code>argus list</Code>,{' '}
+              <Code>argus show</Code>, and the dashboard will show nothing.
+            </span>
+          </p>
+        </div>
 
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">record_http</h3>
         <p className="text-[15px] text-muted-foreground leading-[1.7] mb-3">
@@ -423,7 +495,7 @@ export default function GuideContent() {
           <Row label="Per-node" text="Each output evaluated in context of its input and the pipeline's purpose." />
         </div>
         <p className="text-[15px] text-muted-foreground leading-[1.7]">
-          Requires <Code>argus login</Code> — all LLM calls go through the ARGUS proxy, no OpenAI key needed.
+          Requires <Code>OPENAI_API_KEY</Code>.
           {' '}<strong className="text-foreground font-medium">Enable</strong> for complex multi-agent pipelines.
           {' '}<strong className="text-foreground font-medium">Skip</strong> for simple pipelines or zero-cost monitoring.
         </p>

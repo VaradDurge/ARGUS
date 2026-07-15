@@ -27,10 +27,13 @@ from argus import ArgusWatcher
 
 watcher = ArgusWatcher(graph)       # attach to your StateGraph
 app = graph.compile()
-result = app.invoke(initial_state)  # run auto-saves on completion
+result = app.invoke(initial_state)
+watcher.finalize()                  # persist the run to .argus/runs/
 ```
 
-That's it. ARGUS monitors every node, detects failures, and saves the run. No changes to your node functions.
+ARGUS monitors every node, detects failures, and saves the run. No changes to your node functions.
+
+> **Always call `watcher.finalize()`** after `app.invoke()`. Required for cyclic graphs, safe for all. Without it the run stays in memory and won't appear in `argus list` or the dashboard.
 
 ---
 
@@ -55,17 +58,17 @@ Runs in order, each more expensive — only fires when needed:
 2. **Anomaly detector** — statistical checks for output size anomalies, timing outliers. Deterministic.
 3. **Correlator** — traces failure propagation across nodes. Points at the *origin*, not the crash site.
 4. **LLM investigator** — root cause explanations and debugging suggestions. Only on ambiguous failures.
-5. **Loop analyzer** — mandatory LLM analysis for looped nodes: summarizes iterations, detects stalls, flags wasted retries.
+5. **Loop analyzer** — LLM analysis for looped nodes: summarizes iterations, detects stalls, flags wasted retries.
 
 ---
 
-## Loop-Aware Inspection (new in v0.7.7)
+## Loop-Aware Inspection
 
-Pipelines with loops (LLM → compiler → if fail, retry) get special treatment:
+Pipelines with loops (LLM -> compiler -> if fail, retry) get special treatment:
 
 - Earlier iterations that self-corrected are marked `retried` (not counted as failures)
 - Only the **final iteration** determines pass/fail
-- LLM automatically analyzes every loop: what went wrong, what changed between attempts, whether retries were necessary
+- LLM analyzes every loop: what went wrong, what changed between attempts, whether retries were necessary
 - Dashboard shows iteration badges, collapse/expand, and natural-language loop summaries
 
 ---
@@ -89,10 +92,10 @@ External API calls (OpenAI, etc.) are recorded by default — replays are free a
 For subtle quality issues that pattern matching can't catch:
 
 ```python
-watcher = ArgusWatcher(graph, semantic_judge=True)
+watcher = ArgusWatcher(graph, semantic_judge=True)  # enabled by default
 ```
 
-LLM evaluates output quality on every passing node. Catches wrong tone, unhelpful responses, outdated info.
+LLM evaluates output quality on every passing node. Catches wrong tone, unhelpful responses, outdated info. Requires `OPENAI_API_KEY`.
 
 ---
 
@@ -110,12 +113,18 @@ watcher = ArgusWatcher(graph, validators={
 ## CLI
 
 ```
+argus list                           # all recorded runs
 argus show last                      # most recent run
+argus show <id>                      # inspect a specific run
+argus inspect <id> --step <node>     # dump raw input/output for a node
 argus replay <id> <node>             # re-run from a node
 argus diff <id-a> <id-b>             # compare two runs
 argus ui                             # web dashboard
 argus doctor                         # check setup health
 argus login                          # sign in for cloud sync
+argus logout                         # clear stored credentials
+argus whoami                         # show current login status
+argus update                         # check for newer release
 ```
 
 ---
@@ -160,4 +169,4 @@ Works with any framework — Prefect, Temporal, plain Python.
 
 ---
 
-**v0.7.7** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
+**v0.8.2** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
