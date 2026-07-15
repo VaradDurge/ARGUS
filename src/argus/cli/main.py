@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+import sys
 from typing import Annotated, Optional
 
-import typer
-from rich.console import Console
-from rich.text import Text
+try:
+    import typer
+    from rich.console import Console
+    from rich.text import Text
+except ImportError:
+    print(
+        "argus CLI requires typer and rich.\n"
+        "Install with: pip install argus-agents[cli]  (or argus-agents[all])",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 from argus.cli.cmd_diff import diff_runs
 from argus.cli.cmd_doctor import doctor

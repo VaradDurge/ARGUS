@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rich.console import Console
+from rich.console import Console  # requires argus-agents[cli]
 from rich.rule import Rule
 
 _console = Console()

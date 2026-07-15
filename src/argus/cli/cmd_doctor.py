@@ -147,6 +147,15 @@ def _check_replay_readiness() -> tuple[bool, str]:
 
 def _check_optional_deps() -> tuple[bool, str]:
     parts: list[str] = []
+
+    # langgraph (ArgusWatcher)
+    try:
+        import langgraph  # type: ignore[import]  # noqa: F401
+
+        parts.append("langgraph ✓")
+    except ImportError:
+        parts.append("langgraph ✗ (pip install argus-agents[langgraph])")
+
     # OpenAI for LLM investigation
     try:
         import openai  # type: ignore[import]  # noqa: F401
@@ -154,19 +163,19 @@ def _check_optional_deps() -> tuple[bool, str]:
         from argus.llm_proxy import is_available as _llm_ok
 
         if _llm_ok():
-            parts.append("openai (logged in — proxy active)")
+            parts.append("openai ✓ (proxy active)")
         else:
-            parts.append("openai (not logged in — run: argus login)")
+            parts.append("openai ✓ (not logged in — run: argus login)")
     except ImportError:
-        parts.append("openai (not installed)")
+        parts.append("openai ✗ (pip install argus-agents[llm])")
 
     # python-dotenv
     try:
         import dotenv  # type: ignore[import]  # noqa: F401
 
-        parts.append("dotenv")
+        parts.append("dotenv ✓")
     except ImportError:
-        parts.append("dotenv (not installed)")
+        parts.append("dotenv ✗ (pip install argus-agents[llm])")
 
     return True, ", ".join(parts)
 
