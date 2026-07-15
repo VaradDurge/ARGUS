@@ -284,6 +284,7 @@ def _deserialize_run(data: dict[str, Any]) -> RunRecord:
         llm_investigation=llm_investigation,
         replay_comparison=replay_comparison,
         loop_analyses=loop_analyses,
+        dry_run=data.get("dry_run", False),
     )
 
 

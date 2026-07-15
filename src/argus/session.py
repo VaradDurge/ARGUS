@@ -198,6 +198,7 @@ class ArgusSession:
         self._judge_retry_backoff = config.judge_retry_backoff if config else 0.5
         self._sample_rate = config.sample_rate if config else 1.0
         self._persist_failures = config.persist_failures if config else True
+        self._dry_run = config.dry_run if config else False
         self.graph_node_names: list[str] = []
         self.graph_edge_map: dict[str, list[str]] = {}
         self.node_fn_registry: dict[str, Any] = {}
@@ -1031,6 +1032,7 @@ class ArgusSession:
             total_tokens=total_tokens,
             total_cost_usd=total_cost_usd,
             behavior_config=self._behavior_config,
+            dry_run=self._dry_run,
         )
 
         # Load parent run once if this is a replay (reused by correlation + comparison)
@@ -1157,6 +1159,10 @@ class ArgusSession:
                 if step.output_dict is not None:
                     step.output_dict = self._redact(step.output_dict)
 
+        # Dry-run gate — skip all persistence (VAR-75)
+        if self._dry_run:
+            return
+
         # Sampling gate — skip persistence for sampled-out clean runs (VAR-71)
         import random  # noqa: PLC0415
 
@@ -1178,8 +1184,6 @@ class ArgusSession:
                 f"[argus] WARNING: failed to save run {record.run_id}: {exc}",
                 file=sys.stderr,
             )
-            with self._lock:
-                self._completed = False
 
     def finalize(self) -> None:
         """Persist the run record. Required for cyclic graphs after app.invoke() returns."""

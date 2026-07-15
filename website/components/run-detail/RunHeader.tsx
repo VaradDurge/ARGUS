@@ -67,6 +67,12 @@ export default function RunHeader({
                 <span style={{ color: '#a855f7' }}>cyclic</span>
               </>
             )}
+            {run.dry_run && (
+              <>
+                <span style={{ color: 'var(--text-tertiary)' }}>&middot;</span>
+                <span style={{ color: '#6b7280' }}>dry run</span>
+              </>
+            )}
           </div>
 
           {/* Replay lineage */}

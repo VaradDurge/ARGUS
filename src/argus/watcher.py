@@ -259,8 +259,8 @@ class ArgusWatcher:
         if self._session is not None:
             self._session.finalize()
 
-            # Save HTTP recordings if any
-            if self._http_recorder is not None:
+            # Save HTTP recordings if any (skip in dry-run mode — VAR-75)
+            if self._http_recorder is not None and not self._session._dry_run:
                 try:
                     interactions = self._http_recorder.interactions
                     if interactions:

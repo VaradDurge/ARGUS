@@ -298,6 +298,7 @@ export interface RunRecord {
   loop_analyses?: LoopAnalysisResult[] | null
   node_fn_refs?: Record<string, string> | null
   node_fn_paths?: Record<string, string> | null
+  dry_run?: boolean
 }
 
 export interface RunSummary {

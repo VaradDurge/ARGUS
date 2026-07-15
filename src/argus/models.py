@@ -253,6 +253,7 @@ class RunRecord:
     loop_analyses: list[LoopAnalysisResult] = field(
         default_factory=list
     )
+    dry_run: bool = False  # True if this run skipped persistence (VAR-75)
 
 
 # ── Correlation layer dataclasses ──────────────────────────────────────────────
@@ -448,6 +449,7 @@ class ArgusConfig:
     # Run persistence sampling — persist only a fraction of runs to save disk (VAR-71)
     sample_rate: float = 1.0  # 0.0–1.0, fraction of clean runs to persist
     persist_failures: bool = True  # always persist runs with non-clean status
+    dry_run: bool = False  # skip persistence entirely (VAR-75)
 
     def __post_init__(self) -> None:
         """Cross-validate parameter combinations — fail fast with clear messages (VAR-73)."""

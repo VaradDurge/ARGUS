@@ -702,6 +702,71 @@ def test_sample_rate_zero_still_persists_failures():
 # -- VAR-72: pattern-based & custom-function redaction -----------------------
 
 
+# ── VAR-75: finalize() idempotency + dry-run mode ─────────────────────────
+
+
+@pytest.mark.unit
+def test_finalize_idempotent():
+    """Calling finalize() twice produces exactly one run file."""
+    from argus.storage import _runs_path
+
+    session = ArgusSession()
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()
+    session.finalize()  # second call — should be no-op
+
+    run_files = list(_runs_path().glob(f"{session.run_id}.json"))
+    assert len(run_files) == 1
+
+
+@pytest.mark.unit
+def test_finalize_idempotent_after_save_failure(monkeypatch):
+    """After save_run raises, second finalize() is a no-op (not a retry)."""
+    from argus import session as session_mod
+
+    call_count = 0
+    original_save = session_mod.save_run
+
+    def failing_save(record):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise OSError("disk full")
+        return original_save(record)
+
+    monkeypatch.setattr(session_mod, "save_run", failing_save)
+
+    session = ArgusSession()
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()  # fails on save, but _completed stays True
+    session.finalize()  # no-op — does NOT retry
+
+    assert call_count == 1, "save_run should only be called once (no retry)"
+
+
+@pytest.mark.unit
+def test_dry_run_no_persistence():
+    """dry_run=True captures events but writes nothing to disk."""
+    from argus.storage import _runs_path
+
+    cfg = ArgusConfig(dry_run=True)
+    session = ArgusSession(config=cfg)
+    session.set_node_names(["a"])
+    session.set_edges({"a": []})
+    fn = session.wrap("a", lambda state: {"x": 1})
+    fn({})
+    session.finalize()
+
+    run_file = _runs_path() / f"{session.run_id}.json"
+    assert not run_file.exists(), "dry_run should skip persistence"
+
+
 @pytest.mark.unit
 def test_redact_keys_basic():
     """Existing allowlist redaction still works."""
