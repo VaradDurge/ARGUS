@@ -209,9 +209,7 @@ class LoopAnalysisResult:
     stall_details: str | None
     unnecessary_retries: int  # 0 if no wasted iterations
     unnecessary_details: str | None
-    iteration_diffs: list[LoopIterationDiff] = field(
-        default_factory=list
-    )
+    iteration_diffs: list[LoopIterationDiff] = field(default_factory=list)
     model_used: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -250,9 +248,7 @@ class RunRecord:
     correlation: CorrelationReport | None = None
     llm_investigation: LLMInvestigationResult | None = None
     replay_comparison: ReplayComparisonResult | None = None
-    loop_analyses: list[LoopAnalysisResult] = field(
-        default_factory=list
-    )
+    loop_analyses: list[LoopAnalysisResult] = field(default_factory=list)
     dry_run: bool = False  # True if this run skipped persistence (VAR-75)
 
 
@@ -467,24 +463,17 @@ class ArgusConfig:
         _valid_policies = ("warn", "skip", "abort")
         if self.on_judge_failure not in _valid_policies:
             errors.append(
-                f"on_judge_failure must be one of {_valid_policies}, "
-                f"got {self.on_judge_failure!r}"
+                f"on_judge_failure must be one of {_valid_policies}, got {self.on_judge_failure!r}"
             )
 
         if self.judge_max_retries < 0:
-            errors.append(
-                f"judge_max_retries must be >= 0, got {self.judge_max_retries}"
-            )
+            errors.append(f"judge_max_retries must be >= 0, got {self.judge_max_retries}")
 
         if self.judge_retry_backoff <= 0:
-            errors.append(
-                f"judge_retry_backoff must be positive, got {self.judge_retry_backoff}"
-            )
+            errors.append(f"judge_retry_backoff must be positive, got {self.judge_retry_backoff}")
 
         if not (0.0 <= self.sample_rate <= 1.0):
-            errors.append(
-                f"sample_rate must be between 0.0 and 1.0, got {self.sample_rate}"
-            )
+            errors.append(f"sample_rate must be between 0.0 and 1.0, got {self.sample_rate}")
 
         # ── Cross-parameter checks ───────────────────────────────────────
         if not self.persist_state and self.investigate == "always":
@@ -507,6 +496,4 @@ class ArgusConfig:
             )
 
         if errors:
-            raise ValueError(
-                "ArgusConfig validation failed:\n  - " + "\n  - ".join(errors)
-            )
+            raise ValueError("ArgusConfig validation failed:\n  - " + "\n  - ".join(errors))

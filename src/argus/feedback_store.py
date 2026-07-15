@@ -71,10 +71,7 @@ def record_override(
 
     # Dedup: if same node+anomaly combo already pending, merge
     for entry in data["pending"]:
-        if (
-            entry["node_name"] == node_name
-            and set(entry["anomaly_ids"]) == set(anomaly_ids)
-        ):
+        if entry["node_name"] == node_name and set(entry["anomaly_ids"]) == set(anomaly_ids):
             entry["times_seen"] = entry.get("times_seen", 1) + 1
             entry["last_seen"] = now
             if run_id not in entry.get("source_run_ids", []):
@@ -82,9 +79,7 @@ def record_override(
             save_feedback(data)
             return entry["id"]
 
-    auto_approved = (
-        auto_approve_threshold > 0.0 and llm_confidence >= auto_approve_threshold
-    )
+    auto_approved = auto_approve_threshold > 0.0 and llm_confidence >= auto_approve_threshold
 
     event = {
         "id": event_id,

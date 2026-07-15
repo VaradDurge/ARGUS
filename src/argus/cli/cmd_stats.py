@@ -88,9 +88,7 @@ def stats(
             evidence="",
             reason="flagged via CLI",
         )
-        _console.print(
-            f"[yellow]Recorded dispute[/yellow] {dispute_id} for {dispute}"
-        )
+        _console.print(f"[yellow]Recorded dispute[/yellow] {dispute_id} for {dispute}")
         return
 
     # Compute and display stats

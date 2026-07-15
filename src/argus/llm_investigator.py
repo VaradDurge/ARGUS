@@ -936,6 +936,7 @@ def compare_replay_runs(
     Returns a structured ReplayComparisonResult. On failure, the result's
     ``error`` field is set and other fields contain defaults.
     """
+
     def _error_result(msg: str, dur: float = 0.0) -> ReplayComparisonResult:
         return ReplayComparisonResult(
             structural_summary="",

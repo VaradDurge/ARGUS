@@ -72,14 +72,22 @@ _CONTEXT_OVERFLOW_THRESHOLD = 100_000  # chars — ~25K tokens, proxy for overfl
 
 # Antonym pairs for lightweight contradiction detection (Rule 15)
 _ANTONYM_PAIRS: list[tuple[frozenset[str], frozenset[str]]] = [
-    (frozenset({"bullish", "buy", "long", "upside", "uptrend", "optimistic"}),
-     frozenset({"bearish", "sell", "short", "downside", "downtrend", "pessimistic"})),
-    (frozenset({"increase", "higher", "grow", "rise", "gain", "up"}),
-     frozenset({"decrease", "lower", "shrink", "fall", "loss", "down"})),
-    (frozenset({"approve", "accept", "valid", "pass", "allowed"}),
-     frozenset({"reject", "deny", "invalid", "fail", "blocked"})),
-    (frozenset({"safe", "secure", "trusted", "compliant"}),
-     frozenset({"unsafe", "insecure", "untrusted", "vulnerable"})),
+    (
+        frozenset({"bullish", "buy", "long", "upside", "uptrend", "optimistic"}),
+        frozenset({"bearish", "sell", "short", "downside", "downtrend", "pessimistic"}),
+    ),
+    (
+        frozenset({"increase", "higher", "grow", "rise", "gain", "up"}),
+        frozenset({"decrease", "lower", "shrink", "fall", "loss", "down"}),
+    ),
+    (
+        frozenset({"approve", "accept", "valid", "pass", "allowed"}),
+        frozenset({"reject", "deny", "invalid", "fail", "blocked"}),
+    ),
+    (
+        frozenset({"safe", "secure", "trusted", "compliant"}),
+        frozenset({"unsafe", "insecure", "untrusted", "vulnerable"}),
+    ),
 ]
 
 # SP-series hedging phrases (must stay in sync with signatures.json SP-009..SP-013)
@@ -534,9 +542,7 @@ def inspect_tool_outputs(
                         failure_type="selective_attention_reduction",
                         field_name=key,
                         severity="warning",
-                        evidence=(
-                            f"input had {len(in_val)} items, output has {len(out_val)}"
-                        ),
+                        evidence=(f"input had {len(in_val)} items, output has {len(out_val)}"),
                     )
                 )
 
@@ -545,8 +551,7 @@ def inspect_tool_outputs(
         # Compare field-to-field (not output vs concatenated blob) so the ratio
         # isn't diluted when input_state has multiple fields.
         input_str_fields = [
-            (k, v) for k, v in input_state.items()
-            if isinstance(v, str) and len(v) >= 80
+            (k, v) for k, v in input_state.items() if isinstance(v, str) and len(v) >= 80
         ]
         if input_str_fields:
             for key, value in output_dict.items():
@@ -560,9 +565,7 @@ def inspect_tool_outputs(
                                 failure_type="input_echo",
                                 field_name=key,
                                 severity="warning",
-                                evidence=(
-                                    f"output is {ratio:.0%} similar to input '{in_key}'"
-                                ),
+                                evidence=(f"output is {ratio:.0%} similar to input '{in_key}'"),
                             )
                         )
                         break  # one flag per output field is enough
@@ -589,9 +592,7 @@ def inspect_tool_outputs(
                             failure_type="semantic_contradiction",
                             field_name="_coherence",
                             severity="warning",
-                            evidence=(
-                                f"input has '{matched_in}', output has '{matched_out}'"
-                            ),
+                            evidence=(f"input has '{matched_in}', output has '{matched_out}'"),
                         )
                     )
                     break  # one contradiction flag per run is enough
@@ -1203,8 +1204,7 @@ def build_root_cause_chain(
 
         # Check for LLM semantic checker failure (semantic_check.passed == False)
         has_semantic_check_failure = (
-            getattr(event, "semantic_check", None) is not None
-            and not event.semantic_check.passed
+            getattr(event, "semantic_check", None) is not None and not event.semantic_check.passed
         )
 
         # Also treat status == "semantic_fail" as a failure signal even if
@@ -1215,12 +1215,15 @@ def build_root_cause_chain(
         if insp is None and not has_semantic_check_failure and not is_semantic_fail_status:
             continue
         has_any_failure = (
-            (insp is not None and (
-                insp.is_silent_failure
-                or insp.has_tool_failure
-                or insp.tool_failures
-                or insp.semantic_signals
-            ))
+            (
+                insp is not None
+                and (
+                    insp.is_silent_failure
+                    or insp.has_tool_failure
+                    or insp.tool_failures
+                    or insp.semantic_signals
+                )
+            )
             or has_semantic_check_failure
             or is_semantic_fail_status
         )

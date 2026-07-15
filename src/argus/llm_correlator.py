@@ -77,8 +77,7 @@ def _build_compact_briefing(
 
     # Topology
     sections.append(
-        f"Pipeline: {len(record.graph_node_names)} nodes, "
-        f"status={record.overall_status}"
+        f"Pipeline: {len(record.graph_node_names)} nodes, status={record.overall_status}"
     )
     sections.append(f"Nodes: {', '.join(record.graph_node_names)}")
 
@@ -88,17 +87,13 @@ def _build_compact_briefing(
     if deterministic_report.degradation_origins:
         origins = []
         for o in deterministic_report.degradation_origins:
-            origins.append(
-                f"  - {o.node_name} (conf={o.confidence:.2f}): {o.reason}"
-            )
+            origins.append(f"  - {o.node_name} (conf={o.confidence:.2f}): {o.reason}")
         sections.append("Origins:\n" + "\n".join(origins))
 
     if deterministic_report.propagation_chains:
         chains = []
         for c in deterministic_report.propagation_chains:
-            chains.append(
-                f"  - [{c.chain_type}] {' → '.join(c.nodes)}: {c.summary}"
-            )
+            chains.append(f"  - [{c.chain_type}] {' → '.join(c.nodes)}: {c.summary}")
         sections.append("Propagation chains:\n" + "\n".join(chains))
 
     # Per-node signal summaries (compact)
@@ -124,8 +119,7 @@ def _build_compact_briefing(
                 signals.append(f"semantic=[{', '.join(ss_summary)}]")
         if event.anomaly_signals:
             a_summary = [
-                f"{a.anomaly_id}(susp={a.suspicion_score:.2f})"
-                for a in event.anomaly_signals[:3]
+                f"{a.anomaly_id}(susp={a.suspicion_score:.2f})" for a in event.anomaly_signals[:3]
             ]
             signals.append(f"anomalies=[{', '.join(a_summary)}]")
         if event.exception:
@@ -192,9 +186,7 @@ def augment_correlation(
 
         return LLMCorrelationInsight(
             enhanced_summary=str(parsed.get("enhanced_summary", "")),
-            cross_node_connections=tuple(
-                str(c) for c in parsed.get("cross_node_connections", [])
-            ),
+            cross_node_connections=tuple(str(c) for c in parsed.get("cross_node_connections", [])),
             confidence=float(parsed.get("confidence", 0.5)),
             model=model,
             prompt_tokens=usage.get("prompt_tokens", 0),

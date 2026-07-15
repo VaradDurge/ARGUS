@@ -127,12 +127,8 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
             "attempt_index": s.get("attempt_index", 0),
             "is_subgraph_entry": s.get("is_subgraph_entry"),
             # Shape info without actual data
-            "input_keys": list(
-                (s.get("input_state") or {}).keys()
-            ),
-            "output_keys": list(
-                (s.get("output_dict") or {}).keys()
-            ),
+            "input_keys": list((s.get("input_state") or {}).keys()),
+            "output_keys": list((s.get("output_dict") or {}).keys()),
         }
         insp = s.get("inspection")
         if insp:
@@ -144,16 +140,10 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
                 "missing_fields": insp.get("missing_fields", []),
                 "empty_fields": insp.get("empty_fields", []),
                 "type_mismatches": insp.get("type_mismatches", []),
-                "suspicious_empty_keys": insp.get(
-                    "suspicious_empty_keys", []
-                ),
-                "unannotated_successors": insp.get(
-                    "unannotated_successors", []
-                ),
+                "suspicious_empty_keys": insp.get("suspicious_empty_keys", []),
+                "unannotated_successors": insp.get("unannotated_successors", []),
                 "degraded_fields": insp.get("degraded_fields", []),
-                "degraded_upstream_node": insp.get(
-                    "degraded_upstream_node"
-                ),
+                "degraded_upstream_node": insp.get("degraded_upstream_node"),
                 "tool_failures": [
                     {
                         "failure_type": tf.get("failure_type"),
@@ -247,12 +237,8 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
     if corr:
         report["correlation"] = {
             "causal_summary": corr.get("causal_summary"),
-            "degradation_origins": corr.get(
-                "degradation_origins", []
-            ),
-            "propagation_chains": corr.get(
-                "propagation_chains", []
-            ),
+            "degradation_origins": corr.get("degradation_origins", []),
+            "propagation_chains": corr.get("propagation_chains", []),
             "timeline": corr.get("timeline", []),
         }
         li = corr.get("llm_insight")
@@ -265,22 +251,14 @@ def _sanitize_run_for_report(run_data: dict) -> dict:
         report["llm_investigation"] = {
             "triggered": inv.get("triggered"),
             "trigger_reasons": inv.get("trigger_reasons", []),
-            "root_cause_explanation": inv.get(
-                "root_cause_explanation"
-            ),
+            "root_cause_explanation": inv.get("root_cause_explanation"),
             "causal_hypotheses": inv.get("causal_hypotheses", []),
-            "degradation_narrative": inv.get(
-                "degradation_narrative"
-            ),
+            "degradation_narrative": inv.get("degradation_narrative"),
             "observations": inv.get("observations", []),
-            "debugging_suggestions": inv.get(
-                "debugging_suggestions", []
-            ),
+            "debugging_suggestions": inv.get("debugging_suggestions", []),
             "confidence": inv.get("confidence"),
             "model_used": inv.get("model_used"),
-            "investigation_duration_ms": inv.get(
-                "investigation_duration_ms"
-            ),
+            "investigation_duration_ms": inv.get("investigation_duration_ms"),
             "error": inv.get("error"),
         }
 
@@ -376,9 +354,13 @@ def _linear_find_or_create_label(api_key: str, team_id: str, label_name: str) ->
       }
     }
     """
-    result = _linear_graphql(api_key, mutation, {
-        "input": {"name": label_name, "teamId": team_id},
-    })
+    result = _linear_graphql(
+        api_key,
+        mutation,
+        {
+            "input": {"name": label_name, "teamId": team_id},
+        },
+    )
     created = result.get("data", {}).get("issueLabelCreate", {})
     if created.get("success"):
         return created.get("issueLabel", {}).get("id")
@@ -554,9 +536,7 @@ def _make_handler(
         def _security_headers(self) -> None:
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
-            self.send_header(
-                "Access-Control-Allow-Origin", f"http://localhost:{_UI_PORT}"
-            )
+            self.send_header("Access-Control-Allow-Origin", f"http://localhost:{_UI_PORT}")
 
         def _send_json(self, data: object, status: int = 200) -> None:
             body = json.dumps(data).encode()
@@ -808,9 +788,7 @@ def _make_handler(
                 from argus.signature_stats import compute_stats  # noqa: PLC0415
 
                 all_stats = compute_stats(include_builtins=False)
-                self._send_json(
-                    [dataclasses.asdict(s) for s in all_stats.values()]
-                )
+                self._send_json([dataclasses.asdict(s) for s in all_stats.values()])
             elif path == "/api/shared-signatures":
                 from argus.cloud import pull_shared_signatures  # noqa: PLC0415
 
@@ -834,14 +812,16 @@ def _make_handler(
                 masked = ("•" * 8 + linear_key[-4:]) if len(linear_key) > 4 else ""
                 discord_wh = cfg.get("discord_webhook", "")
                 wh_masked = ("•" * 40 + discord_wh[-8:]) if len(discord_wh) > 8 else ""
-                self._send_json({
-                    "linear_api_key_set": bool(linear_key),
-                    "linear_api_key_masked": masked,
-                    "linear_team_id": cfg.get("linear_team_id", ""),
-                    "linear_team_name": cfg.get("linear_team_name", ""),
-                    "discord_webhook_set": bool(discord_wh),
-                    "discord_webhook_masked": wh_masked,
-                })
+                self._send_json(
+                    {
+                        "linear_api_key_set": bool(linear_key),
+                        "linear_api_key_masked": masked,
+                        "linear_team_id": cfg.get("linear_team_id", ""),
+                        "linear_team_name": cfg.get("linear_team_name", ""),
+                        "discord_webhook_set": bool(discord_wh),
+                        "discord_webhook_masked": wh_masked,
+                    }
+                )
             elif path == "/api/linear/teams":
                 cfg = _load_config()
                 api_key = cfg.get("linear_api_key", "")
@@ -972,7 +952,7 @@ def _make_handler(
                 except Exception as exc:
                     self._send_json({"error": str(exc)}, 500)
             elif path.startswith("/api/runs/") and path.endswith("/locate"):
-                rid = path[len("/api/runs/"):-len("/locate")]
+                rid = path[len("/api/runs/") : -len("/locate")]
                 try:
                     from argus.source_locator import (  # noqa: PLC0415
                         derive_node_fn_refs,
@@ -1232,9 +1212,7 @@ def _make_handler(
                             },
                             {
                                 "name": "System Info",
-                                "value": "```\n"
-                                + "\n".join(sys_lines)
-                                + "\n```",
+                                "value": "```\n" + "\n".join(sys_lines) + "\n```",
                                 "inline": False,
                             },
                         ],
@@ -1244,16 +1222,10 @@ def _make_handler(
                         rid = run_diagnostics.get("run_id", "?")
                         st = run_diagnostics.get("overall_status", "?")
                         dur = run_diagnostics.get("duration_ms", "?")
-                        nodes = run_diagnostics.get(
-                            "graph_node_names", []
-                        )
-                        rcc = run_diagnostics.get(
-                            "root_cause_chain", []
-                        )
+                        nodes = run_diagnostics.get("graph_node_names", [])
+                        rcc = run_diagnostics.get("root_cause_chain", [])
                         steps = run_diagnostics.get("steps", [])
-                        edges = run_diagnostics.get(
-                            "graph_edge_map", {}
-                        )
+                        edges = run_diagnostics.get("graph_edge_map", {})
 
                         # ── Run overview ──
                         status_emoji = {
@@ -1266,21 +1238,18 @@ def _make_handler(
                         se = status_emoji.get(st, "\u2753")
                         run_hdr = f"{se} **{st}**"
                         run_hdr += f" | {dur}ms"
-                        run_hdr += (
-                            f" | {len(steps)} steps\n"
-                        )
+                        run_hdr += f" | {len(steps)} steps\n"
                         topo = " \u2192 ".join(nodes)
                         run_hdr += f"```{topo}```\n"
                         if rcc:
-                            run_hdr += (
-                                "\U0001f50d **Root cause:** "
-                                + " \u2192 ".join(rcc) + "\n"
-                            )
-                        embed["fields"].append({
-                            "name": f"Run: {rid}",
-                            "value": run_hdr[:1024],
-                            "inline": False,
-                        })
+                            run_hdr += "\U0001f50d **Root cause:** " + " \u2192 ".join(rcc) + "\n"
+                        embed["fields"].append(
+                            {
+                                "name": f"Run: {rid}",
+                                "value": run_hdr[:1024],
+                                "inline": False,
+                            }
+                        )
 
                         # ── Per-step detail ──
                         step_blocks = []
@@ -1291,262 +1260,140 @@ def _make_handler(
                             se2 = status_emoji.get(ss, "\u25cf")
                             ik = s.get("input_keys", [])
                             ok_ = s.get("output_keys", [])
-                            line = (
-                                f"{se2} **{sn}** ({ss},"
-                                f" {sd}ms)"
-                            )
+                            line = f"{se2} **{sn}** ({ss}, {sd}ms)"
                             if ik or ok_:
-                                line += (
-                                    f"\n  in:`{ik}` "
-                                    f"out:`{ok_}`"
-                                )
+                                line += f"\n  in:`{ik}` out:`{ok_}`"
                             insp = s.get("inspection", {})
                             # Tool failures
-                            for tf in insp.get(
-                                "tool_failures", []
-                            ):
-                                ft = tf.get(
-                                    "failure_type", "?"
-                                )
+                            for tf in insp.get("tool_failures", []):
+                                ft = tf.get("failure_type", "?")
                                 sv = tf.get("severity", "?")
-                                ev = str(
-                                    tf.get("evidence", "")
-                                )
-                                ico = (
-                                    "\U0001f534"
-                                    if sv == "critical"
-                                    else "\U0001f7e0"
-                                )
-                                line += (
-                                    f"\n  {ico} `{ft}`"
-                                    f" ({sv})"
-                                )
+                                ev = str(tf.get("evidence", ""))
+                                ico = "\U0001f534" if sv == "critical" else "\U0001f7e0"
+                                line += f"\n  {ico} `{ft}` ({sv})"
                                 if ev:
                                     line += f" {ev[:80]}"
                             # Semantic signals
-                            for ss2 in insp.get(
-                                "semantic_signals", []
-                            ):
+                            for ss2 in insp.get("semantic_signals", []):
                                 sid = ss2.get("sig_id", "?")
-                                scat = ss2.get(
-                                    "category", "?"
-                                )
-                                line += (
-                                    f"\n  \U0001f7e3"
-                                    f" `{sid}` [{scat}]"
-                                )
+                                scat = ss2.get("category", "?")
+                                line += f"\n  \U0001f7e3 `{sid}` [{scat}]"
                             # Missing / empty fields
-                            mf = insp.get(
-                                "missing_fields", []
-                            )
+                            mf = insp.get("missing_fields", [])
                             if mf:
-                                line += (
-                                    "\n  \u26a0\ufe0f"
-                                    " missing: "
-                                )
-                                line += ", ".join(
-                                    f"`{f}`" for f in mf[:5]
-                                )
-                            ef = insp.get(
-                                "empty_fields", []
-                            )
+                                line += "\n  \u26a0\ufe0f missing: "
+                                line += ", ".join(f"`{f}`" for f in mf[:5])
+                            ef = insp.get("empty_fields", [])
                             if ef:
-                                line += (
-                                    "\n  \u26a0\ufe0f"
-                                    " empty: "
-                                )
-                                line += ", ".join(
-                                    f"`{f}`" for f in ef[:5]
-                                )
+                                line += "\n  \u26a0\ufe0f empty: "
+                                line += ", ".join(f"`{f}`" for f in ef[:5])
                             # Anomaly signals
-                            for a in s.get(
-                                "anomaly_signals", []
-                            ):
-                                aid = a.get(
-                                    "anomaly_id", "?"
-                                )
+                            for a in s.get("anomaly_signals", []):
+                                aid = a.get("anomaly_id", "?")
                                 ar = str(a.get("reason", ""))
-                                asc = a.get(
-                                    "suspicion_score"
-                                )
-                                asv = a.get(
-                                    "severity", "?"
-                                )
-                                ico = (
-                                    "\U0001f534"
-                                    if asv == "critical"
-                                    else "\U0001f7e0"
-                                )
-                                sc_txt = (
-                                    f" ({asc})"
-                                    if asc is not None
-                                    else ""
-                                )
-                                line += (
-                                    f"\n  {ico}"
-                                    f" [{aid}]{sc_txt}"
-                                    f" {ar[:60]}"
-                                )
+                                asc = a.get("suspicion_score")
+                                asv = a.get("severity", "?")
+                                ico = "\U0001f534" if asv == "critical" else "\U0001f7e0"
+                                sc_txt = f" ({asc})" if asc is not None else ""
+                                line += f"\n  {ico} [{aid}]{sc_txt} {ar[:60]}"
                             # Semantic check (LLM judge)
                             sc = s.get("semantic_check")
                             if sc:
-                                sp = (
-                                    "\u2705"
-                                    if sc.get("passed")
-                                    else "\u274c"
-                                )
-                                scf = sc.get(
-                                    "confidence", "?"
-                                )
+                                sp = "\u2705" if sc.get("passed") else "\u274c"
+                                scf = sc.get("confidence", "?")
                                 scr = str(sc.get("reason", ""))
-                                line += (
-                                    f"\n  {sp} LLM judge:"
-                                    f" {scf} — {scr[:80]}"
-                                )
+                                line += f"\n  {sp} LLM judge: {scf} — {scr[:80]}"
                             # Validator results
-                            for v in s.get(
-                                "validator_results", []
-                            ):
-                                vp = (
-                                    "\u2705"
-                                    if v.get("is_valid")
-                                    else "\u274c"
-                                )
-                                vn = v.get(
-                                    "validator_name", "?"
-                                )
+                            for v in s.get("validator_results", []):
+                                vp = "\u2705" if v.get("is_valid") else "\u274c"
+                                vn = v.get("validator_name", "?")
                                 vm = str(v.get("message", ""))
-                                line += (
-                                    f"\n  {vp}"
-                                    f" validator `{vn}`"
-                                    f" {vm[:60]}"
-                                )
+                                line += f"\n  {vp} validator `{vn}` {vm[:60]}"
                             # Exception
                             exc = s.get("exception")
                             if exc:
                                 exc = str(exc)
-                                line += (
-                                    f"\n  \U0001f4a5"
-                                    f" ```{exc[:120]}```"
-                                )
+                                line += f"\n  \U0001f4a5 ```{exc[:120]}```"
                             step_blocks.append(line)
 
                         if step_blocks:
                             # Discord field value max 1024
                             val = "\n".join(step_blocks)
-                            embed["fields"].append({
-                                "name": "Steps",
-                                "value": val[:1024],
-                                "inline": False,
-                            })
+                            embed["fields"].append(
+                                {
+                                    "name": "Steps",
+                                    "value": val[:1024],
+                                    "inline": False,
+                                }
+                            )
 
                         # ── LLM investigation ──
-                        llm_inv = run_diagnostics.get(
-                            "llm_investigation", {}
-                        )
+                        llm_inv = run_diagnostics.get("llm_investigation", {})
                         if llm_inv and llm_inv.get("triggered"):
                             inv_lines = []
-                            rc_expl = llm_inv.get(
-                                "root_cause_explanation", ""
-                            )
+                            rc_expl = llm_inv.get("root_cause_explanation", "")
                             if rc_expl:
                                 inv_lines.append(rc_expl[:400])
-                            triggers = llm_inv.get(
-                                "trigger_reasons", []
-                            )
+                            triggers = llm_inv.get("trigger_reasons", [])
                             if triggers:
-                                inv_lines.append(
-                                    "**Triggers:** "
-                                    + ", ".join(triggers)
-                                )
+                                inv_lines.append("**Triggers:** " + ", ".join(triggers))
                             conf = llm_inv.get("confidence")
                             if conf is not None:
-                                inv_lines.append(
-                                    f"**Confidence:** {conf}"
-                                )
-                            dbg = llm_inv.get(
-                                "debugging_suggestions", []
-                            )
+                                inv_lines.append(f"**Confidence:** {conf}")
+                            dbg = llm_inv.get("debugging_suggestions", [])
                             if dbg:
                                 inv_lines.append(
-                                    "**Debug:**\n"
-                                    + "\n".join(
-                                        f"• {d[:80]}"
-                                        for d in dbg[:4]
-                                    )
+                                    "**Debug:**\n" + "\n".join(f"• {d[:80]}" for d in dbg[:4])
                                 )
                             if inv_lines:
-                                embed["fields"].append({
-                                    "name": "\U0001f9e0 LLM Investigation",
-                                    "value": "\n".join(
-                                        inv_lines
-                                    )[:1024],
-                                    "inline": False,
-                                })
+                                embed["fields"].append(
+                                    {
+                                        "name": "\U0001f9e0 LLM Investigation",
+                                        "value": "\n".join(inv_lines)[:1024],
+                                        "inline": False,
+                                    }
+                                )
 
                         # ── Correlation analysis ──
-                        corr = run_diagnostics.get(
-                            "correlation", {}
-                        )
+                        corr = run_diagnostics.get("correlation", {})
                         if corr:
                             cl = []
                             cs = corr.get("causal_summary")
                             if cs:
                                 cl.append(cs[:300])
-                            do = corr.get(
-                                "degradation_origins", []
-                            )
+                            do = corr.get("degradation_origins", [])
                             if do:
-                                cl.append(
-                                    "**Origins:** "
-                                    + ", ".join(
-                                        str(o) for o in do[:5]
-                                    )
-                                )
-                            pc = corr.get(
-                                "propagation_chains", []
-                            )
+                                cl.append("**Origins:** " + ", ".join(str(o) for o in do[:5]))
+                            pc = corr.get("propagation_chains", [])
                             if pc:
                                 for ch in pc[:3]:
-                                    cl.append(
-                                        "\u26d3 "
-                                        + str(ch)[:100]
-                                    )
+                                    cl.append("\u26d3 " + str(ch)[:100])
                             cli2 = corr.get("llm_insight")
                             if cli2:
-                                cl.append(
-                                    f"**LLM:** {cli2[:200]}"
-                                )
+                                cl.append(f"**LLM:** {cli2[:200]}")
                             if cl:
-                                embed["fields"].append({
-                                    "name": (
-                                        "\U0001f517"
-                                        " Correlation"
-                                    ),
-                                    "value": "\n".join(
-                                        cl
-                                    )[:1024],
-                                    "inline": False,
-                                })
+                                embed["fields"].append(
+                                    {
+                                        "name": ("\U0001f517 Correlation"),
+                                        "value": "\n".join(cl)[:1024],
+                                        "inline": False,
+                                    }
+                                )
 
                         # ── Edge map ──
                         if edges:
                             edge_lines = []
                             for src, tgts in edges.items():
                                 for t in tgts:
-                                    edge_lines.append(
-                                        f"{src} \u2192 {t}"
-                                    )
+                                    edge_lines.append(f"{src} \u2192 {t}")
                             if edge_lines:
-                                embed["fields"].append({
-                                    "name": "Graph Edges",
-                                    "value": "```\n"
-                                    + "\n".join(
-                                        edge_lines[:15]
-                                    )
-                                    + "\n```",
-                                    "inline": False,
-                                })
+                                embed["fields"].append(
+                                    {
+                                        "name": "Graph Edges",
+                                        "value": "```\n" + "\n".join(edge_lines[:15]) + "\n```",
+                                        "inline": False,
+                                    }
+                                )
 
                     webhook_body = json.dumps({"embeds": [embed]}).encode()
                     req = urllib.request.Request(
@@ -1583,14 +1430,14 @@ def _make_handler(
                                 "improvement": "\U0001f4a1",
                             }
                             icon = emoji.get(category, "\U0001f4cb")
-                            cat_label = category.replace('_', ' ').title()
+                            cat_label = category.replace("_", " ").title()
                             desc_short = description[:80]
                             lin_title = f"{icon} [{cat_label}] {desc_short}"
 
                             # Build markdown body with full diagnostics
                             lin_body = f"## Description\n\n{description}\n\n"
                             lin_body += f"**Category:** {category}\n"
-                            ver = system_info.get('argus_version', '?')
+                            ver = system_info.get("argus_version", "?")
                             lin_body += f"**ARGUS Version:** {ver}\n"
                             if run_diagnostics:
                                 rid = run_diagnostics.get("run_id", "?")
@@ -1612,14 +1459,13 @@ def _make_handler(
                                 if rcc:
                                     lin_body += f"- **Root cause chain:** {' → '.join(rcc)}\n"
                                 if nodes:
-                                    node_list = ', '.join(f'`{n}`' for n in nodes)
+                                    node_list = ", ".join(f"`{n}`" for n in nodes)
                                     lin_body += f"- **Graph nodes:** {node_list}\n"
                                 if is_cyclic:
                                     lin_body += "- **Cyclic graph:** yes\n"
                                 if edges:
                                     edge_strs = [
-                                        f"`{s}` → `{', '.join(ds)}`"
-                                        for s, ds in edges.items()
+                                        f"`{s}` → `{', '.join(ds)}`" for s, ds in edges.items()
                                     ]
                                     lin_body += f"- **Edges:** {'; '.join(edge_strs)}\n"
 
@@ -1643,7 +1489,7 @@ def _make_handler(
                                         # Missing fields
                                         mf = s.get("missing_fields", [])
                                         if mf:
-                                            mf_list = ', '.join(f'`{f}`' for f in mf)
+                                            mf_list = ", ".join(f"`{f}`" for f in mf)
                                             lin_body += f"- **Missing fields:** {mf_list}\n"
 
                                         # Tool failures
@@ -1676,8 +1522,7 @@ def _make_handler(
                                                 asev = a.get("severity", "?")
                                                 areason = a.get("reason", "")
                                                 lin_body += (
-                                                    f"- **Anomaly [{aid}]:**"
-                                                    f" {areason} ({asev})\n"
+                                                    f"- **Anomaly [{aid}]:** {areason} ({asev})\n"
                                                 )
 
                                         # Exception
@@ -1704,11 +1549,15 @@ def _make_handler(
                                         lin_body += f"- **Explanation:** {rc_expl}\n"
                                     lin_body += f"- **Confidence:** {conf}\n"
                                     if triggers:
-                                        trig_list = ', '.join(triggers)
+                                        trig_list = ", ".join(triggers)
                                         lin_body += f"- **Trigger reasons:** {trig_list}\n"
 
                             linear_result = _send_to_linear(
-                                lin_key, lin_team, category, lin_title, lin_body,
+                                lin_key,
+                                lin_team,
+                                category,
+                                lin_title,
+                                lin_body,
                             )
                     except Exception:
                         pass  # Linear is best-effort

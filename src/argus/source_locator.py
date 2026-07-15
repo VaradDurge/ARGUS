@@ -207,7 +207,7 @@ def _grep_for_function(
         except (OSError, UnicodeDecodeError):
             continue
         for match in pattern.finditer(text):
-            line_no = text[:match.start()].count("\n") + 1
+            line_no = text[: match.start()].count("\n") + 1
             rel = os.path.relpath(py_file, project_root)
             hits.append((rel, line_no))
 
@@ -339,7 +339,7 @@ def _follow_import(
             for alias in node.names:
                 actual_name = alias.asname or alias.name
                 if actual_name == base_name and "." in fn_identifier:
-                    remainder = fn_identifier[len(base_name) + 1:]
+                    remainder = fn_identifier[len(base_name) + 1 :]
                     target_file = _module_to_file(alias.name, project_root)
                     if target_file:
                         line = _find_function_line(target_file, remainder.split(".")[-1])
@@ -376,10 +376,7 @@ def _llm_resolve_unresolved(
         return {}
 
     # Collect relevant Python files for context
-    py_files = [
-        os.path.relpath(f, project_root)
-        for f in _iter_python_files(project_root)
-    ]
+    py_files = [os.path.relpath(f, project_root) for f in _iter_python_files(project_root)]
     # Limit to reasonable context size
     py_files = py_files[:200]
 
@@ -488,10 +485,7 @@ def _iter_python_files(root: Path) -> list[Path]:
     results: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         # Prune excluded directories in-place
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in _EXCLUDE_DIRS and not d.startswith(".")
-        ]
+        dirnames[:] = [d for d in dirnames if d not in _EXCLUDE_DIRS and not d.startswith(".")]
         for fname in filenames:
             if fname.endswith(".py"):
                 results.append(Path(dirpath) / fname)

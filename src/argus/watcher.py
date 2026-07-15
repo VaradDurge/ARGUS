@@ -79,9 +79,7 @@ class ArgusWatcher:
                 semantic_judge=semantic_judge,
                 judge_model=judge_model,
             )
-        self._redact_functions = (
-            config.redact_functions if config else redact_functions
-        ) or {}
+        self._redact_functions = (config.redact_functions if config else redact_functions) or {}
         self._validators = validators or {}
         self._http_recorder_ctx = None
         self._http_recorder = None
@@ -92,11 +90,7 @@ class ArgusWatcher:
             self.watch(graph)
 
     def __del__(self) -> None:
-        if (
-            self._session is not None
-            and self._session._is_cyclic
-            and not self._session._completed
-        ):
+        if self._session is not None and self._session._is_cyclic and not self._session._completed:
             import warnings
 
             warnings.warn(

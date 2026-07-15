@@ -82,16 +82,12 @@ def _compress_iterations(events: list[NodeEvent]) -> list[dict[str, Any]]:
         if e.inspection and e.inspection.missing_fields:
             entry["missing_fields"] = e.inspection.missing_fields
         if e.inspection and e.inspection.tool_failures:
-            entry["tool_failures"] = [
-                tf.failure_type for tf in e.inspection.tool_failures[:3]
-            ]
+            entry["tool_failures"] = [tf.failure_type for tf in e.inspection.tool_failures[:3]]
         compressed.append(entry)
     return compressed
 
 
-def _build_prompt(
-    node_name: str, iterations: list[dict[str, Any]]
-) -> list[dict[str, str]]:
+def _build_prompt(node_name: str, iterations: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Build the chat prompt for loop analysis."""
     system = (
         "You are a pipeline debugging assistant. You analyze loop iterations "
@@ -125,9 +121,7 @@ def _build_prompt(
     ]
 
 
-def _analyze_single_loop(
-    node_name: str, events: list[NodeEvent]
-) -> LoopAnalysisResult:
+def _analyze_single_loop(node_name: str, events: list[NodeEvent]) -> LoopAnalysisResult:
     """Call the LLM proxy to analyze a single looped node."""
     from argus.llm_proxy import create_chat_completion, is_available
 
@@ -174,11 +168,7 @@ def _analyze_single_loop(
 
     # Parse response
     usage = result.get("usage", {})
-    content = (
-        result.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "{}")
-    )
+    content = result.get("choices", [{}])[0].get("message", {}).get("content", "{}")
     try:
         data = json.loads(content)
     except json.JSONDecodeError:

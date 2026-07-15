@@ -206,9 +206,7 @@ class ArgusSession:
         self._strict = strict
         self._redact_keys: frozenset[str] = frozenset(redact_keys or ())
         self._redact_functions: dict[str, Callable[[Any], Any]] = redact_functions or {}
-        self._redact_patterns: bool = (
-            config.redact_patterns if config else redact_patterns
-        )
+        self._redact_patterns: bool = config.redact_patterns if config else redact_patterns
         self._persist_state = persist_state
 
         # Behavior anomaly detection config
@@ -597,9 +595,7 @@ class ArgusSession:
                     reducer_fields=self.reducer_fields or None,
                 )
                 # Determine raw status from inspection
-                _has_failure = (
-                    inspection.is_silent_failure or inspection.has_tool_failure
-                )
+                _has_failure = inspection.is_silent_failure or inspection.has_tool_failure
                 _has_signals = bool(inspection.semantic_signals)
 
                 if _has_failure or _has_signals:
@@ -641,8 +637,7 @@ class ArgusSession:
                 conf_lo = self._llm_investigation_config.disambiguation_confidence_low
                 conf_hi = self._llm_investigation_config.disambiguation_confidence_high
                 ambiguous = [
-                    s for s in inspection.semantic_signals
-                    if conf_lo <= s.confidence <= conf_hi
+                    s for s in inspection.semantic_signals if conf_lo <= s.confidence <= conf_hi
                 ]
                 if ambiguous and output_snap is not None:
                     try:
@@ -659,34 +654,31 @@ class ArgusSession:
                         )
                         # Remove confirmed false positives from inspection
                         dismissed_ids = {
-                            r.sig_id for r in disambiguation_results
+                            r.sig_id
+                            for r in disambiguation_results
                             if not r.llm_verdict and r.llm_confidence >= 0.5
                         }
                         if dismissed_ids:
                             inspection.semantic_signals = [
-                                s for s in inspection.semantic_signals
+                                s
+                                for s in inspection.semantic_signals
                                 if s.sig_id not in dismissed_ids
                             ]
                             inspection.tool_failures = [
-                                tf for tf in inspection.tool_failures
-                                if not any(
-                                    d_id in (tf.evidence or "")
-                                    for d_id in dismissed_ids
-                                )
+                                tf
+                                for tf in inspection.tool_failures
+                                if not any(d_id in (tf.evidence or "") for d_id in dismissed_ids)
                             ]
                             # Recalculate derived inspection fields
                             inspection.has_tool_failure = any(
-                                tf.severity == "critical"
-                                for tf in inspection.tool_failures
+                                tf.severity == "critical" for tf in inspection.tool_failures
                             )
                             inspection.is_silent_failure = bool(
-                                inspection.missing_fields
-                                or inspection.has_tool_failure
+                                inspection.missing_fields or inspection.has_tool_failure
                             )
                             # Re-derive status after removing false positives
                             _has_failure = (
-                                inspection.is_silent_failure
-                                or inspection.has_tool_failure
+                                inspection.is_silent_failure or inspection.has_tool_failure
                             )
                             _has_signals = bool(inspection.semantic_signals)
                             if not _has_failure and not _has_signals:
@@ -761,7 +753,7 @@ class ArgusSession:
                     except Exception as _e:
                         _judge_exc = _e
                         if _retry_i < self._judge_max_retries:
-                            time.sleep(self._judge_retry_backoff * (2 ** _retry_i))
+                            time.sleep(self._judge_retry_backoff * (2**_retry_i))
 
                 if _judge_exc is not None:
                     # All retries exhausted — apply failure policy
@@ -771,7 +763,9 @@ class ArgusSession:
                         import logging  # noqa: PLC0415
 
                         logging.getLogger("argus").warning(
-                            "Semantic judge failed for node %r: %s", node_name, _judge_exc,
+                            "Semantic judge failed for node %r: %s",
+                            node_name,
+                            _judge_exc,
                         )
                     # "skip" and "warn" both continue with heuristic results
                 elif semantic_check_result is not None:
@@ -801,11 +795,13 @@ class ArgusSession:
                                     node_name=node_name,
                                     override_type="llm_full_override",
                                     anomaly_ids=[
-                                        a.anomaly_id for a in anomaly_signals
+                                        a.anomaly_id
+                                        for a in anomaly_signals
                                         if a.severity == "critical"
                                     ],
                                     anomaly_reasons=[
-                                        a.reason for a in anomaly_signals
+                                        a.reason
+                                        for a in anomaly_signals
                                         if a.severity == "critical"
                                     ],
                                     llm_reason=semantic_check_result.reason,
@@ -814,13 +810,14 @@ class ArgusSession:
                                     output_shape={
                                         "key_count": len(output_snap) if output_snap else 0,
                                         "depth": _measure_output_depth(output_snap),
-                                        "total_chars": len(
-                                            json.dumps(output_snap, default=str)
-                                        ) if output_snap else 0,
+                                        "total_chars": len(json.dumps(output_snap, default=str))
+                                        if output_snap
+                                        else 0,
                                     },
                                     auto_approve_threshold=(
                                         self._llm_investigation_config.false_positive_auto_approve_threshold
-                                        if self._llm_investigation_config else 0.0
+                                        if self._llm_investigation_config
+                                        else 0.0
                                     ),
                                 )
                             except Exception:
@@ -925,6 +922,7 @@ class ArgusSession:
         """Mark non-final iterations as 'retried' when the loop self-corrected."""
         # ponytail: groups by node_name; O(n) scan, fine for realistic event counts
         from collections import defaultdict
+
         groups: dict[str, list[int]] = defaultdict(list)
         for i, e in enumerate(self._events):
             groups[e.node_name].append(i)
@@ -1124,8 +1122,10 @@ class ArgusSession:
                         )
                         if cluster_id is not None:
                             _merge_candidate(
-                                existing, cluster_id,
-                                gen_sig, record.run_id,
+                                existing,
+                                cluster_id,
+                                gen_sig,
+                                record.run_id,
                             )
                             save_candidates(existing)
                         else:
@@ -1134,10 +1134,7 @@ class ArgusSession:
                 pass
 
         # Loop analysis — mandatory LLM analysis for cyclic runs
-        has_loops = any(
-            e.total_iterations and e.total_iterations > 1
-            for e in record.steps
-        )
+        has_loops = any(e.total_iterations and e.total_iterations > 1 for e in record.steps)
         if record.is_cyclic and has_loops:
             try:
                 from argus.loop_analyzer import analyze_loops

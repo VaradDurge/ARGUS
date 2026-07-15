@@ -292,10 +292,10 @@ def update_hit_metadata(run_data: dict[str, Any]) -> None:
 # ── Auto-pruning ────────────────────────────────────────────────────────────
 
 # Thresholds
-GRACE_PERIOD_DAYS = 14      # Don't judge newly approved signatures
-ZERO_HIT_PRUNE_DAYS = 14    # After grace: 0 catches → removed
-STALE_DAYS = 30              # Last catch was this long ago
-MIN_HITS_TO_KEEP = 3         # Signatures with 3+ catches are kept forever
+GRACE_PERIOD_DAYS = 14  # Don't judge newly approved signatures
+ZERO_HIT_PRUNE_DAYS = 14  # After grace: 0 catches → removed
+STALE_DAYS = 30  # Last catch was this long ago
+MIN_HITS_TO_KEEP = 3  # Signatures with 3+ catches are kept forever
 
 
 def prune_stale_signatures() -> list[str]:

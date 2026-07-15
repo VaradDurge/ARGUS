@@ -345,9 +345,7 @@ def _match_semantic_similarity(sig: dict[str, Any], value: str) -> tuple[bool, f
         return (False, 0.0)  # API unavailable — skip gracefully
 
     score = embedding_store.cosine_similarity(value_emb, pattern_emb)
-    threshold = (
-        sig.get("metadata", {}).get("similarity_threshold", _DEFAULT_SIMILARITY_THRESHOLD)
-    )
+    threshold = sig.get("metadata", {}).get("similarity_threshold", _DEFAULT_SIMILARITY_THRESHOLD)
     if score >= threshold:
         return (True, score)
     return (False, 0.0)
