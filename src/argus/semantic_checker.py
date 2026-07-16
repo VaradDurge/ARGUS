@@ -23,6 +23,10 @@ _SYSTEM_PROMPT = (
     '- "pass": false ONLY if the output is completely unrelated, contradictory, '
     "or nonsensical given the input\n"
     "- Do not judge quality or completeness, only semantic relevance\n"
+    "- EXCEPTION: if a key output field is empty string, null, or blank while "
+    "the input contained meaningful data for that field, FAIL the node — "
+    "an empty output is not semantically relevant regardless of other fields "
+    "like logs or metadata\n"
     "- If you cannot determine relevance (insufficient context), pass it\n"
     "- This is one node in a MULTI-STEP pipeline. The output does not need to "
     "directly answer the input — it may be an intermediate transformation "

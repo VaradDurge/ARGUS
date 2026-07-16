@@ -336,6 +336,7 @@ def test_context_overflow_proxy():
 @pytest.mark.unit
 def test_loop_retried_on_self_correct():
     """Loop that self-corrects: earlier iterations become 'retried'."""
+    from argus.models import LLMInvestigationConfig
     from argus.storage import load_run
 
     call_count = 0
@@ -347,7 +348,12 @@ def test_loop_retried_on_self_correct():
             return {"error": True, "code": ""}  # fail
         return {"code": "print('hello')"}  # pass
 
-    session = ArgusSession()
+    # Disable semantic judge — this test validates loop retry mechanics,
+    # not LLM-based semantic evaluation. The judge can flip status based
+    # on prompt wording changes, making this test non-deterministic.
+    session = ArgusSession(
+        llm_investigation=LLMInvestigationConfig(enabled=False),
+    )
     session.set_node_names(["code_writer"])
     session.set_edges({"code_writer": ["code_writer"]})
     wrapped = session.wrap("code_writer", code_writer)

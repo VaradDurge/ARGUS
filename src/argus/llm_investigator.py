@@ -475,6 +475,27 @@ def build_prompt(
     if causal_summary:
         user_content += f"Correlator summary: {causal_summary}\n"
 
+    # When correlation has high confidence, instruct the LLM to treat it as
+    # ground truth and not override it with weaker semantic signals.
+    corr_origins = corr.get("degradation_origins", [])
+    high_conf_origin = (
+        corr_origins[0] if corr_origins and corr_origins[0].get("confidence", 0) >= 0.8 else None
+    )
+    if high_conf_origin:
+        origin_node = high_conf_origin["node"]
+        origin_conf = high_conf_origin["confidence"]
+        user_content += (
+            f"\n**IMPORTANT — HIGH-CONFIDENCE CORRELATION RESULT:**\n"
+            f"The correlation engine identified **{origin_node}** as the degradation "
+            f"origin with **{origin_conf:.0%} confidence**. This engine compares each "
+            f"node's INPUT vs OUTPUT to find where valid data was discarded. "
+            f"Do NOT override this attribution unless you have concrete structural "
+            f"evidence (e.g. a specific corrupted field propagating from a different node). "
+            f"A semantic failure (generic/low-quality response) at an upstream node is "
+            f"NOT sufficient to override a high-confidence functional failure attribution. "
+            f"Semantic failures and functional failures are independent issues.\n"
+        )
+
     user_content += (
         "\n## Signals Detected\n"
         "The following issues were flagged by deterministic analysis:\n"

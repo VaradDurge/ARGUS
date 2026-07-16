@@ -1074,6 +1074,21 @@ class ArgusSession:
                 except Exception:
                     pass
             record.correlation = correlation
+
+            # Override root_cause_chain with correlation when it has high
+            # confidence — the correlator does input→output diffing and is
+            # more accurate than the inspector's backward walk which can
+            # conflate semantic failures with causal failures.
+            # ponytail: only for failed runs — clean/retried runs shouldn't be overridden
+            if (
+                correlation.degradation_origins
+                and record.overall_status not in ("clean", "interrupted")
+            ):
+                top = correlation.degradation_origins[0]
+                if top.confidence >= 0.8:
+                    corr_chain = [o.node_name for o in correlation.degradation_origins]
+                    record.root_cause_chain = corr_chain
+                    record.first_failure_step = corr_chain[0]
         except Exception:
             pass
 
