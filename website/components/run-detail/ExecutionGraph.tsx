@@ -53,12 +53,15 @@ const kindIcon: Record<NodeKind, LucideIcon> = {
   default: Search,
 }
 
-type MappedStatus = 'succeeded' | 'failed' | 'running' | 'skipped' | 'pending'
+type MappedStatus = 'succeeded' | 'crashed' | 'failed' | 'semantic_fail' | 'degraded' | 'running' | 'skipped' | 'pending'
 
 function mapStatus(s: StepStatus | undefined): MappedStatus {
   if (!s) return 'pending'
   if (s === 'pass') return 'succeeded'
-  if (s === 'crashed' || s === 'fail' || s === 'semantic_fail') return 'failed'
+  if (s === 'crashed') return 'crashed'
+  if (s === 'fail') return 'failed'
+  if (s === 'semantic_fail') return 'semantic_fail'
+  if (s === 'degraded_input') return 'degraded'
   if (s === 'interrupted') return 'running'
   return 'succeeded'
 }
@@ -119,8 +122,10 @@ function nodePos(col: number, row: number) {
   }
 }
 
+const FAILURE_STATUSES = new Set<MappedStatus>(['crashed', 'failed', 'semantic_fail', 'degraded'])
+
 function edgeKind(from: LayoutNode, to: LayoutNode): 'failed' | 'running' | 'active' | 'idle' {
-  if (from.status === 'failed' || to.status === 'failed') return 'failed'
+  if (FAILURE_STATUSES.has(from.status) || FAILURE_STATUSES.has(to.status)) return 'failed'
   if (from.status === 'running' || to.status === 'running') return 'running'
   if (from.status === 'succeeded' && to.status === 'succeeded') return 'active'
   return 'idle'
@@ -134,20 +139,41 @@ const edgeStroke: Record<string, string> = {
 }
 
 const statusStyles: Record<MappedStatus, string> = {
-  succeeded: 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]',
-  failed: 'border-[rgba(239,68,68,0.6)] bg-[rgba(239,68,68,0.07)]',
-  running: 'border-[rgba(99,102,241,0.6)] bg-[rgba(99,102,241,0.06)]',
-  skipped: 'border-[rgba(255,255,255,0.06)] border-dashed bg-[rgba(255,255,255,0.02)] opacity-55',
-  pending: 'border-[rgba(255,255,255,0.05)] border-dashed bg-[rgba(255,255,255,0.015)] opacity-55',
+  succeeded:     'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]',
+  crashed:       'border-[rgba(239,68,68,0.6)] bg-[rgba(239,68,68,0.07)]',
+  failed:        'border-[rgba(234,179,8,0.6)] bg-[rgba(234,179,8,0.07)]',
+  semantic_fail: 'border-[rgba(168,85,247,0.6)] bg-[rgba(168,85,247,0.07)]',
+  degraded:      'border-[rgba(249,115,22,0.6)] bg-[rgba(249,115,22,0.07)]',
+  running:       'border-[rgba(99,102,241,0.6)] bg-[rgba(99,102,241,0.06)]',
+  skipped:       'border-[rgba(255,255,255,0.06)] border-dashed bg-[rgba(255,255,255,0.02)] opacity-55',
+  pending:       'border-[rgba(255,255,255,0.05)] border-dashed bg-[rgba(255,255,255,0.015)] opacity-55',
+}
+
+// Color constants per status — reused by glyph, icon bg, and glow
+const STATUS_COLOR: Record<MappedStatus, string> = {
+  succeeded:     '#22c55e',
+  crashed:       '#ef4444',
+  failed:        '#eab308',
+  semantic_fail: '#a855f7',
+  degraded:      '#f97316',
+  running:       '#6366f1',
+  skipped:       '#6b7280',
+  pending:       '#6b7280',
 }
 
 function StatusGlyph({ status }: { status: MappedStatus }) {
   if (status === 'succeeded')
-    return <Check className="h-3 w-3 text-[#22c55e]" strokeWidth={2.5} />
+    return <Check className="h-3 w-3" style={{ color: STATUS_COLOR.succeeded }} strokeWidth={2.5} />
+  if (status === 'crashed')
+    return <X className="h-3 w-3" style={{ color: STATUS_COLOR.crashed }} strokeWidth={2.5} />
   if (status === 'failed')
-    return <X className="h-3 w-3 text-[#ef4444]" strokeWidth={2.5} />
+    return <AlertTriangle className="h-3 w-3" style={{ color: STATUS_COLOR.failed }} strokeWidth={2.5} />
+  if (status === 'semantic_fail')
+    return <AlertTriangle className="h-3 w-3" style={{ color: STATUS_COLOR.semantic_fail }} strokeWidth={2.5} />
+  if (status === 'degraded')
+    return <AlertTriangle className="h-3 w-3" style={{ color: STATUS_COLOR.degraded }} strokeWidth={2.5} />
   if (status === 'running')
-    return <AlertTriangle className="h-3 w-3 text-[#6366f1] animate-pulse" strokeWidth={2.5} />
+    return <AlertTriangle className="h-3 w-3 animate-pulse" style={{ color: STATUS_COLOR.running }} strokeWidth={2.5} />
   return <Minus className="h-3 w-3 text-[#6b7280]" strokeWidth={2.5} />
 }
 
@@ -163,8 +189,10 @@ function NodeCard({
   const Icon = kindIcon[node.kind]
   const { x, y } = nodePos(node.col, node.row)
 
-  const glowStyle = node.status === 'failed'
-    ? { boxShadow: '0 0 0 1px rgba(239,68,68,1), 0 0 22px -4px rgba(239,68,68,0.7)' }
+  const c = STATUS_COLOR[node.status]
+  const isError = FAILURE_STATUSES.has(node.status)
+  const glowStyle = isError
+    ? { boxShadow: `0 0 0 1px ${c}, 0 0 22px -4px ${c}88` }
     : node.status === 'running'
       ? { boxShadow: '0 0 18px -4px rgba(99,102,241,0.6)' }
       : undefined
@@ -182,13 +210,13 @@ function NodeCard({
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
         style={{
-          background: node.status === 'failed'
-            ? 'rgba(239,68,68,0.15)'
+          background: isError
+            ? `${c}26`
             : node.status === 'running'
               ? 'rgba(99,102,241,0.15)'
               : 'rgba(255,255,255,0.06)',
-          color: node.status === 'failed'
-            ? '#ef4444'
+          color: isError
+            ? c
             : node.status === 'running'
               ? '#6366f1'
               : '#e5e7eb',
@@ -211,10 +239,12 @@ function NodeCard({
 
 function Legend() {
   const items = [
-    { label: 'Succeeded', color: '#22c55e' },
-    { label: 'Running', color: '#6366f1' },
-    { label: 'Failed', color: '#ef4444' },
-    { label: 'Skipped', color: '#6b7280' },
+    { label: 'Succeeded', color: STATUS_COLOR.succeeded },
+    { label: 'Crashed', color: STATUS_COLOR.crashed },
+    { label: 'Silent Fail', color: STATUS_COLOR.failed },
+    { label: 'Semantic', color: STATUS_COLOR.semantic_fail },
+    { label: 'Degraded', color: STATUS_COLOR.degraded },
+    { label: 'Skipped', color: STATUS_COLOR.skipped },
   ]
   return (
     <div className="hidden items-center gap-3 md:flex">
