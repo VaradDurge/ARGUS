@@ -44,11 +44,13 @@ from argus.models import (
     ArgusConfig,
     BehaviorConfig,
     DisambiguationResult,
+    InspectionResult,
     LLMInvestigationConfig,
     LLMUsage,
     NodeEvent,
     RunRecord,
     SemanticCheckResult,
+    ToolFailure,
     ValidatorResult,
 )
 from argus.storage import save_run
@@ -190,9 +192,13 @@ class ArgusSession:
         redact_patterns: bool = False,
         persist_state: bool = True,
         config: ArgusConfig | None = None,
+        node_timeout_ms: float | None = None,
+        min_expected_ms: float | None = None,
     ) -> None:
         self.run_id: str = run_id or generate_run_id()
         self.max_field_size = max_field_size
+        self._node_timeout_ms = node_timeout_ms or (config.node_timeout_ms if config else None)
+        self._min_expected_ms = min_expected_ms or (config.min_expected_ms if config else None)
 
         # Judge failure policy from typed config (defaults for backward compat)
         self._on_judge_failure = config.on_judge_failure if config else "warn"
@@ -245,6 +251,8 @@ class ArgusSession:
         self._started_at = datetime.now(timezone.utc).isoformat()
         self._completed = False
         self._is_cyclic = False
+        self._conditional_sources: set[str] = set()
+        self._has_conditional_edges: bool = False
         self._node_attempt_counts: dict[str, int] = {}
 
         # Sync shared community signatures from Supabase in the background.
@@ -334,6 +342,24 @@ class ArgusSession:
             if not real_successors:
                 terminals.add(name)
         return terminals or {self.graph_node_names[-1]}
+
+    def set_conditional_sources(self, sources: set[str]) -> None:
+        """Register nodes that have conditional outgoing edges (routers)."""
+        self._conditional_sources = sources
+        self._has_conditional_edges = bool(sources)
+
+    def _expected_terminals(self) -> set[str]:
+        """Terminals expected to complete given current execution.
+
+        For conditional graphs, only terminals that have actually executed
+        are expected — unchosen branches don't block finalization.
+        """
+        if not self._has_conditional_edges:
+            return self._terminal_nodes
+        executed = {e.node_name for e in self._events}
+        expected = {t for t in self._terminal_nodes if t in executed}
+        # ponytail: fallback to all if none matched yet (early in execution)
+        return expected or self._terminal_nodes
 
     # ── Function wrapping (framework-agnostic entry point) ───────────────────
 
@@ -552,6 +578,58 @@ class ArgusSession:
     def capture_output(self, output: Any) -> dict[str, Any]:
         return safe_serialize(output, self.max_field_size)
 
+    # ── Latency-correlated degradation ──────────────────────────────────────
+
+    def _check_latency_signals(
+        self, duration_ms: float, inspection: InspectionResult
+    ) -> None:
+        """Append latency-based ToolFailure entries to an existing inspection."""
+        # 1. Timeout-adjacent — output likely truncated
+        if self._node_timeout_ms and duration_ms / self._node_timeout_ms > 0.95:
+            inspection.tool_failures.append(
+                ToolFailure(
+                    failure_type="timeout_adjacent",
+                    field_name="_latency",
+                    severity="warning",
+                    evidence=(
+                        f"{duration_ms:.0f}ms is >=95% of "
+                        f"{self._node_timeout_ms:.0f}ms timeout"
+                    ),
+                )
+            )
+        # 2. Suspiciously fast — likely cached/stale
+        if self._min_expected_ms and duration_ms < self._min_expected_ms:
+            inspection.tool_failures.append(
+                ToolFailure(
+                    failure_type="suspiciously_fast",
+                    field_name="_latency",
+                    severity="warning",
+                    evidence=(
+                        f"{duration_ms:.0f}ms < expected minimum "
+                        f"{self._min_expected_ms:.0f}ms"
+                    ),
+                )
+            )
+        # 3. Fast + already-failed = cached failure
+        fast_threshold = self._min_expected_ms or 500.0
+        has_existing_failure = (
+            inspection.is_silent_failure
+            or inspection.has_tool_failure
+            or bool(inspection.semantic_signals)
+        )
+        if duration_ms < fast_threshold and has_existing_failure:
+            inspection.tool_failures.append(
+                ToolFailure(
+                    failure_type="latency_quality_mismatch",
+                    field_name="_latency",
+                    severity="warning",
+                    evidence=(
+                        f"Completed in {duration_ms:.0f}ms with quality issues "
+                        f"— likely cached/stale failure"
+                    ),
+                )
+            )
+
     # ── Event recording ───────────────────────────────────────────────────────
 
     def on_node_start(self, node_name: str, input_snap: dict[str, Any]) -> None:
@@ -614,6 +692,8 @@ class ArgusSession:
                     current_node_fn=current_fn,
                     reducer_fields=self.reducer_fields or None,
                 )
+                # Latency-correlated degradation checks
+                self._check_latency_signals(duration_ms, inspection)
                 # Determine raw status from inspection
                 _has_failure = inspection.is_silent_failure or inspection.has_tool_failure
                 _has_signals = bool(inspection.semantic_signals)
@@ -873,12 +953,13 @@ class ArgusSession:
                 self._completed_terminals.add(node_name)
 
             # auto-finalize decision (atomic with event append)
-            # Uses terminal-node tracking: finalize only when ALL DAG leaves
-            # have completed, so parallel branches aren't cut short.
+            # Uses terminal-node tracking: finalize only when ALL expected DAG
+            # leaves have completed. For conditional graphs, unchosen branch
+            # terminals don't block finalization.
             should_finalize = status in ("crashed", "interrupted") or (
                 not self._is_cyclic
                 and self._terminal_nodes
-                and self._completed_terminals >= self._terminal_nodes
+                and self._completed_terminals >= self._expected_terminals()
             )
 
         # finalize outside the lock to avoid holding it during I/O
@@ -930,6 +1011,10 @@ class ArgusSession:
         return [], None
 
     def _get_successor_fns(self, node_name: str) -> list[Any]:
+        # ponytail: router nodes fan out to multiple branches but only one runs;
+        # validating against all causes false positives — skip them
+        if node_name in self._conditional_sources:
+            return []
         successors = self.graph_edge_map.get(node_name, [])
         return [self.node_fn_registry[s] for s in successors if s in self.node_fn_registry]
 
@@ -969,6 +1054,23 @@ class ArgusSession:
 
         completed_at = datetime.now(timezone.utc).isoformat()
 
+        # Mark nodes on unchosen conditional branches as skipped
+        if self._has_conditional_edges and self.graph_node_names:
+            executed = {e.node_name for e in events_snapshot}
+            for name in self.graph_node_names:
+                if name not in executed:
+                    events_snapshot.append(
+                        NodeEvent(
+                            step_index=-1,
+                            node_name=name,
+                            status="skipped",
+                            input_state={},
+                            output_dict=None,
+                            duration_ms=0.0,
+                            timestamp_utc=completed_at,
+                        )
+                    )
+
         try:
             start = datetime.fromisoformat(self._started_at)
             end = datetime.fromisoformat(completed_at)
@@ -976,8 +1078,8 @@ class ArgusSession:
         except Exception:
             duration_ms = None
 
-        # Exclude retried events — loop self-corrected, not a real failure
-        active_events = [e for e in events_snapshot if e.status != "retried"]
+        # Exclude retried/skipped events — not real failures
+        active_events = [e for e in events_snapshot if e.status not in ("retried", "skipped")]
         has_crash = any(e.status == "crashed" for e in active_events)
         has_interrupt = any(e.status == "interrupted" for e in active_events)
         has_silent_failure = any(

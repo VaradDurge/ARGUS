@@ -447,6 +447,12 @@ export default function GuideContent() {
     semantic_judge=True,    # LLM reviews every node's output for subtle quality issues.
                             # (default: True) needs OPENAI_API_KEY.
     judge_model="gpt-4o",  # or "gpt-4o-mini" for cheaper runs.
+
+    # --- Latency thresholds ---
+    config=ArgusConfig(
+        node_timeout_ms=30_000,  # flag nodes that take >=95% of this (likely truncated)
+        min_expected_ms=500,     # flag LLM nodes completing faster (likely cached/stale)
+    ),
 )
 
 app = graph.compile()
@@ -498,6 +504,20 @@ watcher.finalize()          # ALWAYS call — persists the run to .argus/runs/`}
           Requires <Code>OPENAI_API_KEY</Code>.
           {' '}<strong className="text-foreground font-medium">Enable</strong> for complex multi-agent pipelines.
           {' '}<strong className="text-foreground font-medium">Skip</strong> for simple pipelines or zero-cost monitoring.
+        </p>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4 mt-8">Latency Thresholds</h3>
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-3">
+          Detects timing-correlated degradation — no LLM calls, purely algorithmic.
+          Pass thresholds via <Code>ArgusConfig</Code>:
+        </p>
+        <div className="space-y-3 mb-5">
+          <Row label="Near timeout" text="node_timeout_ms — flags nodes that take ≥95% of the timeout (likely truncated output)." />
+          <Row label="Suspiciously fast" text="min_expected_ms — flags LLM nodes that complete too quickly (likely cached or stale)." />
+          <Row label="Fast + failed" text="Combines both: fast completion with existing quality issues = cached failure." />
+        </div>
+        <p className="text-[15px] text-muted-foreground leading-[1.7]">
+          Both thresholds are optional and <Code>None</Code> by default — latency checks only run when configured.
         </p>
       </section>
     </div>

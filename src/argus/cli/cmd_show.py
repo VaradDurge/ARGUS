@@ -38,6 +38,7 @@ _STATUS_STYLE = {
     "crashed": "bold red",
     "semantic_fail": "bold magenta",
     "interrupted": "bold yellow",
+    "skipped": "dim",
 }
 
 
@@ -70,6 +71,7 @@ _STATUS_DOT = {
     "crashed": "[bold red]●[/bold red]",
     "semantic_fail": "[bold magenta]●[/bold magenta]",
     "interrupted": "[bold yellow]⏸[/bold yellow]",
+    "skipped": "[dim]○[/dim]",
 }
 
 
@@ -897,6 +899,9 @@ def _print_node(
     elif event.status == "interrupted":
         icon = "[bold yellow]⏸[/bold yellow]"
         label = "[bold yellow]interrupted[/bold yellow]"
+    elif event.status == "skipped":
+        icon = "[dim]○[/dim]"
+        label = "[dim]skipped[/dim]"
     else:
         icon = "[bold red]✗[/bold red]"
         label = "[bold red]crashed[/bold red]"

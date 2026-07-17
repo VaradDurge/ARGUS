@@ -1140,7 +1140,7 @@ def build_root_cause_chain(
     # Index: which fields each node produced (for crash-trace)
     fields_by_node: dict[str, set[str]] = {}
     for event in steps_so_far:
-        if event.output_dict and event.status != "crashed":
+        if event.output_dict and event.status not in ("crashed", "skipped"):
             existing = fields_by_node.get(event.node_name, set())
             existing.update(event.output_dict.keys())
             fields_by_node[event.node_name] = existing
@@ -1197,7 +1197,7 @@ def build_root_cause_chain(
     # a bad value unchanged from their input.
     for event in reversed(steps_so_far):
         # Skip nodes operating on degraded input — they are victims, not causes
-        if event.status in ("degraded_input", "retried"):
+        if event.status in ("degraded_input", "retried", "skipped"):
             continue
 
         insp = event.inspection

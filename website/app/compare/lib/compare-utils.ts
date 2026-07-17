@@ -9,6 +9,7 @@ export const STEP_ICON: Record<string, { icon: string; color: string }> = {
   crashed:        { icon: '\u2717', color: '#ef4444' },
   semantic_fail:  { icon: '\u2298', color: '#a855f7' },
   interrupted:    { icon: '\u23F8', color: '#f59e0b' },
+  skipped:        { icon: '\u25CB', color: '#6b7280' },
 }
 
 export const STEP_LABEL: Record<string, { label: string; color: string }> = {
@@ -18,6 +19,7 @@ export const STEP_LABEL: Record<string, { label: string; color: string }> = {
   crashed:        { label: 'Crashed',        color: '#ef4444' },
   semantic_fail:  { label: 'Semantic Fail',  color: '#a855f7' },
   interrupted:    { label: 'Interrupted',    color: '#f59e0b' },
+  skipped:        { label: 'Skipped',       color: '#6b7280' },
 }
 
 export const STATUS_DOT_COLOR: Record<string, string> = {

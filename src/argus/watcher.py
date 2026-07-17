@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 from argus.checkpoints import mark_checkpoint_resumed
 from argus.models import ArgusConfig
-from argus.patcher import extract_edge_map, extract_fn, patch_graph
+from argus.patcher import extract_conditional_sources, extract_edge_map, extract_fn, patch_graph
 from argus.session import ArgusSession
 
 # Backward-compat alias — RunSession was the internal name before ArgusSession was public
@@ -202,6 +202,7 @@ class ArgusWatcher:
         )
         self._session.set_node_names(node_names)
         self._session.set_edges(edge_map)
+        self._session.set_conditional_sources(extract_conditional_sources(graph))
 
         if self._session._is_cyclic:
             import logging

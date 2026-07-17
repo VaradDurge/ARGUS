@@ -63,6 +63,7 @@ function mapStatus(s: StepStatus | undefined): MappedStatus {
   if (s === 'semantic_fail') return 'semantic_fail'
   if (s === 'degraded_input') return 'degraded'
   if (s === 'interrupted') return 'running'
+  if (s === 'skipped') return 'skipped'
   return 'succeeded'
 }
 

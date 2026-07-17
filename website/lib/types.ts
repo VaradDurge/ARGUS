@@ -1,5 +1,5 @@
 export type RunStatus = 'clean' | 'silent_failure' | 'crashed' | 'semantic_fail' | 'interrupted'
-export type StepStatus = 'pass' | 'fail' | 'crashed' | 'semantic_fail' | 'interrupted' | 'degraded_input' | 'retried'
+export type StepStatus = 'pass' | 'fail' | 'crashed' | 'semantic_fail' | 'interrupted' | 'degraded_input' | 'retried' | 'skipped'
 export type Severity = 'critical' | 'warning' | 'info' | 'ok'
 export type BehaviorType =
   | 'structured_json'

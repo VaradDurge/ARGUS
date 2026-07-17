@@ -29,6 +29,10 @@ export const FAILURE_META: Record<string, FailureMeta> = {
   input_echo:                    { label: 'Input Echo',          category: 'Coherence', categoryColor: '#6366f1' },
   semantic_contradiction:        { label: 'Contradiction',       category: 'Coherence', categoryColor: '#6366f1' },
   context_size_anomaly:          { label: 'Context Overflow',    category: 'Coherence', categoryColor: '#6366f1' },
+  // Latency — timing-correlated degradation (VAR-8)
+  timeout_adjacent:              { label: 'Near Timeout',        category: 'Quality',   categoryColor: '#f59e0b' },
+  suspiciously_fast:             { label: 'Suspiciously Fast',   category: 'Quality',   categoryColor: '#f59e0b' },
+  latency_quality_mismatch:      { label: 'Fast + Failed',       category: 'Quality',   categoryColor: '#f59e0b' },
 }
 
 const FALLBACK: FailureMeta = { label: 'Unknown', category: 'Tool', categoryColor: '#6b7280' }

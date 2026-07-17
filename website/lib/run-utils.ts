@@ -91,6 +91,9 @@ export function getStepDisplay(event: NodeEvent): StepDisplay {
   if (event.status === 'retried') {
     return { icon: '\u21BB', iconColor: '#6b7280', label: 'retried', labelColor: '#6b7280' }
   }
+  if (event.status === 'skipped') {
+    return { icon: '\u25CB', iconColor: '#6b7280', label: 'skipped', labelColor: '#6b7280' }
+  }
   return { icon: '\u2717', iconColor: C_RED, label: 'crashed', labelColor: C_RED }
 }
 

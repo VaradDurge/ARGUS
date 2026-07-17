@@ -95,3 +95,13 @@ def extract_edge_map(graph: Any) -> dict[str, list[str]]:
                     edge_map[src].append(dst)
 
     return edge_map
+
+
+def extract_conditional_sources(graph: Any) -> set[str]:
+    """Return node names that have conditional (branching) outgoing edges."""
+    sources: set[str] = set()
+    for src in getattr(graph, "branches", {}) or {}:
+        sources.add(str(src))
+    for src in getattr(graph, "_conditional_edges", {}) or {}:
+        sources.add(str(src))
+    return sources

@@ -446,6 +446,9 @@ class ArgusConfig:
     sample_rate: float = 1.0  # 0.0–1.0, fraction of clean runs to persist
     persist_failures: bool = True  # always persist runs with non-clean status
     dry_run: bool = False  # skip persistence entirely (VAR-75)
+    # Latency-correlated degradation thresholds (VAR-8)
+    node_timeout_ms: float | None = None  # e.g. 30000 — flag outputs at >=95% of this
+    min_expected_ms: float | None = None  # e.g. 500 — flag suspiciously fast LLM nodes
 
     def __post_init__(self) -> None:
         """Cross-validate parameter combinations — fail fast with clear messages (VAR-73)."""

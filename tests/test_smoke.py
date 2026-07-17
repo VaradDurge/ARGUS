@@ -5,6 +5,7 @@ from argus.llm_tracker import extract_usage, scan_output_for_tokens  # noqa: I00
 from argus.models import ArgusConfig, LLMCallInfo, LLMUsage, NodeEvent, RunRecord
 from argus.pricing import calculate_cost
 from argus.session import ArgusSession
+from argus.storage import load_run
 
 
 @pytest.fixture(autouse=True)
@@ -900,3 +901,136 @@ def test_redact_session_integration():
     assert result["ssn"] == "***-**-6789"
     assert result["api_key"] == "__REDACTED__"
     assert result["query"] == "harmless"
+
+
+# ── Latency-correlated degradation (VAR-8) ──────────────────────────────
+
+
+def _make_inspection(**overrides):
+    """Build a minimal InspectionResult for latency tests."""
+    from argus.models import InspectionResult
+
+    defaults = dict(
+        is_silent_failure=False,
+        missing_fields=[],
+        empty_fields=[],
+        type_mismatches=[],
+        severity="ok",
+        message="ok",
+        tool_failures=[],
+        has_tool_failure=False,
+        semantic_signals=[],
+    )
+    defaults.update(overrides)
+    return InspectionResult(**defaults)
+
+
+@pytest.mark.unit
+def test_latency_timeout_adjacent():
+    session = ArgusSession(node_timeout_ms=30_000)
+    inspection = _make_inspection()
+    session._check_latency_signals(29_500, inspection)
+    types = [tf.failure_type for tf in inspection.tool_failures]
+    assert "timeout_adjacent" in types
+
+
+@pytest.mark.unit
+def test_latency_within_timeout_no_flag():
+    session = ArgusSession(node_timeout_ms=30_000)
+    inspection = _make_inspection()
+    session._check_latency_signals(20_000, inspection)
+    assert len(inspection.tool_failures) == 0
+
+
+@pytest.mark.unit
+def test_latency_suspiciously_fast():
+    session = ArgusSession(min_expected_ms=500)
+    inspection = _make_inspection()
+    session._check_latency_signals(100, inspection)
+    types = [tf.failure_type for tf in inspection.tool_failures]
+    assert "suspiciously_fast" in types
+
+
+@pytest.mark.unit
+def test_latency_quality_mismatch():
+    from argus.models import SemanticSignal
+
+    session = ArgusSession(min_expected_ms=500)
+    inspection = _make_inspection(
+        semantic_signals=[
+            SemanticSignal(
+                sig_id="test",
+                category="placeholder_outputs",
+                severity="warning",
+                description="test signal",
+                field_path=("output",),
+                evidence="placeholder",
+                confidence=0.9,
+            )
+        ],
+    )
+    session._check_latency_signals(100, inspection)
+    types = [tf.failure_type for tf in inspection.tool_failures]
+    assert "latency_quality_mismatch" in types
+
+
+@pytest.mark.unit
+def test_latency_no_thresholds_no_flags():
+    """No thresholds configured → no latency failures regardless of timing."""
+    session = ArgusSession()
+    inspection = _make_inspection()
+    session._check_latency_signals(1, inspection)
+    assert len(inspection.tool_failures) == 0
+
+
+# ── Conditional branch skipping (VAR-61) ──────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_conditional_branch_skipped_nodes():
+    """Unchosen conditional branch nodes get status='skipped', not 'crashed'.
+
+    Graph: router → branch_a, branch_b (conditional)
+    Only branch_a runs. branch_b should be 'skipped'.
+    """
+    session = ArgusSession()
+    session.set_node_names(["router", "branch_a", "branch_b"])
+    session.set_edges({"router": ["branch_a", "branch_b"]})
+    session.set_conditional_sources({"router"})
+
+    fn_router = session.wrap("router", lambda state: {"route": "a"})
+    fn_a = session.wrap("branch_a", lambda state: {"result": "done"})
+    # branch_b is never called — simulates unchosen conditional path
+
+    state = {}
+    state = fn_router(state)
+    state = fn_a(state)
+    session.finalize()
+
+    record = load_run(session.run_id)
+    statuses = {e.node_name: e.status for e in record.steps}
+    assert statuses["router"] == "pass"
+    assert statuses["branch_a"] == "pass"
+    assert statuses["branch_b"] == "skipped"
+    assert record.overall_status == "clean"
+    assert record.root_cause_chain == []
+
+
+@pytest.mark.unit
+def test_conditional_branch_auto_finalize():
+    """Auto-finalize triggers even when unchosen branch terminals never run."""
+    session = ArgusSession()
+    session.set_node_names(["router", "branch_a", "branch_b"])
+    session.set_edges({"router": ["branch_a", "branch_b"]})
+    session.set_conditional_sources({"router"})
+
+    fn_router = session.wrap("router", lambda state: {"route": "a"})
+    fn_a = session.wrap("branch_a", lambda state: {"result": "done"})
+
+    fn_router({})
+    fn_a({})
+    # Should auto-finalize — branch_b is an expected terminal but was never chosen
+
+    record = load_run(session.run_id)
+    assert record is not None
+    assert record.overall_status == "clean"
