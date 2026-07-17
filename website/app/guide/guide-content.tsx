@@ -310,11 +310,23 @@ export default function GuideContent() {
         </div>
 
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Execution timeline</h3>
-        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-8">
+        <p className="text-[15px] text-muted-foreground leading-[1.7] mb-5">
           Nodes listed in execution order with name, output type, duration, and status.
           Failed nodes show a root cause annotation — which field was missing and which
           upstream node dropped it. Expand any row to see full I/O JSON.
         </p>
+
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">Node statuses</h3>
+        <div className="space-y-3 mb-8">
+          <Row label="Pass" text="Node executed successfully with no issues detected." />
+          <Row label="Fail" text="Structural problem — missing fields, tool errors, or silent failures." />
+          <Row label="Crashed" text="Node threw an exception during execution." />
+          <Row label="Semantic fail" text="Output passes structural checks but fails LLM quality review." />
+          <Row label="Degraded input" text="Node ran but received incomplete state from a failed upstream node." />
+          <Row label="Skipped" text="Node was on an unchosen conditional branch — never activated. Shown as gray dashed boxes in the graph." />
+          <Row label="Interrupted" text="Execution was interrupted (e.g. GraphInterrupt)." />
+          <Row label="Retried" text="Node ran multiple times in a loop — earlier iterations marked retried when the final pass succeeded." />
+        </div>
 
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-4">AI Analysis</h3>
         <p className="text-[15px] text-muted-foreground leading-[1.7] mb-5">
