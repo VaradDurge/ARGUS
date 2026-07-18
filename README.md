@@ -186,4 +186,4 @@ Works with any framework — Prefect, Temporal, plain Python.
 
 ---
 
-**v0.8.5** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
+**v0.8.6** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
