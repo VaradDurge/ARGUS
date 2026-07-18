@@ -212,6 +212,8 @@ Works with any framework — Prefect, Temporal, plain Python.
 - LangGraph 0.2+ (only for `ArgusWatcher`)
 - `OPENAI_API_KEY` in env for semantic features (optional — all heuristic detection works without it)
 
+For AI setup prompts and integration guides, visit **[arguslabs.in](https://arguslabs.in)**.
+
 ---
 
 **v0.8.6** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
