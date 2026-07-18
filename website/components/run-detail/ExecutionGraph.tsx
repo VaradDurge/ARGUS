@@ -400,8 +400,35 @@ export default function ExecutionGraph({
                 const sy = fp.y + NODE_H / 2
                 const tx = tp.x
                 const ty = tp.y + NODE_H / 2
-                const dx = Math.max(28, (tx - sx) / 2)
-                const d = `M ${sx},${sy} C ${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}`
+                const colGap = to.col - from.col
+                let d: string
+                if (colGap > 1) {
+                  // ponytail: check if any node sits in intermediate columns near the curve path
+                  // and deflect control points to route around them
+                  const midY = (sy + ty) / 2
+                  let hasObstacle = false
+                  for (const n of layoutNodes) {
+                    if (n.col > from.col && n.col < to.col) {
+                      const np = nodePos(n.col, n.row)
+                      const nCenterY = np.y + NODE_H / 2
+                      if (Math.abs(nCenterY - midY) < NODE_H) {
+                        hasObstacle = true
+                        break
+                      }
+                    }
+                  }
+                  if (hasObstacle) {
+                    // Route below all nodes to avoid overlap
+                    const detourY = canvasH - PAD / 2
+                    d = `M ${sx},${sy} C ${sx + 40},${detourY} ${tx - 40},${detourY} ${tx},${ty}`
+                  } else {
+                    const dx = Math.max(28, (tx - sx) / 2)
+                    d = `M ${sx},${sy} C ${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}`
+                  }
+                } else {
+                  const dx = Math.max(28, (tx - sx) / 2)
+                  d = `M ${sx},${sy} C ${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}`
+                }
                 const kind = edgeKind(from, to)
                 return (
                   <path
