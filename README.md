@@ -47,6 +47,8 @@ ARGUS monitors every node, detects failures, and saves the run. No changes to yo
 | **Unnecessary retries** | Loop produces correct answer on attempt 2, but validator forces 3 more iterations |
 | **Crash root cause** | Traces `KeyError` at node 5 back to the upstream node that actually dropped the field |
 | **Contract violations** | Output types don't match the next node's expected input schema |
+| **Latency degradation** | Node takes 95%+ of timeout, or suspiciously fast LLM call (likely cached/empty) |
+| **Conditional path confusion** | Unchosen branches correctly shown as "skipped" — not false "crashed" |
 
 ---
 
@@ -125,6 +127,27 @@ watcher = ArgusWatcher(graph, validators={
 })
 ```
 
+Validator failures cannot be overridden by the LLM judge — they are hard constraints.
+
+---
+
+## Configuration
+
+```python
+from argus import ArgusWatcher, ArgusConfig
+
+config = ArgusConfig(
+    semantic_judge=True,           # LLM judge on every node (default: True)
+    judge_model="gpt-4o",          # model for the judge
+    node_timeout_ms=30000,         # flag outputs at ≥95% of this
+    min_expected_ms=500,           # flag suspiciously fast LLM nodes
+    sample_rate=0.5,               # persist 50% of clean runs (save disk)
+    persist_failures=True,         # always persist failed runs
+)
+
+watcher = ArgusWatcher(graph, config=config)
+```
+
 ---
 
 ## CLI
@@ -136,6 +159,7 @@ argus show <id>                      # inspect a specific run
 argus inspect <id> --step <node>     # dump raw input/output for a node
 argus replay <id> <node>             # re-run from a node
 argus diff <id-a> <id-b>             # compare two runs
+argus stats                          # signature hit stats, disable/enable/dispute signatures
 argus ui                             # web dashboard
 argus doctor                         # check setup health
 argus login                          # sign in for cloud sync
@@ -153,6 +177,10 @@ argus ui    # opens at localhost:7842
 ```
 
 Shows all runs, node-level detail, AI analysis, replay diffs, loop iteration badges, and comparison views. No account needed for local use.
+
+- **Distinct failure colors** — crashed (red), silent failure (amber), semantic fail (purple), degraded input (orange), skipped (gray)
+- **Evidence audit trail** — see exactly which signals the LLM judge considered and which it overrode
+- **Side-by-side diff** — compare any two runs node-by-node
 
 ---
 
