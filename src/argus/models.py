@@ -22,6 +22,10 @@ class SemanticCheckResult:
     prompt_tokens: int
     completion_tokens: int
     duration_ms: float
+    # Audit trail: which prior signals the LLM explicitly considered
+    evidence_considered: tuple[str, ...] = ()
+    # Which prior signals the LLM chose to override (pass despite signal)
+    overridden_signals: tuple[str, ...] = ()
 
 
 @dataclass

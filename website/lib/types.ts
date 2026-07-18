@@ -111,6 +111,8 @@ export interface SemanticCheckResult {
   prompt_tokens: number
   completion_tokens: number
   duration_ms: number
+  evidence_considered?: string[]
+  overridden_signals?: string[]
 }
 
 export interface NodeEvent {

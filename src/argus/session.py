@@ -813,17 +813,16 @@ class ArgusSession:
                 if any(a.severity == "critical" for a in anomaly_signals) and status == "pass":
                     status = "semantic_fail"
 
-            # per-node semantic coherence check (LLM) — FINAL AUTHORITY
+            # per-node semantic coherence check (LLM) — EVIDENCE-AWARE JUDGE
             #
-            # The LLM judge is the ultimate decision-maker for node status.
-            # Heuristic scanners, anomaly detectors, and tool-failure checks
-            # are context-blind; the LLM sees input+output and determines
-            # whether the output is actually valid for this node's purpose.
+            # The LLM judge receives all prior signals (validators, anomalies,
+            # inspection) as context and makes an informed ruling.
             #
             # Runs on all non-crash/non-interrupt statuses and can:
             #   - DOWNGRADE pass → semantic_fail (LLM says output is wrong)
-            #   - OVERRIDE any heuristic failure → pass (LLM says output is fine)
-            #     including tool failures, semantic signals, anomaly signals
+            #   - OVERRIDE ambiguous heuristic failures → pass
+            # Cannot override: structural failures, placeholder detections,
+            # validator failures, or critical anomaly signals.
             semantic_check_result: SemanticCheckResult | None = None
             _pre_llm_status = status
             _should_run_judge = (
@@ -847,6 +846,9 @@ class ArgusSession:
                             input_state=input_snap,
                             output_dict=output_snap,
                             model=self._llm_investigation_config.semantic_check_model,
+                            validator_results=validator_results,
+                            anomaly_signals=anomaly_signals,
+                            inspection=inspection,
                         )
                         _judge_exc = None
                         break  # success — exit retry loop
@@ -883,7 +885,18 @@ class ArgusSession:
                             tf.failure_type == "placeholder_detected"
                             for tf in (inspection.tool_failures or [])
                         )
-                        _can_override = not _has_structural and not _has_placeholder
+                        _has_validator_failures = any(
+                            not r.is_valid for r in validator_results
+                        )
+                        _has_critical_anomalies = any(
+                            a.severity == "critical" for a in anomaly_signals
+                        )
+                        _can_override = (
+                            not _has_structural
+                            and not _has_placeholder
+                            and not _has_validator_failures
+                            and not _has_critical_anomalies
+                        )
                         if _can_override and status != "pass":
                             status = "pass"
                             # Record the override for feedback/learning

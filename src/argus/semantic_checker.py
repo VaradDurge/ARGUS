@@ -1,9 +1,9 @@
 """Per-node semantic coherence check via a lightweight LLM call.
 
-Called on nodes that pass all deterministic checks (inspector, heuristics,
-anomaly detection) to verify that the output is semantically relevant to the
-input.  Uses gpt-4o-mini by default — ~500 tokens in, ~50 tokens out,
-~$0.000075 per call.
+Evidence-aware judge: receives validator results, anomaly signals, and
+inspection findings as context alongside input/output.  Returns an audit
+trail (evidence_considered, overridden_signals) with every ruling.
+Uses gpt-4o-mini by default — ~500 tokens in, ~100 tokens out.
 """
 
 from __future__ import annotations
@@ -17,7 +17,12 @@ from argus.models import SemanticCheckResult
 _SYSTEM_PROMPT = (
     "You verify whether an AI pipeline node produced semantically correct "
     "output given its input. Respond with JSON:\n"
-    '{"pass": bool, "reason": "<1 sentence>", "confidence": <0.0-1.0>}\n\n'
+    '{"pass": bool, "reason": "<1 sentence>", "confidence": <0.0-1.0>, '
+    '"evidence_considered": ["<signal1>", ...], '
+    '"overridden_signals": ["<signal_you_disagree_with>", ...]}\n\n'
+    "- evidence_considered: list every Prior Signal you evaluated (empty list if none provided)\n"
+    "- overridden_signals: list any Prior Signals you chose to PASS despite "
+    "(empty list if you agreed with all signals or none were provided)\n\n"
     "Rules:\n"
     '- "pass": true if the output is a reasonable response to the input\n'
     '- "pass": false ONLY if the output is completely unrelated, contradictory, '
@@ -36,7 +41,13 @@ _SYSTEM_PROMPT = (
     "the output references content that was truncated from the input. "
     "If a value ends with '... (truncated)' it was cut short — assume the "
     "full value contains more data than what you see.\n"
-    "- When in doubt, PASS. False positives are worse than false negatives."
+    "- When in doubt, PASS. False positives are worse than false negatives.\n"
+    "- IMPORTANT: If 'Prior Signals' are provided, these are results from "
+    "deterministic checks that ran before you. A validator failure means a "
+    "specific business-logic constraint was violated (e.g., a required field "
+    "is missing). You MUST weigh these heavily — if a validator flagged a "
+    "missing required field and you can confirm it is absent from the output, "
+    "FAIL the node regardless of how reasonable the text looks."
 )
 
 _MAX_VALUE_LEN = 800
@@ -76,6 +87,8 @@ def _skip_result(reason: str, model: str, ms: float) -> SemanticCheckResult:
         prompt_tokens=0,
         completion_tokens=0,
         duration_ms=round(ms, 2),
+        evidence_considered=(),
+        overridden_signals=(),
     )
 
 
@@ -85,6 +98,10 @@ def check_semantic_coherence(
     output_dict: dict[str, Any],
     model: str = "gpt-4o-mini",
     api_key: str | None = None,
+    *,
+    validator_results: list[Any] | None = None,
+    anomaly_signals: list[Any] | None = None,
+    inspection: Any | None = None,
 ) -> SemanticCheckResult:
     """Check if a node's output is semantically coherent with its input.
 
@@ -111,6 +128,40 @@ def check_semantic_coherence(
         f"Output: {json.dumps(compact_out, default=str)}"
     )
 
+    # Inject prior evidence so the LLM judges with full context
+    evidence_lines: list[str] = []
+
+    failed_validators = [v for v in (validator_results or []) if not v.is_valid]
+    if failed_validators:
+        evidence_lines.append("Validator failures:")
+        for v in failed_validators:
+            evidence_lines.append(f"  - [{v.validator_name}]: {v.message}")
+
+    critical_anomalies = [a for a in (anomaly_signals or []) if a.severity == "critical"]
+    if critical_anomalies:
+        evidence_lines.append("Critical anomaly signals:")
+        for a in critical_anomalies:
+            evidence_lines.append(f"  - [{a.anomaly_id}] {a.reason}")
+
+    if inspection:
+        if inspection.missing_fields:
+            evidence_lines.append(
+                f"Missing required fields: {', '.join(inspection.missing_fields)}"
+            )
+        if inspection.tool_failures:
+            evidence_lines.append("Tool failures:")
+            for tf in inspection.tool_failures:
+                evidence_lines.append(f"  - [{tf.failure_type}] {tf.message}")
+
+    if evidence_lines:
+        user_msg += (
+            "\n\nPrior Signals (from deterministic checks that ran before you):\n"
+            + "\n".join(evidence_lines)
+            + "\n\nWeigh these signals heavily. A validator failure means a specific "
+            "business-logic constraint was violated. A node can produce semantically "
+            "relevant text while still violating structural/business constraints."
+        )
+
     try:
         result = create_chat_completion(
             model=model,
@@ -118,7 +169,7 @@ def check_semantic_coherence(
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": user_msg},
             ],
-            max_tokens=80,
+            max_tokens=150,
             temperature=0.0,
             response_format={"type": "json_object"},
             timeout=5.0,
@@ -141,6 +192,8 @@ def check_semantic_coherence(
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
             duration_ms=round(elapsed, 2),
+            evidence_considered=tuple(parsed.get("evidence_considered", ())),
+            overridden_signals=tuple(parsed.get("overridden_signals", ())),
         )
     except Exception as exc:
         elapsed = (time.perf_counter() - t0) * 1000

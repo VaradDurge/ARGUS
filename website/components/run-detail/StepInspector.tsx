@@ -441,6 +441,22 @@ function NodeDetail({ step, onDismiss }: { step: NodeEvent; onDismiss?: () => vo
               <p className="text-[12.5px] text-muted-foreground leading-relaxed">
                 {step.semantic_check!.reason}
               </p>
+              {(step.semantic_check!.evidence_considered?.length ?? 0) > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Evidence Considered</p>
+                  {step.semantic_check!.evidence_considered!.map((e, i) => (
+                    <p key={i} className="text-[12px] text-muted-foreground pl-2 border-l-2 border-border">{e}</p>
+                  ))}
+                </div>
+              )}
+              {(step.semantic_check!.overridden_signals?.length ?? 0) > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[11px] font-medium text-[#f59e0b] uppercase tracking-wide">Overridden Signals</p>
+                  {step.semantic_check!.overridden_signals!.map((s, i) => (
+                    <p key={i} className="text-[12px] text-[#f59e0b] pl-2 border-l-2 border-[#f59e0b]/30">{s}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -55,10 +55,12 @@ ARGUS monitors every node, detects failures, and saves the run. No changes to yo
 Runs in order, each more expensive — only fires when needed:
 
 1. **Heuristics** — 150+ failure signatures (placeholders, empty results, error keys, semantic degradation). Zero cost.
-2. **Anomaly detector** — statistical checks for output size anomalies, timing outliers. Deterministic.
-3. **Correlator** — traces failure propagation across nodes. Points at the *origin*, not the crash site.
-4. **LLM investigator** — root cause explanations and debugging suggestions. Only on ambiguous failures.
-5. **Loop analyzer** — LLM analysis for looped nodes: summarizes iterations, detects stalls, flags wasted retries.
+2. **Validators** — custom per-node business-logic constraints. Deterministic.
+3. **Anomaly detector** — statistical checks for output size anomalies, timing outliers. Deterministic.
+4. **Correlator** — traces failure propagation across nodes. Points at the *origin*, not the crash site.
+5. **LLM semantic judge** — evidence-aware final ruling. Receives all signals from layers 1–4 before deciding. Cannot override validator failures or critical anomalies.
+6. **LLM investigator** — root cause explanations and debugging suggestions. Only on ambiguous failures.
+7. **Loop analyzer** — LLM analysis for looped nodes: summarizes iterations, detects stalls, flags wasted retries.
 
 ---
 
@@ -95,7 +97,22 @@ For subtle quality issues that pattern matching can't catch:
 watcher = ArgusWatcher(graph, semantic_judge=True)  # enabled by default
 ```
 
-LLM evaluates output quality on every passing node. Catches wrong tone, unhelpful responses, outdated info. Requires `OPENAI_API_KEY`.
+LLM evaluates output quality on every node. Catches wrong tone, unhelpful responses, outdated info. Requires `OPENAI_API_KEY`.
+
+The judge receives **all prior evidence** — validator failures, anomaly signals, inspection results — so it rules with full context, not just input/output. Every decision includes an audit trail:
+
+```json
+{
+  "pass": false,
+  "reason": "Validator correctly identified missing resolution_ticket",
+  "confidence": 0.85,
+  "evidence_considered": ["validator:payment_check", "anomaly:BA-003"],
+  "overridden_signals": []
+}
+```
+
+- `evidence_considered` — which prior signals the LLM weighed
+- `overridden_signals` — which signals the LLM disagreed with (passed despite the flag)
 
 ---
 
@@ -169,4 +186,4 @@ Works with any framework — Prefect, Temporal, plain Python.
 
 ---
 
-**v0.8.2** — [changelog](https://github.com/VaradDurge/ARGUS/releases)
+**v0.8.5** — [changelog](https://github.com/VaradDurge/ARGUS/releases)

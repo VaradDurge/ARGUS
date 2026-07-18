@@ -486,7 +486,15 @@ def _deserialize_event(data: dict[str, Any]) -> NodeEvent:
     validator_results = [ValidatorResult(**v) for v in data.get("validator_results", [])]
     anomaly_signals = [AnomalySignal(**a) for a in data.get("anomaly_signals", [])]
     sc = data.get("semantic_check")
-    semantic_check = SemanticCheckResult(**sc) if sc else None
+    if sc:
+        # Convert list→tuple for frozen tuple fields (JSON round-trip produces lists)
+        if "evidence_considered" in sc:
+            sc["evidence_considered"] = tuple(sc["evidence_considered"])
+        if "overridden_signals" in sc:
+            sc["overridden_signals"] = tuple(sc["overridden_signals"])
+        semantic_check = SemanticCheckResult(**sc)
+    else:
+        semantic_check = None
     return NodeEvent(
         step_index=data.get("step_index", 0),
         node_name=data.get("node_name", ""),

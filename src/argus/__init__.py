@@ -30,7 +30,7 @@ Framework-agnostic usage (Prefect, Temporal, raw Python, etc.):
     session.finalize()
 """
 
-__version__ = "0.8.4"
+__version__ = "0.8.5"
 
 from argus.models import ArgusConfig, LLMInvestigationConfig
 from argus.session import ArgusSession
