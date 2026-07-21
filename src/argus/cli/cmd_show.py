@@ -861,6 +861,47 @@ def _print_parallel_group(
     console.print()
 
 
+def _print_signals(event: NodeEvent, indent: str) -> None:
+    """Print anomaly signals + semantic check reason for any flagged node."""
+    # Semantic check verdict (if failed or low confidence)
+    sc = event.semantic_check
+    if sc and (not sc.passed or sc.confidence < 0.5):
+        conf = f"{sc.confidence:.0%}"
+        console.print(
+            f"  {indent}[dim]└─[/dim]  "
+            f"[bold magenta]semantic judge[/bold magenta] "
+            f"[dim]({conf})[/dim]  [italic]{sc.reason}[/italic]"
+        )
+
+    # Anomaly signals
+    for a in event.anomaly_signals:
+        sev_icon = (
+            "[bold red]⚠[/bold red]"
+            if a.severity == "critical"
+            else "[dim yellow]~[/dim yellow]"
+        )
+        console.print(
+            f"  {indent}[dim]└─[/dim]  "
+            f"{sev_icon} [dim][{a.anomaly_id}][/dim] {a.reason}"
+        )
+        if a.expected_behavior or a.observed_behavior:
+            console.print(
+                f"  {indent}[dim]   └─[/dim]  "
+                f"[dim]expected: {a.expected_behavior}"
+                f"  ·  observed: {a.observed_behavior}[/dim]"
+            )
+
+    # Validator messages (for non-semantic_fail — semantic_fail already shows them)
+    if event.status != "semantic_fail":
+        for vr in event.validator_results:
+            if not vr.is_valid:
+                console.print(
+                    f"  {indent}[dim]└─[/dim]  "
+                    f"[bold magenta]⊗ {vr.validator_name}[/bold magenta]"
+                    f"  [italic]{vr.message}[/italic]"
+                )
+
+
 def _print_node(
     event: NodeEvent, name_col: int, record: RunRecord, display_index: int | None = None
 ) -> None:
@@ -939,6 +980,7 @@ def _print_node(
                     f"[bold magenta]{vr.validator_name}[/bold magenta]"
                     f"[italic]  {vr.message}[/italic]"
                 )
+        _print_signals(event, indent)
         console.print()
         return
 
@@ -1011,6 +1053,7 @@ def _print_node(
                     f"{tf_icon} [dim]Tool {tf.failure_type}: "
                     f'field [bold]"{tf.field_name}"[/bold] — {tf.evidence}[/dim]'
                 )
+        _print_signals(event, indent)
         console.print()
         return
 
@@ -1086,6 +1129,8 @@ def _print_node(
                     f'[italic]Field [bold]"{m.field_name}"[/bold] '
                     f"expected {m.expected_type}, got {m.actual_type}[/italic]"
                 )
+
+    _print_signals(event, indent)
 
     if is_downstream and record.first_failure_step:
         console.print(

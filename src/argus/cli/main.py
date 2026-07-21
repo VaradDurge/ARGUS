@@ -22,9 +22,9 @@ from argus.cli.cmd_login import login, logout, whoami
 from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
 from argus.cli.cmd_show import show_last, show_list, show_run
-from argus.storage import list_runs, load_run_text
 from argus.cli.cmd_stats import stats
 from argus.cli.cmd_update import check_for_update
+from argus.storage import list_runs, load_run_text
 
 app = typer.Typer(
     name="argus",

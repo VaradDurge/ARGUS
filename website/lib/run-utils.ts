@@ -129,6 +129,9 @@ export function getDetailLines(event: NodeEvent, run: RunRecord): DetailLine[] {
     if (insp.has_tool_failure) {
       lines.push(dl('tool failure', { color: C_AMBER, underline: true }))
     }
+    if (event.semantic_check && !event.semantic_check.passed) {
+      lines.push(dl(`semantic judge: ${event.semantic_check.reason}`, { color: C_MAGENTA, italic: true }))
+    }
   }
 
   if (event.status === 'interrupted') {
@@ -228,6 +231,10 @@ export function getDetailLines(event: NodeEvent, run: RunRecord): DetailLine[] {
       if (codeLine) {
         lines.push(dl(`at ${locMatch[1]}:${locMatch[2]}  \u2192  ${codeLine}`, { color: '#6b7280', italic: true, indent: true }))
       }
+    }
+
+    if (event.semantic_check && !event.semantic_check.passed) {
+      lines.push(dl(`semantic judge: ${event.semantic_check.reason}`, { color: C_MAGENTA, italic: true, indent: true }))
     }
   }
 
