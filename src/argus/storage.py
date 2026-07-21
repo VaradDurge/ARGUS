@@ -89,6 +89,24 @@ def save_run(record: RunRecord) -> Path:
     return path
 
 
+def load_run_text(run_id: str) -> str:
+    """Return the raw JSON text for a run (by id or 8-char prefix)."""
+    runs_dir = _runs_path()
+    try:
+        return _resolve_run_path(run_id, runs_dir).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        pass
+    cwd = Path(os.getcwd())
+    for sub_runs in cwd.rglob(".argus/runs"):
+        if sub_runs == runs_dir or not sub_runs.is_dir():
+            continue
+        try:
+            return _resolve_run_path(run_id, sub_runs).read_text(encoding="utf-8")
+        except (FileNotFoundError, ValueError):
+            continue
+    raise FileNotFoundError(f"No run found for id '{run_id}' under {cwd}")
+
+
 def load_run(run_id: str) -> RunRecord:
     """Load a RunRecord by run-id (or 8-char prefix).
 

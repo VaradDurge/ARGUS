@@ -22,6 +22,7 @@ from argus.cli.cmd_login import login, logout, whoami
 from argus.cli.cmd_open_ui import open_ui
 from argus.cli.cmd_replay import inspect_step, replay_run
 from argus.cli.cmd_show import show_last, show_list, show_run
+from argus.storage import list_runs, load_run_text
 from argus.cli.cmd_stats import stats
 from argus.cli.cmd_update import check_for_update
 
@@ -203,15 +204,34 @@ def _banner(ctx: typer.Context) -> None:
     _console.print()
 
 
-@app.command("show", context_settings={"allow_extra_args": True, "allow_interspersed_args": False})
+@app.command("show", context_settings={"allow_extra_args": True, "allow_interspersed_args": True})
 def cmd_show(
     ctx: typer.Context,
     run_id: Annotated[
         Optional[str],
         typer.Argument(help="Run ID, 8-char prefix, or 'last' for the most recent run."),
     ] = None,
+    json: Annotated[
+        bool,
+        typer.Option("--json", help="Output raw run record as JSON (machine-readable)."),
+    ] = False,
 ) -> None:
     """Show run details. Use 'argus show last' or 'argus show <run-id>'."""
+    if json:
+        from argus.storage import last_run_id
+
+        target_id = run_id if (run_id and run_id not in ("last", "run")) else last_run_id()
+        if run_id == "run" and ctx.args:
+            target_id = ctx.args[0]
+        if target_id is None:
+            _console.print("[red]Error:[/red] No runs found.", err=True)
+            raise typer.Exit(1)
+        try:
+            print(load_run_text(target_id))
+        except FileNotFoundError as e:
+            _console.print(f"[red]Error:[/red] {e}", err=True)
+            raise typer.Exit(1)
+        return
     if run_id is None or run_id == "last":
         show_last()
     elif run_id == "run":
@@ -226,8 +246,18 @@ def cmd_show(
 
 
 @app.command("list")
-def cmd_list() -> None:
+def cmd_list(
+    json: Annotated[
+        bool,
+        typer.Option("--json", help="Output run list as JSON (machine-readable)."),
+    ] = False,
+) -> None:
     """List all recorded runs in reverse chronological order."""
+    if json:
+        import json as _json
+
+        print(_json.dumps(list_runs(), indent=2))
+        return
     show_list()
 
 
