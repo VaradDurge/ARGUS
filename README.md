@@ -20,6 +20,41 @@ Your LangGraph pipeline runs fine — no exception. But three nodes later, somet
 pip install argus-agents
 ```
 
+## Getting Started (AI-Powered Setup)
+
+The fastest way to set up ARGUS — let your AI assistant handle the integration:
+
+**1. Go to [arguslabs.in](https://arguslabs.in)**
+
+**2. Click on "AI Setup Prompt"**
+
+<img src="https://github.com/VaradDurge/ARGUS/blob/master/assets/Argus%20Guidelines%20and%20Contribution.png?raw=true" width="700"/>
+
+**3. Copy the prompt and paste it into your AI assistant** (Claude, ChatGPT, Cursor, etc.) — it will handle the full setup for you. This is the **most important step**.
+
+**4. Log in to ARGUS**
+
+```bash
+argus login
+```
+
+Sign in with your Google account to enable cloud sync and the dashboard.
+
+**5. Open the dashboard**
+
+```bash
+argus ui
+```
+
+That's it. ARGUS is set up and ready to go.
+
+### After Setup
+
+- Run your LangChain/LangGraph pipeline as usual (in terminal)
+- Check the dashboard for your recent run (takes 1–2 seconds to appear — refresh if needed)
+
+---
+
 ## Quick Start
 
 ```python
